@@ -1,0 +1,18 @@
+{
+  "name": "pickle-rick-grok",
+  "version": "2.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Grok-native reimplementation of Pickle Rick autonomous engineering system",
+  "workspaces": ["engine"],
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "scripts": {
+    "build:engine": "cd engine && npm run build",
+    "dev": "npx tsx",
+    "pickle": "npx tsx engine/src/bin/setup.ts",
+    "help": "npx tsx -e 'console.log(\"Use the /skills in Grok or read skills/help-pickle/SKILL.md\")'"
+  }
+}

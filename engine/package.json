@@ -1,0 +1,20 @@
+{
+  "name": "@pickle-rick/engine",
+  "version": "2.0.0-grok",
+  "type": "module",
+  "private": true,
+  "description": "Grok-native autonomous engineering engine (reimplementation of the core Pickle Rick loops)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}
