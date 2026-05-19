@@ -47,12 +47,19 @@ This is the Core Execution Principle. Violating it defeats the entire point of t
 
    Run this with the `background: true` option on your terminal tool so the process survives the current conversation.
 
-4. Tell the user the session directory and how to monitor:
+4. Tell the user the session directory and how to monitor + recover:
 
 ```bash
-tail -f <SESSION_ROOT>/logs/*.log
-# or watch campaign-status.json for live progress
+# Live view
 cat <SESSION_ROOT>/campaign-status.json
+tail -f ~/.local/share/pickle-rick-grok/activity/$(date +%Y-%m-%d).jsonl | grep <SESSION_ID>
+
+# If an engine bug, crash, or bad max_turns left tickets in 'failed' state,
+# recover them before (or during) the next launch:
+npx tsx engine/src/bin/recover.ts <SESSION_ROOT> --reset-failed
+
+# Or do it atomically on re-launch (the common flow after a fix):
+npx tsx engine/src/runners/mux-runner.ts <SESSION_ROOT> --recover-failed
 ```
 
 The `mux-runner` sets `PICKLE_FORCE_HEADLESS=1`, claims the lock, drives the full 8-phase lifecycle per ticket via the real engine, persists state for resumability, and emits high-signal Activity events for metrics/standup.

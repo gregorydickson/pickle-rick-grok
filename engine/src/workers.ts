@@ -83,17 +83,54 @@ export class WorkerSpawner {
     const { execSync } = await import('child_process');
 
     let cmd = '';
+    let promptFile: string | null = null;
+
     if (backend === 'grok') {
-      // Deliberate headless `grok -p` path (the production execution engine per project principle).
-      // We maximize native Grok CLI strengths: structured output when possible, native worktree isolation,
-      // --always-approve for non-interactive safety, and clear promise/artifact contracts.
-      const prompt = opts.prompt.replace(/"/g, '\\"');
-      let flags = `--max-turns ${opts.maxTurns || 50} --always-approve --no-subagents`;
+      // === ROOT CAUSE (fixed 2026-05-19) ===
+      // Previous implementation did:
+      //   const prompt = opts.prompt.replace(/"/g, '\\"');
+      //   cmd = `grok -p "${prompt}" ${flags} ...`
+      //
+      // This is catastrophic for any real ticket because buildPhasePrompt() produces a 4–12kB+
+      // string containing:
+      //   - the full ticket.md (with Verify shell commands, backticks, newlines, $(), git fragments)
+      //   - the entire "Send to Morty" immutable contract
+      //   - phase-specific instructions from references/phases/*.md
+      //
+      // Double-quoting that blob into a single argv element causes:
+      //   - /bin/sh to reinterpret newlines/backticks/command-substitutions inside the prompt
+      //   - esbuild (inside the grok CLI) to choke on embedded TS/await snippets from Verify tables
+      //   - max_turns explosions and silent corruption
+      //
+      // The correct, safe, supported mechanism (grok --help) is --prompt-file.
+      // We now materialize the prompt to a file under the session (for forensics) and invoke via
+      // `--prompt-file`. No shell escaping of the content is ever required.
+
+      let flags = `--max-turns ${opts.maxTurns || 80} --always-approve --no-subagents`;
       if (opts.isolation === 'worktree') {
         flags += ` --worktree "worker-${opts.ticketId || 'anon'}-${opts.phase || 'phase'}"`;
       }
-      // Prefer json for future structured returns (promise + artifacts); fall back to plain for compatibility
-      cmd = `grok -p "${prompt}" ${flags} --output-format json 2>/dev/null || grok -p "${prompt}" ${flags} --output-format plain`;
+
+      // Write the exact prompt to a session-owned temp file so we have perfect post-mortem
+      // visibility into what the Morty actually received. This also completely sidesteps
+      // every shell-metacharacter / quoting / ARG_MAX problem.
+      if (opts.sessionDir) {
+        const promptDir = path.join(opts.sessionDir, 'tmp', 'worker-prompts');
+        fs.mkdirSync(promptDir, { recursive: true });
+        promptFile = path.join(
+          promptDir,
+          `${opts.ticketId || 'anon'}-${role}-${Date.now()}.prompt.md`
+        );
+        fs.writeFileSync(promptFile, opts.prompt, 'utf8');
+      } else {
+        // Fallback (tests, ad-hoc): use a system temp
+        promptFile = `/tmp/pickle-worker-${Date.now()}.prompt.md`;
+        fs.writeFileSync(promptFile, opts.prompt, 'utf8');
+      }
+
+      // Use the official file-based single-turn path. No quoting, no newlines in argv,
+      // full fidelity, and the exact prompt is persisted next to the session for debugging.
+      cmd = `grok --prompt-file "${promptFile}" ${flags} --output-format json`;
     } else if (backend === 'codex') {
       cmd = `codex exec --prompt "${opts.prompt}"`; // placeholder
     } else {
@@ -104,7 +141,7 @@ export class WorkerSpawner {
 
     try {
       const output = execSync(cmd, {
-        cwd: opts.workingDir || process.cwd(),  // ULTIMATE: respect orchestrator-provided targetRoot / session workingDir for correct self-dogfood tree
+        cwd: opts.workingDir || process.cwd(),
         encoding: 'utf8',
         stdio: 'pipe',
         maxBuffer: 10 * 1024 * 1024,
@@ -129,33 +166,51 @@ export class WorkerSpawner {
 
       const success = hasPromise || artifactsWritten.length > 0;
 
-      // High-signal observability — now reports will actually see worker data for long campaigns
+      // High-signal observability
       const sessId = opts.sessionDir ? path.basename(opts.sessionDir) : 'unknown-session';
       Activity.workerCompleted(sessId, role, success, opts.ticketId, {
         exitCode: 0,
         artifactsWritten: artifactsWritten.length,
         hasPromise,
+        promptFile,
       });
       Activity.workerOutcome(sessId, role, success, opts.ticketId, {
         exitCode: 0,
         artifactsWritten: artifactsWritten.length,
         hasPromise,
         promptLen: opts.prompt.length,
+        promptFile,
       });
+
+      // Leave the prompt file for post-run forensics (very valuable when debugging why a Morty did something weird).
+      // A future cleanup pass or --clean-prompt-files flag can remove them.
 
       return { success, output, artifactsWritten, exitCode: 0 };
     } catch (err: any) {
       const sessId = opts.sessionDir ? path.basename(opts.sessionDir) : 'unknown-session';
+      const stderr = (err.stderr || '').toString();
+      const fullError = `${err.message || String(err)}\n\nSTDERR:\n${stderr}\n\n(promptFile: ${promptFile || 'n/a'})`;
+
       Activity.workerCompleted(sessId, role, false, opts.ticketId, {
         exitCode: 1,
-        error: err.message || String(err),
+        error: fullError,
+        promptFile,
       });
       Activity.workerOutcome(sessId, role, false, opts.ticketId, {
         exitCode: 1,
-        error: err.message || String(err),
+        error: fullError,
         reason: 'exec_failed',
+        promptFile,
       });
-      return { success: false, output: err.message || String(err), artifactsWritten: [], exitCode: 1, failureReason: 'exec_failed', error: err.message || String(err) };
+
+      return {
+        success: false,
+        output: fullError,
+        artifactsWritten: [],
+        exitCode: 1,
+        failureReason: 'exec_failed',
+        error: fullError,
+      };
     }
   }
 }

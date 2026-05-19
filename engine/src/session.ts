@@ -209,6 +209,74 @@ export class SessionManager {
     });
   }
 
+  /**
+   * Core recovery primitive.
+   * Resets a single ticket back to 'pending' so the orchestrator will pick it up again on next run.
+   * Clears phasesCompleted (forces fresh start from researcher) and updates campaign status.
+   * Safe to call even if the ticket is currently 'failed' due to a previous engine bug or crash.
+   */
+  async resetTicketToPending(sessionDir: string, ticketId: string): Promise<void> {
+    const lockPath = getStateLock(sessionDir);
+    await withFileLock(lockPath, () => {
+      const state = this.loadState(sessionDir);
+      const t = state.tickets.find(x => x.id === ticketId);
+      if (t) {
+        t.status = 'pending';
+        t.phasesCompleted = [];
+      }
+      // If this was the current ticket, clear the pointer so the next run starts fresh
+      if (state.currentTicketId === ticketId) {
+        state.currentTicketId = undefined;
+      }
+      this.writeState(sessionDir, state);
+
+      this.updateCampaignStatusSync(sessionDir, {
+        note: `ticket ${ticketId} reset to pending (recovery)`,
+        currentTicketId: state.currentTicketId,
+      });
+    });
+  }
+
+  /**
+   * Bulk recovery helper — the common case after fixing an engine bug or after a crash.
+   * Returns the list of ticket IDs that were actually reset.
+   */
+  async resetAllFailedTickets(sessionDir: string): Promise<string[]> {
+    const lockPath = getStateLock(sessionDir);
+    const reset: string[] = [];
+
+    await withFileLock(lockPath, () => {
+      const state = this.loadState(sessionDir);
+      let changed = false;
+
+      for (const t of state.tickets || []) {
+        if (t.status === 'failed') {
+          t.status = 'pending';
+          t.phasesCompleted = [];
+          reset.push(t.id);
+          changed = true;
+        }
+      }
+
+      if (reset.length > 0 && reset.includes(state.currentTicketId || '')) {
+        state.currentTicketId = undefined;
+      }
+
+      if (changed) {
+        this.writeState(sessionDir, state);
+      }
+
+      this.updateCampaignStatusSync(sessionDir, {
+        note: reset.length > 0
+          ? `recovered ${reset.length} failed tickets: ${reset.join(', ')}`
+          : 'no failed tickets to recover',
+        currentTicketId: state.currentTicketId,
+      });
+    });
+
+    return reset;
+  }
+
   getTicketDir(sessionDir: string, ticketId: string): string {
     return path.join(sessionDir, 'tickets', ticketId);
   }

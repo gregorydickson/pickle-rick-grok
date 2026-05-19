@@ -21,6 +21,10 @@ export interface DetachedOptions {
   monitor?: boolean;
   /** Override heartbeat (pass 0 to disable) */
   heartbeatIntervalMs?: number;
+  /** If true, automatically reset all 'failed' tickets back to 'pending' before starting.
+   *  This is the normal recovery flow after fixing an engine bug, a crash, or a bad max_turns event.
+   */
+  recoverFailed?: boolean;
 }
 
 export async function runDetached(sessionDir: string, options: DetachedOptions = {}) {
@@ -52,12 +56,29 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
   }
 
   console.log(`[mux-runner] Session ${state.sessionId}, backend=${state.backend}, tickets=${(state.tickets || []).length}`);
+
+  // === RECOVERY (first-class core feature) ===
+  // After an engine bug fix (or crash), many tickets can be left in 'failed' state even though
+  // they are perfectly healthy to re-execute with the corrected worker spawner / prompt handling.
+  // --recover-failed (or calling the standalone recover.ts tool) puts them back to 'pending'
+  // with a clean phasesCompleted list so the 8-phase ritual starts fresh.
+  if (options.recoverFailed) {
+    const recovered = await sm.resetAllFailedTickets(sessionDir);
+    if (recovered.length > 0) {
+      console.log(`[mux-runner] --recover-failed: reset ${recovered.length} tickets → pending: ${recovered.join(', ')}`);
+      // Reload state so the orchestrator sees the fresh pending list
+      state = sm.loadState(sessionDir);
+    } else {
+      console.log('[mux-runner] --recover-failed: no failed tickets found');
+    }
+  }
+
   // Touch / init the campaign status so monitors see the run starting immediately
   const initialSnap = sm.countRemainingTickets(sessionDir);
   sm.updateCampaignStatusSync(sessionDir, {
     sessionId: state.sessionId,
     progress: initialSnap,
-    note: 'mux-runner detached start',
+    note: options.recoverFailed ? 'mux-runner detached start (recovered)' : 'mux-runner detached start',
   });
 
   if (options.monitor) {
@@ -135,10 +156,14 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
 if (import.meta.url === `file://${process.argv[1]}`) {
   const sessionDir = process.argv[2];
   const monitor = process.argv.includes('--monitor');
+  const recoverFailed = process.argv.includes('--recover-failed') || process.argv.includes('--reset-failed');
   const hbIdx = process.argv.indexOf('--heartbeat-ms');
   const hb = hbIdx !== -1 ? parseInt(process.argv[hbIdx + 1] || '300000', 10) : undefined;
 
-  const hbOpts: any = { monitor }; if (hb !== undefined) hbOpts.heartbeatIntervalMs = hb; runDetached(sessionDir, hbOpts).catch((e) => {
+  const hbOpts: any = { monitor, recoverFailed };
+  if (hb !== undefined) hbOpts.heartbeatIntervalMs = hb;
+
+  runDetached(sessionDir, hbOpts).catch((e) => {
     console.error('[mux-runner] Unhandled top-level (resume recommended):', e);
     process.exitCode = 1;
   });
