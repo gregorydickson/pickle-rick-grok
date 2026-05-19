@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="images/pickle-rick.png" width="420" alt="Pickle Rick Grok — The machine improves the machine">
+</p>
+
+# Pickle Rick Grok
+
 ## Current Reality (Final Gaps Closed — 100% Overnight 50-Ticket Self-Run Ready)
 
 **The engine is production hardened for real autonomous multi-hour / 50+ ticket self-improvement campaigns with zero human babysitting.**

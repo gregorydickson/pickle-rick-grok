@@ -1,5 +1,9 @@
 # Pickle Rick Grok — Architecture & Grok Integration
 
+<p align="center">
+  <img src="images/architecture.png" width="620" alt="Pickle Rick Grok Architecture">
+</p>
+
 **POST-REMOVAL NOTE (2026-05)**: The interactive LLM-as-manager path was deliberately removed. Current charter and execution model are in AGENTS.md "Core Execution Principle" (headless grok -p / orchestrator for all ticket execution, convergence, and 50-ticket self-runs; spawn_subagent rich teams ONLY inside /pickle-refine-prd for analysts). Any diagrams, P0 plans, or language in this historical document that appear to endorse or recommend an "Interactive Path (recommended)" or persistent Manager Rick loop are archival only and do not describe the production system.
 
 This document explains how the autonomous engineering system is implemented natively for **Grok Build**, and how it differs from (and improves upon) the Claude Code version.
