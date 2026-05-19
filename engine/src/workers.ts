@@ -29,7 +29,8 @@ export type WorkerRole =
   | 'microverse-changer'
   | 'anatomy-reviewer'
   | 'anatomy-fixer'
-  | 'anatomy-verifier';
+  | 'anatomy-verifier'
+  | 'deepen-changer';
 
 export interface SpawnOptions {
   sessionDir: string;

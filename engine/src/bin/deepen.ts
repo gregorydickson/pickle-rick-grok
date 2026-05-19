@@ -9,9 +9,7 @@
  *   - Used internally by the evolved Anatomy Park
  */
 
-import { execSync } from 'child_process';
-import * as path from 'path';
-import { ArchitectureDeepener, DeepeningOpportunity } from '../arch-deepener.js';
+import { ArchitectureDeepener } from '../arch-deepener.js';
 import { SessionManager } from '../session.js';
 
 const [cmd, ...args] = process.argv.slice(2);
@@ -40,64 +38,21 @@ if (cmd === 'run' || cmd === 'loop') {
     console.log(`     Leverage: ${o.expectedLeverage.slice(0, 80)}...`);
   });
 
-  // === FULL AUTONOMOUS LOOP (path #4) — real WorkerSpawner + deepen-changer ===
+  // === FULL AUTONOMOUS LOOP (path #4) — thin dispatch to driver ===
   if (cmd === 'loop') {
-    const { WorkerSpawner } = await import('../workers.js');
-    const sm = new SessionManager();
-    const workingDir = sm.getWorkingDirSafe(sessionDir);
-
-    const spawner = new WorkerSpawner('grok');
-
-    let iteration = 0;
-    const stallLimit = 4;
-    let stallCount = 0;
-    let lastDebt = opps.filter(o => o.currentDepth !== 'deep').length;
-    const failedApproaches: any[] = [];
-
-    while (iteration < maxIterations) {
-      iteration++;
-      console.log(`[deepen] Iteration ${iteration} — current debt (non-deep modules): ${lastDebt}`);
-
-      const contextPrompt = `You are a Deepen Changer.
-
-Goal: increase architectural depth using the exact vocabulary in references/LANGUAGE.md (Module, Interface, Depth, Seam, Leverage, Locality, Deletion Test).
-
-Current opportunities (top 5):
-${opps.slice(0, 5).map((o, i) => `${i + 1}. [${o.currentDepth}] ${o.module}\n   Proposed Seam: ${o.proposedSeam}\n   Leverage: ${o.expectedLeverage}\n   Deletion Test: ${o.deletionTestImpact}`).join('\n')}
-
-Failed approaches this run (NEVER repeat):
-${failedApproaches.map((f, i) => `${i + 1}. ${f.description || f}`).join('\n') || 'None'}
-
-Propose ONE tiny structural deepening. Follow references/phases/deepen-changer.md exactly.`;
-
-      const workerRes = await spawner.spawn('deepen-changer', {
-        sessionDir,
-        prompt: contextPrompt,
-        workingDir,
-      });
-
-      const newOpps = driver.discoverOpportunities(state.targetPaths);
-      const newDebt = newOpps.filter(o => o.currentDepth !== 'deep').length;
-
-      if (newDebt < lastDebt) {
-        console.log(`[deepen] → Debt reduced ${lastDebt} → ${newDebt}. Accepted.`);
-        stallCount = 0;
-        opps = newOpps;
-        lastDebt = newDebt;
-      } else {
-        stallCount++;
-        console.log(`[deepen] → No improvement. Rolling back.`);
-        try { execSync('git checkout -- .', { cwd: workingDir, stdio: 'ignore' }); } catch {}
-        failedApproaches.push({ iteration, description: (workerRes?.output || '').slice(0, 500), debtBefore: lastDebt, debtAfter: newDebt });
-        if (stallCount >= stallLimit) { console.log('[deepen] Stall limit hit.'); break; }
-      }
+    // Push CLI flags into the state the driver will use
+    state.maxIterations = maxIterations;
+    if (args.includes('--stall-limit')) {
+      const idx = args.indexOf('--stall-limit');
+      state.stallLimit = parseInt(args[idx + 1] || '5', 10);
     }
 
-    console.log(`[deepen] loop finished after ${iteration} iters. Final debt=${lastDebt}`);
+    const result = await driver.runDeepeningLoop(state);
+    console.log(`[deepen] loop finished. converged=${result.converged} iters=${result.iterations} finalDebt=${result.finalDebt}`);
     process.exit(0);
   }
 
-  // run path — discovery only
+  // run path — discovery only (or one-shot)
   driver.runDeepening(state).then(result => {
     console.log('[deepen] Complete:', result);
     process.exit(0);

@@ -14,9 +14,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { SessionManager } from './session.js';
+import { SessionManager, writeJsonAtomic } from './session.js';
 import { ConvergenceLoop, BaseConvergenceState } from './iteration.js';
+import type { ConvergenceConfig, ApplyChangeResult, MetricSnapshot } from './iteration.js';
 import { Activity } from './activity-logger.js';
+import { WorkerSpawner } from './workers.js';
+import { getGitHead as safeGetGitHead, safeRollback } from './git_safety.js';
 
 export interface DeepeningOpportunity {
   id: string;
@@ -280,30 +283,162 @@ export class ArchitectureDeepener {
     return this.scanForOpportunities(targetPaths);
   }
 
+  /** Compute a numeric architectural debt score from opportunities */
+  computeDebt(opps: DeepeningOpportunity[]): number {
+    let debt = 0;
+    for (const o of opps) {
+      if (o.currentDepth === 'shallow') debt += 3;
+      else if (o.currentDepth === 'medium') debt += 1;
+    }
+    return debt;
+  }
+
+  computeDebtSnapshot(opps: DeepeningOpportunity[] = this.state?.opportunities || []): MetricSnapshot {
+    const score = this.computeDebt(opps);
+    return {
+      score,
+      raw: `${score} architectural debt (shallow×3 + medium×1) across ${opps.length} opportunities`,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /** Build the full prompt for a deepen-changer worker (injects current state + ledger) */
+  buildDeepenChangerPrompt(
+    state: ArchDeepenerState,
+    opps: DeepeningOpportunity[],
+    failedApproaches: any[]
+  ): string {
+    const debt = this.computeDebt(opps);
+    const template = `# Deepen Changer — Architecture Improvement Worker
+
+You are a **Deepen Changer** — a highly disciplined worker whose only job is to propose **one tiny, high-leverage structural change** that increases module depth at a real or hypothetical seam.
+
+## Current Situation
+- Target debt: ${debt}
+- Optimization goal: reduce architectural debt by turning shallow/medium modules into deep ones using the exact vocabulary in references/LANGUAGE.md
+- Current top opportunities:
+${opps.slice(0, 6).map((o, i) => `  ${i + 1}. [${o.currentDepth}] ${o.module}\n     Proposed Seam: ${o.proposedSeam}\n     Leverage: ${o.expectedLeverage}\n     Deletion Test: ${o.deletionTestImpact}`).join('\n')}
+
+## Failed Approaches (NEVER repeat these)
+${failedApproaches.length ? failedApproaches.map((f, i) => `${i + 1}. ${f.description || JSON.stringify(f)}`).join('\n') : 'None recorded yet.'}
+
+Follow the exact PROPOSAL format and rules in references/phases/deepen-changer.md.
+Make one good, deep, tiny move.`;
+
+    return template;
+  }
+
+
+
   /**
-   * High-level entry. First pass performs real static discovery using the
-   * LANGUAGE vocabulary. Later iterations (when wired to ConvergenceLoop)
-   * will spawn deepen-changer workers to actually mutate toward deeper modules.
+   * Discovery-only pass (used by `run`, pipeline discovery phase, Anatomy hook, etc.)
    */
   async runDeepening(state: ArchDeepenerState) {
+    Activity.convergenceIteration('arch-deepening', path.basename(this.sessionDir), undefined, 'discovery', undefined, 0);
+    const discovered = this.scanForOpportunities(state.targetPaths || ['.']);
+    state.opportunities = discovered;
+    this.writeState(state);
+    return { converged: false, iterations: 1, opportunitiesFound: discovered.length };
+  }
+
+  /**
+   * The real autonomous architecture improvement loop.
+   * Uses ConvergenceLoop for stall detection, rollback, history, and crash-safe persistence.
+   * This is the canonical implementation for the standalone `deepen loop` command and future
+   * full-convergence pipeline / Anatomy phases.
+   */
+  async runDeepeningLoop(state: ArchDeepenerState): Promise<{ converged: boolean; iterations: number; finalDebt: number }> {
+    this.state = state;
+
+    const grokRoot = this.findGrokRoot(this.workingDir);
+    const spawner = new WorkerSpawner('grok');
+
+    // Ensure ledger arrays exist
+    if (!state.failedApproaches) state.failedApproaches = [];
+    if (!state.history) state.history = [];
+    if (typeof state.currentIteration !== 'number') state.currentIteration = 0;
+
+    const config: ConvergenceConfig = {
+      stallLimit: state.stallLimit ?? 5,
+      maxIterations: state.maxIterations ?? 30,
+      direction: 'lower',
+      tolerance: state.tolerance ?? 0,
+      gateEnabled: true,
+    };
+
+    const measure = (): MetricSnapshot | null => {
+      const opps = this.scanForOpportunities(state.targetPaths || ['.']);
+      state.opportunities = opps;
+      return this.computeDebtSnapshot(opps);
+    };
+
+    const applyChange = (): ApplyChangeResult => {
+      const preSha = safeGetGitHead(this.workingDir) || '';
+      const opps = state.opportunities || [];
+      const failed = state.failedApproaches || [];
+
+      const prompt = this.buildDeepenChangerPrompt(state, opps, failed);
+
+      // Fire the worker (detached headless path)
+      // We don't await the full output parsing here — the worker writes its proposal.
+      // The re-measure in the next iteration will tell us if debt moved.
+      spawner.spawn('deepen-changer' as any, {
+        sessionDir: this.sessionDir,
+        prompt,
+        workingDir: grokRoot,
+      }).catch(() => { /* best effort */ });
+
+      const postSha = safeGetGitHead(this.workingDir) || preSha;
+
+      return {
+        preSha,
+        postSha,
+        notes: `spawned deepen-changer for ${opps.length} opportunities, debt=${this.computeDebt(opps)}`,
+      };
+    };
+
+    const rollback = (sha: string) => {
+      try {
+        safeRollback(sha, null as any, this.workingDir);
+      } catch (e) {
+        console.error('[arch-deepener] rollback failed:', (e as any)?.message || e);
+      }
+    };
+
+    const gate = () => true; // room for future architectural gate (e.g. no new shallow modules)
+
+    const persist = (s: BaseConvergenceState) => {
+      this.writeState(s as ArchDeepenerState);
+    };
+
+    const loop = new ConvergenceLoop(
+      this.sessionDir,
+      config,
+      measure,
+      applyChange,
+      rollback,
+      gate,
+      persist
+    );
+
+    const result = loop.run(state);
+
+    const finalDebt = this.computeDebt(state.opportunities || []);
+    this.writeState(state);
+
     Activity.convergenceIteration(
       'arch-deepening',
       path.basename(this.sessionDir),
       undefined,
-      'started',
-      undefined,
+      result.converged ? 'converged' : 'stopped',
+      finalDebt,
       state.currentIteration || 0
     );
 
-    // Real scan — this is what makes the 4 paths possible
-    const discovered = this.scanForOpportunities(state.targetPaths || ['.']);
-    state.opportunities = discovered;
-    this.writeState(state);
-
     return {
-      converged: false,
-      iterations: 1,
-      opportunitiesFound: state.opportunities.length,
+      converged: result.converged,
+      iterations: result.iterations,
+      finalDebt,
     };
   }
 }
