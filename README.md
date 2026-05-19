@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/pickle-rick.png" width="420" alt="Pickle Rick Grok — The machine improves the machine">
+  <img src="images/pickle-rick.png" width="100%" alt="Pickle Rick Grok — The machine improves the machine">
 </p>
 
 # Pickle Rick Grok
@@ -38,7 +38,7 @@ These are the primary user-facing entry points. All of them are thin dispatch sk
 ### `/pickle-pipeline` — The Whole Damn Thing
 
 <p align="center">
-  <img src="images/pickle-rick.png" width="380" alt="Full autonomous pipeline">
+  <img src="images/pickle-rick.png" width="100%" alt="Full autonomous pipeline">
 </p>
 
 One command for the complete lifecycle:
@@ -57,7 +57,7 @@ See `skills/pickle-pipeline/SKILL.md` and `engine/src/bin/pipeline.ts`.
 ### `/pickle-tmux` — Long-Running Detached Execution
 
 <p align="center">
-  <img src="images/tmux-monitor.png" width="480" alt="Detached tmux-style execution">
+  <img src="images/tmux-monitor.png" width="100%" alt="Detached tmux-style execution">
 </p>
 
 The primary production path for serious epics. Launches the hardened `mux-runner` (with `PICKLE_FORCE_HEADLESS`, graceful shutdown, heartbeats, `campaign-status.json`, full ritual + gate + circuit).
@@ -67,7 +67,7 @@ You can close the terminal. The run survives and is resumable.
 ### `/microverse` — Metric-Driven Convergence
 
 <p align="center">
-  <img src="images/microverse.png" width="420" alt="Microverse metric convergence loop">
+  <img src="images/microverse.png" width="100%" alt="Microverse metric convergence loop">
 </p>
 
 Optimize a numeric command output or LLM-judge goal through many tiny, automatically-reverted changes with rigorous gates and failed-approaches ledger.
@@ -77,7 +77,7 @@ Optimize a numeric command output or LLM-judge goal through many tiny, automatic
 ### `/anatomy-park` — Deep Subsystem Review
 
 <p align="center">
-  <img src="images/anatomy-park.jpeg" width="420" alt="Anatomy Park three-phase review">
+  <img src="images/anatomy-park.jpeg" width="100%" alt="Anatomy Park three-phase review">
 </p>
 
 Discover subsystems, run the 3-phase protocol (Review → Fix → Verify with automatic rollback on regression), and catalog trap doors.
@@ -87,7 +87,7 @@ Usually invoked as part of the pipeline, but can be run standalone.
 ### `/szechuan-sauce` — Principle-Driven Deslopping
 
 <p align="center">
-  <img src="images/szechwan-sauce.jpeg" width="420" alt="Szechuan Sauce convergence">
+  <img src="images/szechwan-sauce.jpeg" width="100%" alt="Szechuan Sauce convergence">
 </p>
 
 Runs the full expanded principle catalog (KISS, DRY, SRP, security, cognitive load, monetary precision, audit trail, etc.) with confidence filtering and priority elevation for financial code. Continues until zero violations or stall limit.
