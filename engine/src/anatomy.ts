@@ -1,6 +1,14 @@
 /**
  * AnatomyParkDriver — subsystem round-robin + real three-phase protocol (Review → Fix → Verify)
  *
+ * Being evolved as part of the Architecture Deepening epic to use the precise
+ * vocabulary in references/LANGUAGE.md (Module, Interface, Depth, Seam, Leverage,
+ * Locality, Deletion Test). Findings will become "deepening opportunities" with
+ * clear leverage/locality justification.
+ *
+ * Supports the 4 requested paths: /deepen command, Anatomy evolution, pipeline phase,
+ * and standalone Microverse-style Architecture Improvement Loop.
+ *
  * EXECUTABLE from pipeline/orchestrator:
  *   - discoverSubsystems (real fs walk, >=3 src files)
  *   - scanForFindings (static + regex, high signal issues from real rules)
