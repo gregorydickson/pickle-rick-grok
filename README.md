@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/pickle-rick.png" width="100%" alt="Pickle Rick Grok — The machine improves the machine">
+  <img src="images/pickle-rick-grok-hero.jpg" width="100%" alt="Pickle Rick Grok — The machine improves the machine">
 </p>
 
 # Pickle Rick Grok
