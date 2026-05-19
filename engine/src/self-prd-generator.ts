@@ -28,6 +28,7 @@ import { SessionManager } from './session.js';
 import type { Ticket, SessionState, Backend, Runtime } from './types.js';
 import { safeRead } from './lib/phase-utils.js';
 import { emitRefinedTickets, type TicketSpec } from './lib/ticket-emitter.js';
+import { summarizeReadiness } from './lib/pipeline-preflight.js';
 
 const GROK_CRITICAL_FILES = [
   'engine/src/bin/orchestrator.ts',
@@ -535,6 +536,15 @@ export async function autoDecomposeIntoTickets(
     grokRoot,
   });
 
+  // Surface meta readiness (now populated by emitter probe)
+  try {
+    const st = sm.loadState(sessionDir);
+    const rsum = summarizeReadiness(st.tickets);
+    if (rsum) {
+      console.log(`[self-prd] ${rsum} — see per-ticket readiness in state.json + ticket.md (preflight probe)`);
+    }
+  } catch {}
+
   const created: Ticket[] = seeds.map((seed) => ({
     id: seed.id,
     title: seed.title,
@@ -580,6 +590,16 @@ export async function generateSelfPrd(targetDir: string, opts: { full?: boolean;
     } catch (e: any) {
       console.warn('[self-prd] auto-decompose failed (non-fatal, tickets may need manual refine):', e?.message || e);
     }
+  }
+
+  // Top-level surfacing of meta readiness for generator callers (CLI / pipeline / loop)
+  if (opts.sessionDirToPopulate) {
+    try {
+      const sm2 = new SessionManager();
+      const st2 = sm2.loadState(opts.sessionDirToPopulate);
+      const rsum2 = summarizeReadiness(st2.tickets);
+      if (rsum2) console.log(`[self-prd] Final ${rsum2}`);
+    } catch {}
   }
 
   // Emit for metrics/standup/self-loop visibility

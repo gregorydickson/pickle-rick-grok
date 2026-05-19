@@ -26,6 +26,7 @@ export interface DetachedOptions {
   heartbeatIntervalMs?: number;
   /** If true, automatically reset all 'failed' tickets back to 'pending' before starting.
    *  This is the normal recovery flow after fixing an engine bug, a crash, or a bad max_turns event.
+   *  (blocked/deferred statuses from readiness assessment are left as-is — they signal prereqs.)
    */
   recoverFailed?: boolean;
   /** Force post phases (citadel+anatomy+szechuan+closer) after orchestrator success. */
@@ -120,11 +121,19 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
 
   console.log(`[mux-runner] Session ${state.sessionId}, backend=${state.backend}, tickets=${(state.tickets || []).length}`);
 
+  // Surface new readiness statuses (blocked/deferred) for meta PRDs
+  const blocked = (state.tickets || []).filter((t: any) => t.status === 'blocked');
+  const deferred = (state.tickets || []).filter((t: any) => t.status === 'deferred');
+  if (blocked.length || deferred.length) {
+    console.log(`[mux-runner] Readiness statuses present — blocked: ${blocked.map((t: any)=>t.id).join(', ') || 'none'}, deferred: ${deferred.map((t: any)=>t.id).join(', ') || 'none'}`);
+  }
+
   // === RECOVERY (first-class core feature) ===
   // After an engine bug fix (or crash), many tickets can be left in 'failed' state even though
   // they are perfectly healthy to re-execute with the corrected worker spawner / prompt handling.
   // --recover-failed (or calling the standalone recover.ts tool) puts them back to 'pending'
   // with a clean phasesCompleted list so the 8-phase ritual starts fresh.
+  // Note: blocked/deferred are *not* auto-reset; they require explicit research readiness fixes first.
   if (options.recoverFailed) {
     const recovered = await sm.resetAllFailedTickets(sessionDir);
     if (recovered.length > 0) {

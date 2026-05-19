@@ -16,6 +16,7 @@ import { ConvergenceGate } from './gate.js';
 import { CircuitBreaker } from './circuit.js';
 import { getGitHead, getChangedPaths, safeRollback } from './git_safety.js';
 import { Activity } from './activity-logger.js';
+import type { ReadinessAssessment } from './types.js';
 
 export function hasPromiseToken(output: string): boolean {
   return /<promise>\s*I\s+AM\s+DONE\s*<\/promise>/i.test(output || '');
@@ -27,7 +28,7 @@ export function validateArtifactContract(filePath: string, pattern: string): { o
     const content = fs.readFileSync(filePath, 'utf8');
     const lower = content.toLowerCase();
     if (/research/.test(pattern)) {
-      const required = ['relevant files', 'open questions', 'existing patterns', 'data flows'];
+      const required = ['relevant files', 'open questions', 'existing patterns', 'data flows', 'readiness assessment'];
       const missing = required.filter(r => !lower.includes(r));
       if (missing.length) return { ok: false, error: `research contract missing sections: ${missing.join(', ')}` };
     } else if (/plan(?!_review)/.test(pattern)) {
@@ -70,6 +71,49 @@ export function resolveAndValidateArtifact(
   return candidate ? { ok: true, path: candidate.path, matched: candidate.matched } : { ok: false, error: 'unknown' };
 }
 
+/**
+ * Extract structured ## Readiness Assessment from a research artifact (research_*.md).
+ * Enables ritual to detect 'blocked'/'deferred' without failing the ticket (preserve artifact + status + phasesCompleted).
+ * Format mandated in references/phases/research.md ; tolerant regex for real Morty output.
+ */
+export function extractReadinessAssessment(artifactContent: string): ReadinessAssessment | null {
+  if (!artifactContent) return null;
+  // Capture from ## Readiness Assessment up to next ## or end
+  const sectionMatch = artifactContent.match(/##\s*Readiness Assessment\b([\s\S]*?)(?:\n##\s|\n#|$)/i);
+  if (!sectionMatch) return null;
+  const body = sectionMatch[1];
+
+  const statusMatch = body.match(/\*?\*?Status\*?\*?\s*[:\-]?\s*(\w+)/i);
+  if (!statusMatch) return null;
+  let rawStatus = statusMatch[1].toLowerCase().trim();
+  // normalize common research variants to our type
+  if (rawStatus === 'ready' || rawStatus === 'green') rawStatus = 'green';
+  if (rawStatus === 'amber' || rawStatus === 'yellow') rawStatus = 'amber';
+  if (rawStatus === 'red') rawStatus = 'red';
+  const status = rawStatus as ReadinessAssessment['status'];
+
+  const reasonMatch = body.match(/\*?\*?Reason\*?\*?\s*[:\-]?\s*([^\n]+(?:\n(?!\s*\*\*)[^\n]+)*)/i);
+  const reason = reasonMatch ? reasonMatch[1].trim().replace(/\s+/g, ' ') : undefined;
+
+  const prereqLine = body.match(/\*?\*?Suggested Prerequisites\*?\*?\s*[:\-]?\s*([^\n]+)/i);
+  const suggestedPrerequisites = prereqLine
+    ? prereqLine[1].split(/[,;\n]/).map((s) => s.trim()).filter(Boolean)
+    : undefined;
+
+  return {
+    status,
+    score: 60, // research-derived; preflight uses 0-100 skeletal
+    signals: [],
+    filesScanned: [],
+    suggestedPrereqs: suggestedPrerequisites || [],
+    suggestedPrerequisites,
+    scannedAt: new Date().toISOString(),
+    summary: `Research RA: ${status}${reason ? ' — ' + reason.slice(0, 80) : ''}`,
+    reason,
+    extractedFromResearch: true,
+  };
+}
+
 export class ManagerRitual {
   private sm: SessionManager;
   private sessionDir: string;
@@ -102,6 +146,23 @@ export class ManagerRitual {
     if (ticketId && phase) {
       try { await this.sm.appendPhase(this.sessionDir, ticketId, phase, artifactPath); } catch (e) { console.warn('[ritual] append non-fatal'); }
     }
+
+    // === META-READINESS (research signals slice): extract from research artifacts, act on blocked/deferred
+    // Preserve artifact + always appendPhase (above) + set status/readiness. Do not nuke as 'failed'.
+    // "Do not proceed to planner" is signalled via ticket.status; full skip in remainingPhases happens in orchestrator rollout step 3.
+    if (ticketId && phase && /research/i.test(phase) && artifactPath && fs.existsSync(artifactPath)) {
+      try {
+        const content = fs.readFileSync(artifactPath, 'utf8');
+        const ra = extractReadinessAssessment(content);
+        if (ra && (ra.status === 'blocked' || ra.status === 'deferred')) {
+          await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
+          // status flipped inside; research_*.md + phasesCompleted preserved for forensics/self-prd/closer
+        }
+      } catch (e: any) {
+        console.warn('[ritual] research readiness extract non-fatal:', e?.message || e);
+      }
+    }
+
     const gate = new ConvergenceGate(this.sessionDir);
     const gateResult = await gate.runGate(gitProgress ? 'changed' : 'full');
     const circuit = new CircuitBreaker(this.sessionDir);

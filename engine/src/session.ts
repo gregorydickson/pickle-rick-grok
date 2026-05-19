@@ -16,7 +16,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
-import { SessionState, Ticket, Step, Backend, Runtime, CampaignStatus, CampaignProgress } from './types.js';
+import { SessionState, Ticket, Step, Backend, Runtime, CampaignStatus, CampaignProgress, ReadinessAssessment } from './types.js';
 import { Activity } from './activity-logger.js';
 import * as Preflight from './lib/pipeline-preflight.js';
 import type { PreflightReport } from './types.js';
@@ -213,6 +213,27 @@ export class SessionManager {
   }
 
   /**
+   * Update (or attach) ReadinessAssessment on ticket (from preflight emission or ritual research extraction).
+   * If assessment signals 'blocked'/'deferred', also flips the ticket status.
+   * Used by ritual for post-research honesty without nuking the ticket as 'failed'.
+   */
+  async updateTicketReadiness(sessionDir: string, ticketId: string, assessment: ReadinessAssessment): Promise<void> {
+    const lockPath = getStateLock(sessionDir);
+    await withFileLock(lockPath, () => {
+      const state = this.loadState(sessionDir);
+      const t = state.tickets.find(x => x.id === ticketId);
+      if (t) {
+        t.readiness = assessment;
+        const rStatus = (assessment as any)?.status;
+        if (rStatus === 'blocked' || rStatus === 'deferred') {
+          t.status = rStatus;
+        }
+      }
+      this.writeState(sessionDir, state);
+    });
+  }
+
+  /**
    * Core recovery primitive.
    * Resets a single ticket back to 'pending' so the orchestrator will pick it up again on next run.
    * Clears phasesCompleted (forces fresh start from researcher) and updates campaign status.
@@ -342,16 +363,18 @@ export class SessionManager {
   }
 
   /** Rich progress for 50+ ticket runs and external monitors. */
-  countRemainingTickets(sessionDir: string): { total: number; remaining: number; done: number; failed: number } {
+  countRemainingTickets(sessionDir: string): { total: number; remaining: number; done: number; failed: number; blocked?: number; deferred?: number } {
     try {
       const state = this.loadState(sessionDir);
       const ts = state.tickets || [];
       const done = ts.filter(t => t.status === 'done').length;
       const failed = ts.filter(t => t.status === 'failed').length;
+      const blocked = ts.filter(t => t.status === 'blocked').length;
+      const deferred = ts.filter(t => t.status === 'deferred').length;
       const remaining = ts.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
-      return { total: ts.length, remaining, done, failed };
+      return { total: ts.length, remaining, done, failed, blocked, deferred };
     } catch {
-      return { total: 0, remaining: 0, done: 0, failed: 0 };
+      return { total: 0, remaining: 0, done: 0, failed: 0, blocked: 0, deferred: 0 };
     }
   }
 

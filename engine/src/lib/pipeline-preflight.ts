@@ -17,7 +17,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Activity } from '../activity-logger.js';
-import type { PreflightReport } from '../types.js';
+import type { PreflightReport, ReadinessAssessment } from '../types.js';
 
 /** Local copy of atomic write pattern (avoids cycle with session.ts importing this lib). */
 function writeJsonAtomicLocal(filePath: string, data: unknown): void {
@@ -265,3 +265,123 @@ export function runPreflight(sessionDir: string, prdPath?: string): PreflightRep
 
   return report;
 }
+
+// === META READINESS PROBE (cheap regex skeletal scan for emission-time + preflight on meta PRDs) ===
+
+const SKELETAL_RE: RegExp[] = [
+  /\bTODO\b(?![\s:]*[A-Z0-9-])/i,
+  /\bFIXME\b/i,
+  /\bstub(?:bed|bing)?\b/i,
+  /\bskeleton\b/i,
+  /\bnot implemented\b/i,
+  /\bplaceholder\b/i,
+  /throw new (?:Error|Error\(['"](?:Not|not|TODO|todo|implement|stub|NYI))/i,
+  /\/\*\s*(?:todo|stub|skeleton|implement later|placeholder)\b/i,
+  /function\s+\w+\s*\([^)]*\)\s*\{\s*\}/i, // empty body fn
+  /=>\s*\{\s*\}/i, // empty arrow
+];
+
+function extractMentionedFiles(text: string): string[] {
+  const set = new Set<string>();
+  // paths with dirs + ext
+  const re1 = /([a-zA-Z0-9_\/.-]*\/[a-zA-Z0-9_\/.-]+\.(?:ts|js|tsx|jsx|mjs|cjs|md|json))/g;
+  let m: RegExpExecArray | null;
+  while ((m = re1.exec(text)) !== null) {
+    if (m[1]) set.add(m[1].replace(/^\.\//, ''));
+  }
+  // backticked bare or simple files
+  const re2 = /`([a-zA-Z0-9_\/.-]+\.(?:ts|js|md))`/g;
+  while ((m = re2.exec(text)) !== null) {
+    if (m[1]) set.add(m[1]);
+  }
+  // filter to plausible project files (avoid noise)
+  return Array.from(set).filter(f =>
+    (f.includes('/') || f.startsWith('engine')) &&
+    !f.includes('node_modules') &&
+    f.length > 4
+  );
+}
+
+export function assessMetaReadiness(
+  scope: string,
+  verifyContent: string,
+  opts: { grokRoot?: string } = {}
+): ReadinessAssessment {
+  const grokRoot = opts.grokRoot || process.cwd();
+  const combined = `${scope || ''}\n${verifyContent || ''}`;
+  const candidates = extractMentionedFiles(combined).slice(0, 12); // cheap bound
+  const signals: ReadinessAssessment['signals'] = [];
+  const scanned: string[] = [];
+  let totalHits = 0;
+
+  for (const rel of candidates) {
+    // resolve safely under root
+    const cleaned = rel.replace(/^[\/]+/, '');
+    const full = path.isAbsolute(rel) ? rel : path.join(grokRoot, cleaned);
+    if (!fs.existsSync(full)) continue;
+    // only scan likely source (cheap + safe)
+    if (!full.includes('/engine/') && !full.includes('/skills/') && !full.includes('/prds/') && !full.includes('/references/')) {
+      // still allow if explicitly in scope but skip heavy
+      continue;
+    }
+    try {
+      const content = fs.readFileSync(full, 'utf8');
+      scanned.push(rel);
+      for (const pat of SKELETAL_RE) {
+        const matches = content.match(pat) || [];
+        if (matches.length > 0) {
+          totalHits += matches.length;
+          const exLine = content.split(/\r?\n/).find(l => pat.test(l));
+          signals.push({
+            file: rel,
+            pattern: pat.source || pat.toString(),
+            hits: matches.length,
+            example: exLine ? exLine.trim().slice(0, 110) : undefined,
+          });
+        }
+      }
+    } catch {
+      /* ignore unreadable, keep cheap */
+    }
+    if (scanned.length >= 8) break; // hard cheap cap
+  }
+
+  let status: ReadinessAssessment['status'] = 'green';
+  let score = 100;
+  if (totalHits >= 6 || signals.length >= 3) {
+    status = 'red';
+    score = 15;
+  } else if (totalHits > 0 || scanned.length === 0 /* no targets = suspicious for meta */) {
+    status = 'amber';
+    score = 55;
+  }
+
+  const suggested: string[] = [];
+  if (status !== 'green') {
+    suggested.push('Address skeletal/stub code in listed target files before meta tickets');
+    suggested.push('Run foundation P0 tickets (PERSIST/MUTATE/APPLY order) first');
+  }
+
+  const summary = `Readiness ${status.toUpperCase()} (score ${score}, ${totalHits} hits on ${scanned.length} files)`;
+
+  return {
+    status,
+    score,
+    signals,
+    filesScanned: scanned,
+    suggestedPrereqs: suggested,
+    scannedAt: new Date().toISOString(),
+    summary,
+  };
+}
+
+export function summarizeReadiness(tickets: any[]): string | null {
+  const rs = (tickets || []).map((t: any) => t.readiness).filter(Boolean) as ReadinessAssessment[];
+  if (rs.length === 0) return null;
+  const g = rs.filter(r => r.status === 'green').length;
+  const a = rs.filter(r => r.status === 'amber').length;
+  const r = rs.filter(r => r.status === 'red').length;
+  return `meta-readiness green=${g} amber=${a} red=${r} (of ${rs.length} tickets)`;
+}
+
+export type { ReadinessAssessment };

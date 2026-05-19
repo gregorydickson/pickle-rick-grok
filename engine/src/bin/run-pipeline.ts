@@ -32,6 +32,7 @@ import { SzechuanDriver } from '../szechuan.js';
 import { runSelfImprovementLoopCloser } from '../self-improvement-loop-closer.js';
 import { performPostCampaignIngest } from '../self-prd-generator.js';
 import { runDetached } from '../runners/mux-runner.js';
+import { summarizeReadiness } from '../lib/pipeline-preflight.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -269,6 +270,14 @@ async function main() {
     }
   })();
   report.isMeta = hasMetaTickets;
+
+  // Surface meta readiness (from emission-time probe attached to tickets in state)
+  try {
+    const rsum = summarizeReadiness(stateSnap.tickets || (sm.loadState(sessionDir).tickets || []));
+    if (rsum) {
+      console.log(`[run-pipeline] ${rsum} — per-ticket details in tickets/*/ticket.md (skeletal preflight signals for meta honesty)`);
+    }
+  } catch {}
 
   const doPostPhases = selfImprovement || chainPost || hasMetaTickets;
 

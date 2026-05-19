@@ -95,14 +95,22 @@ async function main() {
   const progress = sm.countRemainingTickets(sessionDir);
   const state = sm.loadState(sessionDir);
   const failed = (state.tickets || []).filter((t: any) => t.status === 'failed');
+  const blocked = (state.tickets || []).filter((t: any) => t.status === 'blocked');
+  const deferred = (state.tickets || []).filter((t: any) => t.status === 'deferred');
 
   console.log(`Tickets: ${progress.total} total, ${progress.done} done, ${progress.failed} failed, ${progress.remaining} remaining/pending`);
+  if (blocked.length > 0) {
+    console.log(`Blocked (readiness): ${blocked.map((t: any) => t.id).join(', ')}`);
+  }
+  if (deferred.length > 0) {
+    console.log(`Deferred (readiness): ${deferred.map((t: any) => t.id).join(', ')}`);
+  }
   if (failed.length > 0) {
     console.log('\nFailed tickets:');
     failed.forEach((t: any) => console.log(`  ${t.id} — ${t.title?.slice(0, 60) || ''}...`));
     console.log('\nRecommended:');
     console.log(`  npx tsx engine/src/bin/recover.ts ${sessionDir} --reset-failed`);
-  } else {
+  } else if (blocked.length === 0 && deferred.length === 0) {
     console.log('\nNo failed tickets. Session looks healthy for a fresh mux-runner launch.');
   }
 }

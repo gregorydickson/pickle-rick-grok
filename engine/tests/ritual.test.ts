@@ -37,7 +37,7 @@ test('hasPromiseToken — detects the sacred I AM DONE across casing/whitespace'
 test('validateArtifactContract — research requires 4 sections, plan needs signals, mutating phases need length', () => {
   const d = tmpDir('contract-');
   const researchGood = path.join(d, 'research_T01.md');
-  fs.writeFileSync(researchGood, 'Relevant files: foo.ts\nOpen questions: none\nExisting patterns: bar\nData flows: in->out\n<promise>I AM DONE</promise>');
+  fs.writeFileSync(researchGood, 'Relevant files: foo.ts\nOpen questions: none\nExisting patterns: bar\nData flows: in->out\n\n## Readiness Assessment\n**Status**: ready\n**Reason**: narrow predicate addition, all signals present\n<promise>I AM DONE</promise>');
   assert.equal(validateArtifactContract(researchGood, 'research_T01.md').ok, true);
 
   const researchBad = path.join(d, 'research_bad.md');
@@ -61,7 +61,7 @@ test('validateArtifactContract — research requires 4 sections, plan needs sign
 
 test('resolveAndValidateArtifact — exact, contract enforcement, missing cases', () => {
   const tmp = tmpDir('ritual-resolve-');
-  fs.writeFileSync(path.join(tmp, 'research_T01.md'), 'Relevant files: src/foo.ts\nOpen questions: none\nExisting patterns: old\nData flows: in->out\n<promise>I AM DONE</promise>');
+  fs.writeFileSync(path.join(tmp, 'research_T01.md'), 'Relevant files: src/foo.ts\nOpen questions: none\nExisting patterns: old\nData flows: in->out\n\n## Readiness Assessment\n**Status**: ready\n**Reason**: test fixture\n<promise>I AM DONE</promise>');
   fs.writeFileSync(path.join(tmp, 'implement_T01_42.md'), 'long content here '.repeat(20));
 
   // exact

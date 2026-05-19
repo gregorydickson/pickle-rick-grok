@@ -26,6 +26,7 @@ import { CircuitBreaker } from '../src/circuit.js';
 import { ConvergenceGate } from '../src/gate.js';
 import { Ticket } from '../src/types.js';
 import { ManagerRitual } from '../src/ritual.js';
+import { topologicalSort, detectCycles, getReadyTickets, type TicketRef } from '../src/lib/phase-utils.js';
 
 function makeTemp(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'pickle-orch-'));
@@ -181,4 +182,59 @@ test('orchestrator integration - 10-ticket campaign with injected failures (isol
   assert.ok(goodT); // phases may be 0 in gate-heavy env but ticket processed
 
   cleanup(root);
+});
+
+// === META-READINESS SLICE TESTS (phase-utils pure fns + topo/ready) ===
+test('phase-utils: topologicalSort, detectCycles, getReadyTickets — DAG, cycle, ready queue', () => {
+  const tA: TicketRef = { id: 'A', dependencies: [], status: 'pending' };
+  const tB: TicketRef = { id: 'B', dependencies: ['A'], status: 'pending' };
+  const tC: TicketRef = { id: 'C', dependencies: ['B'], status: 'pending' };
+  const tD: TicketRef = { id: 'D', dependencies: ['A'], status: 'done' };
+  const tE: TicketRef = { id: 'E', dependencies: ['X'], status: 'pending' }; // external dep ok
+
+  // detectCycles clean
+  assert.deepStrictEqual(detectCycles([tA, tB, tC]), []);
+
+  // topo order: A before B before C
+  const order = topologicalSort([tC, tB, tA]); // shuffled input
+  const ids = order.map(o => o.id);
+  assert.ok(ids.indexOf('A') < ids.indexOf('B'));
+  assert.ok(ids.indexOf('B') < ids.indexOf('C'));
+
+  // cycle detection
+  const tX: TicketRef = { id: 'X', dependencies: ['Y'] };
+  const tY: TicketRef = { id: 'Y', dependencies: ['X'] };
+  const cyc = detectCycles([tX, tY]);
+  assert.ok(cyc.length === 1);
+  assert.ok(cyc[0].includes('X') && cyc[0].includes('Y'));
+
+  // topo on cycle throws
+  assert.throws(() => topologicalSort([tX, tY]), /Cyclic ticket dependencies/);
+
+  // getReadyTickets
+  let ready = getReadyTickets([tA, tB, tC, tD, tE]);
+  const rids = ready.map(r => r.id);
+  assert.ok(rids.includes('A'), 'A has no deps');
+  assert.ok(rids.includes('E'), 'E external dep satisfied');
+  assert.ok(!rids.includes('B'), 'B waits on A');
+  assert.ok(!rids.includes('C'));
+  assert.ok(!rids.includes('D'), 'done excluded');
+
+  // after A is marked done (update status in list), B becomes ready
+  const tA_done: TicketRef = { ...tA, status: 'done' };
+  const tB2: TicketRef = { ...tB, status: 'pending' };
+  const tC2: TicketRef = { ...tC, status: 'pending' };
+  ready = getReadyTickets([tA_done, tB2, tC2], new Set(['A']));
+  assert.ok(ready.some(r => r.id === 'B'), 'B now ready once A done');
+  assert.ok(!ready.some(r => r.id === 'A'), 'done ticket not returned as ready');
+
+  // blocked/deferred excluded even if deps met
+  const tBlk: TicketRef = { id: 'BLK', dependencies: ['A'], status: 'blocked' };
+  ready = getReadyTickets([tA, tBlk], new Set(['A']));
+  assert.ok(!ready.some(r => r.id === 'BLK'));
+
+  // deferred too
+  const tDef: TicketRef = { id: 'DEF', dependencies: [], status: 'deferred' };
+  ready = getReadyTickets([tDef]);
+  assert.ok(ready.length === 0);
 });

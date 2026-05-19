@@ -23,7 +23,7 @@ export interface Ticket {
   description: string;
   acceptanceCriteria: string[];
   priority: 'P0' | 'P1' | 'P2' | 'P3';
-  status: 'open' | 'in_progress' | 'done' | 'blocked';
+  status: 'pending' | 'in_progress' | 'done' | 'failed' | 'blocked' | 'deferred';
   createdAt: string;
   updatedAt?: string;
   tags?: string[];
@@ -198,4 +198,25 @@ export interface PreflightReport {
   ticketFilesOnDisk?: number; // alias/detail
   isMeta?: boolean; // attached by run-pipeline for post decision (meta R-META tickets)
   [key: string]: any;
+}
+
+/** Machine-actionable Readiness Assessment from cheap preflight skeletal probe (P0 for meta PRDs on skeleton drivers). */
+export interface ReadinessAssessment {
+  status: 'green' | 'amber' | 'red' | 'ready' | 'blocked' | 'deferred';
+  /** 0-100; 100 = no skeletal markers on any mentioned target files (preflight); research paths use neutral */
+  score: number;
+  signals: Array<{
+    file: string;
+    pattern: string;
+    hits: number;
+    example?: string;
+  }>;
+  filesScanned: string[];
+  suggestedPrereqs: string[];
+  scannedAt: string;
+  summary?: string;
+  /** Research-phase (from ## Readiness Assessment in research_*.md) — machine-actionable for ritual/orchestrator/closer */
+  reason?: string;
+  suggestedPrerequisites?: string[]; // synonym for md section parsing
+  extractedFromResearch?: boolean;
 }

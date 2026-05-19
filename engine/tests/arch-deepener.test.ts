@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ArchitectureDeepener, DeepeningOpportunity } from '../src/arch-deepener.js';
+import { ArchitectureDeepener, DeepeningOpportunity, FORBIDDEN_SELF_MUT, isSelfMutationSafe } from '../src/arch-deepener.js';
 
 const CANONICAL_TERMS = [
   'Module', 'Interface', 'Depth', 'Seam', 'Leverage', 'Locality',
@@ -101,5 +101,29 @@ describe('ArchitectureDeepener (deepening opportunities)', () => {
     assert.ok(opp!.expectedLeverage.length > 25, 'Leverage justification must be specific');
     assert.ok(opp!.expectedLocality.length > 25, 'Locality justification must be specific');
     assert.ok(opp!.deletionTestImpact.length > 25, 'Deletion Test rationale must be specific');
+  });
+
+  it('P0-SELF-MUT-001-1: discoverOpportunities on engine/src emits zero self-deepening or forbidden core driver opps', () => {
+    const d = new ArchitectureDeepener('/tmp/g-$$');
+    const opps = d.discoverOpportunities(['engine/src']);
+    const bad = opps.filter(o => !isSelfMutationSafe(o));
+    assert.strictEqual(bad.length, 0);
+    assert.ok(opps.some(o => o.id === 'thin-dispatch-shells'));
+  });
+
+  it('isSelfMutationSafe + filterSelfMut reject core/self, accept thin + user code', () => {
+    assert.strictEqual(isSelfMutationSafe({id:'deep-sessionmanager', files:['engine/src/session.ts']} as any), false);
+    assert.strictEqual(isSelfMutationSafe({id:'self-deepening-arch-deepener', files:['engine/src/arch-deepener.ts']} as any), false);
+    assert.strictEqual(isSelfMutationSafe({id:'thin-dispatch-shells', files:['engine/src/bin/pipeline.ts']} as any), true);
+    assert.strictEqual(isSelfMutationSafe({id:'candidate-mymgr', files:['src/app/manager.ts']} as any), true);
+    const d = new ArchitectureDeepener('/tmp/p-$$');
+    const filtered = d.filterSelfMut([{id:'deep-gate', files:['engine/src/gate.ts']}] as any);
+    assert.strictEqual(filtered.length, 0);
+  });
+
+  it('FORBIDDEN_SELF_MUT contains exactly the 6 core drivers', () => {
+    assert.strictEqual(FORBIDDEN_SELF_MUT.length, 6);
+    assert.ok(FORBIDDEN_SELF_MUT.includes('engine/src/workers.ts'));
+    assert.ok(FORBIDDEN_SELF_MUT.includes('engine/src/session.ts'));
   });
 });

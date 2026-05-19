@@ -112,3 +112,124 @@ export function getExpectedArtifactName(phase: string, ticketId: string): string
 export function safeRead(p: string): string {
   try { return fs.readFileSync(p, 'utf8'); } catch { return ''; }
 }
+
+// === DEPENDENCY GRAPH (Pipeline Meta-Readiness P0: topo execution, blocked/deferred support) ===
+
+/** Lightweight ref for pure dep-graph functions (no full Ticket import needed). */
+export interface TicketRef {
+  id: string;
+  dependencies?: string[];
+  status?: string;
+}
+
+/**
+ * Detects one or more cycles in the declared ticket dependency graph.
+ * Returns [] for a clean DAG. Each cycle is a closed path of ids.
+ * Only intra-list deps are considered.
+ */
+export function detectCycles(tickets: TicketRef[]): string[][] {
+  const byId = new Map<string, TicketRef>(tickets.map(t => [t.id, t]));
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const cycles: string[][] = [];
+
+  function dfs(node: string, path: string[]): void {
+    if (cycles.length > 0) return;
+    if (visiting.has(node)) {
+      const idx = path.indexOf(node);
+      if (idx >= 0) cycles.push([...path.slice(idx), node]);
+      return;
+    }
+    if (visited.has(node)) return;
+
+    visiting.add(node);
+    path.push(node);
+    const t = byId.get(node);
+    for (const d of t?.dependencies || []) {
+      if (byId.has(d)) dfs(d, path);
+    }
+    path.pop();
+    visiting.delete(node);
+    visited.add(node);
+  }
+
+  for (const t of tickets) {
+    if (!visited.has(t.id) && cycles.length === 0) {
+      dfs(t.id, []);
+    }
+  }
+  return cycles;
+}
+
+/**
+ * Returns tickets in topological order (all prereqs appear before dependents).
+ * Throws on cycle with a clear message. External (undeclared) deps treated as satisfied.
+ */
+export function topologicalSort(tickets: TicketRef[]): TicketRef[] {
+  const cycles = detectCycles(tickets);
+  if (cycles.length > 0) {
+    throw new Error(`Cyclic ticket dependencies detected: ${cycles[0].join(' → ')}`);
+  }
+
+  const byId = new Map<string, TicketRef>(tickets.map(t => [t.id, t]));
+  const indegree = new Map<string, number>();
+  const adj = new Map<string, string[]>(); // prereq -> dependents
+
+  tickets.forEach(t => {
+    indegree.set(t.id, 0);
+    adj.set(t.id, []);
+  });
+
+  tickets.forEach(t => {
+    for (const d of t.dependencies || []) {
+      if (byId.has(d)) {
+        adj.get(d)!.push(t.id);
+        indegree.set(t.id, (indegree.get(t.id) || 0) + 1);
+      }
+    }
+  });
+
+  const queue: string[] = [];
+  for (const [id, deg] of indegree.entries()) {
+    if (deg === 0) queue.push(id);
+  }
+
+  const order: string[] = [];
+  while (queue.length > 0) {
+    const u = queue.shift()!;
+    order.push(u);
+    for (const v of adj.get(u) || []) {
+      const deg = (indegree.get(v) || 0) - 1;
+      indegree.set(v, deg);
+      if (deg === 0) queue.push(v);
+    }
+  }
+
+  if (order.length !== tickets.length) {
+    // Fallback safety (shouldn't happen after cycle check)
+    return [...tickets];
+  }
+  return order.map(id => byId.get(id)!);
+}
+
+/**
+ * Pure: tickets whose dependencies are satisfied (or external) and are themselves runnable.
+ * Excludes done/failed/blocked/deferred. Seed doneIds with already-completed for multi-pass ready queue.
+ */
+export function getReadyTickets(
+  tickets: TicketRef[],
+  doneIds: Set<string> = new Set()
+): TicketRef[] {
+  const done = new Set(doneIds);
+  tickets.forEach(t => { if (t.status === 'done') done.add(t.id); });
+
+  const inSet = new Set(tickets.map(t => t.id));
+  const blockedStatuses = ['done', 'failed', 'blocked', 'deferred'];
+
+  return tickets.filter(t => {
+    const st = (t.status || 'pending') as string;
+    if (blockedStatuses.includes(st)) return false;
+    const deps = t.dependencies || [];
+    return deps.every(d => !inSet.has(d) || done.has(d));
+  });
+}

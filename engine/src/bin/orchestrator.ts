@@ -50,6 +50,10 @@ import {
   getPhaseFileName,
   getExpectedArtifactName,
   resolvePhaseTurnBudget,
+  topologicalSort,
+  detectCycles,
+  getReadyTickets,
+  type TicketRef,
 } from '../lib/phase-utils.js';
 import {
   hintGC,
@@ -253,6 +257,18 @@ export async function runOrchestrator(
       );
       emitProgress(`phase ${phase} COMPLETE`, ticket.id, phase);
 
+      // META-READINESS (final gate integration): research RA may have flipped to blocked/deferred inside ritual.
+      // Halt further phases for *this* ticket (research artifact + phasesCompleted up to research preserved; ticket not failed/done).
+      // Top-level status filter + dep check already protect other tickets. This closes the "honest research punished" RCA.
+      const liveAfter = sm.loadState(sessionDir);
+      const liveT = liveAfter.tickets.find((t: any) => t.id === ticket.id);
+      const liveStatus = liveT?.status;
+      if (liveStatus === 'blocked' || liveStatus === 'deferred') {
+        console.log(`  [orchestrator] ${ticket.id} RA signaled ${liveStatus} after ${phase} — halting remaining phases (signal for closer/self-PRD intact)`);
+        try { (Activity as any).ticketReadinessBlocked?.(state.sessionId || 'unknown', ticket.id, liveStatus); } catch {}
+        return; // from runTicket; outer loop proceeds to next ticket
+      }
+
       if (shutdown()) {
         console.log(`  [orchestrator] Shutdown requested after ${phase} — stopping ticket ${ticket.id} here`);
         return;
@@ -291,7 +307,32 @@ export async function runOrchestrator(
   emitProgress('orchestrator started');
 
   try {
-    const ticketsToProcess = [...(state.tickets || [])];
+    // META-READINESS: use topological order (prereqs before dependents) + cycle validation
+    // instead of raw declaration order from the PRD/ticket emitter. Ready tickets are those
+    // whose deps are satisfied (done or external). Blocked/deferred are naturally skipped.
+    const allTickets = (state.tickets || []) as TicketRef[];
+    const cycles = detectCycles(allTickets);
+    if (cycles.length > 0) {
+      console.warn(`[orchestrator] WARNING: ticket dependency cycle(s) detected — ${JSON.stringify(cycles)}. Falling back to declaration order.`);
+    }
+
+    let ticketsToProcess: any[];
+    try {
+      // topoSort only reorders; all tickets kept so status checks still apply to done/blocked etc.
+      ticketsToProcess = topologicalSort(allTickets);
+    } catch (topoErr: any) {
+      console.warn(`[orchestrator] topoSort error (using declaration order): ${topoErr?.message || topoErr}`);
+      ticketsToProcess = [...allTickets];
+    }
+
+    // Optional: surface initial ready set for visibility (future preflight / closer will use getReadyTickets)
+    try {
+      const readyNow = getReadyTickets(allTickets);
+      if (readyNow.length > 0 && readyNow.length < allTickets.length) {
+        console.log(`[orchestrator] Ready queue (deps satisfied): ${readyNow.map(r => r.id).join(', ')}`);
+      }
+    } catch {}
+
     for (const ticket of ticketsToProcess) {
       if (shutdown()) {
         console.log('[orchestrator] Shutdown flag detected between tickets — clean exit. Resumable.');
@@ -301,6 +342,21 @@ export async function runOrchestrator(
       const currentStatus =
         (sm.loadState(sessionDir).tickets.find((t: any) => t.id === ticket.id) || ticket).status;
       if (currentStatus === 'pending' || currentStatus === 'in_progress') {
+        // META-READINESS: respect declared dependencies at runtime (prereqs must be 'done'; blocked/deferred/fail do not satisfy)
+        // Combined with topo order + getReadyTickets this guarantees dependents never run before prereqs (or if prereq blocked).
+        const deps: string[] = (ticket.dependencies || []);
+        if (deps.length > 0) {
+          const liveState = sm.loadState(sessionDir);
+          const unsatisfied = deps.filter((d: string) => {
+            const dt = liveState.tickets.find((tt: any) => tt.id === d);
+            return dt && dt.status !== 'done';
+          });
+          if (unsatisfied.length > 0) {
+            console.log(`[orchestrator] ${ticket.id} skipped — unsatisfied prereqs: ${unsatisfied.join(', ')} (not 'done')`);
+            continue;
+          }
+        }
+
         currentTicketId = ticket.id;
 
         try {

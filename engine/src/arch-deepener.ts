@@ -33,6 +33,23 @@ export interface DeepeningOpportunity {
   vocabularyTermsUsed: string[];
 }
 
+export const FORBIDDEN_SELF_MUT: readonly string[] = [
+  'engine/src/arch-deepener.ts',
+  'engine/src/iteration.ts',
+  'engine/src/ritual.ts',
+  'engine/src/gate.ts',
+  'engine/src/session.ts',
+  'engine/src/workers.ts',
+] as const;
+
+export function isSelfMutationSafe(opp: DeepeningOpportunity): boolean {
+  if (!opp) return true;
+  if (opp.id?.includes('self-deepening')) return false;
+  return !(opp.files || []).some((f: string) =>
+    FORBIDDEN_SELF_MUT.some((b: string) => f.includes(b) || b.includes(f))
+  );
+}
+
 export interface ArchDeepenerState extends BaseConvergenceState {
   targetPaths: string[];
   opportunities: DeepeningOpportunity[];
@@ -272,7 +289,7 @@ export class ArchitectureDeepener {
       return true;
     });
 
-    return unique;
+    return unique.filter(isSelfMutationSafe);
   }
 
   /**
@@ -281,6 +298,10 @@ export class ArchitectureDeepener {
    */
   discoverOpportunities(targetPaths: string[] = ['.']): DeepeningOpportunity[] {
     return this.scanForOpportunities(targetPaths);
+  }
+
+  filterSelfMut(opps: DeepeningOpportunity[]): DeepeningOpportunity[] {
+    return opps.filter(isSelfMutationSafe);
   }
 
   /** Compute a numeric architectural debt score from opportunities */
@@ -376,6 +397,19 @@ Make one good, deep, tiny move.`;
       const preSha = safeGetGitHead(this.workingDir) || '';
       const opps = state.opportunities || [];
       const failed = state.failedApproaches || [];
+
+      const safeOpps = this.filterSelfMut(opps);
+      if (safeOpps.length === 0 && opps.length > 0) {
+        const note = 'self-mutation blocked: all opportunities targeted protected core drivers (arch-deepener/iteration/ritual/gate/session/workers). No deepen-changer spawned.';
+        state.failedApproaches = state.failedApproaches || [];
+        state.failedApproaches.push({
+          iteration: state.currentIteration || 0,
+          reason: 'self-mut-filter',
+          description: note,
+          timestamp: new Date().toISOString(),
+        });
+        return { preSha, postSha: preSha, notes: note };
+      }
 
       const prompt = this.buildDeepenChangerPrompt(state, opps, failed);
 

@@ -15,6 +15,8 @@
 import * as path from 'path';
 import { SessionManager } from '../session.js';
 import { Activity } from '../activity-logger.js';
+import { assessMetaReadiness } from './pipeline-preflight.js';
+import type { ReadinessAssessment } from '../types.js';
 
 export interface TicketSpec {
   id: string;
@@ -33,6 +35,7 @@ export interface TicketSpec {
   severity?: 'P0' | 'P1' | 'P2' | 'H-anatomy' | 'H-szechuan';
   sourcePrd?: string;
   generatedBy?: string;             // "refine-prd council" | "self-prd-generator" | ...
+  readiness?: ReadinessAssessment;  // attached by emitter via preflight probe at emission time
 }
 
 export interface EmitOptions {
@@ -85,6 +88,14 @@ ${spec.scope}
 
 - No other files. Violating scope fails the ConvergenceGate in the ritual.
 
+${(spec as any).readiness ? `
+## Preflight Readiness (skeletal scan at emission via pipeline-preflight probe)
+**Status**: ${((spec as any).readiness.status || 'n/a').toUpperCase()} | Score: ${((spec as any).readiness.score) ?? 'n/a'}
+Files scanned: ${((spec as any).readiness.filesScanned || []).join(', ') || 'n/a'}
+Hits: ${((spec as any).readiness.signals || []).reduce((n: number, s: any) => n + (s.hits || 0), 0)}
+${((spec as any).readiness.suggestedPrereqs || []).length ? '**Suggested prereqs**: ' + ((spec as any).readiness.suggestedPrereqs || []).join(' | ') : ''}
+` : ''}
+
 ## Non-Goals
 ${spec.nonGoals || 'Nothing outside the listed Scope and ACs.'}
 
@@ -122,7 +133,18 @@ export async function emitRefinedTickets(
   let hardeningCount = 0;
 
   for (const spec of specs) {
-    const md = generateTicketMarkdown(spec, {
+    // Run preflight readiness probe at emission (cheap skeletal scan on scope/Verify mentioned files)
+    let readiness: ReadinessAssessment | undefined;
+    try {
+      const verifyJoined = (spec.acceptanceCriteria || []).map((ac: any) => (ac.verify || ac.criterion || '')).join('\n');
+      readiness = assessMetaReadiness(spec.scope || '', verifyJoined, { grokRoot: opts.grokRoot });
+    } catch (e: any) {
+      // probe must never break emission; non-fatal (Jerry-safe)
+      console.warn('[ticket-emitter] readiness probe failed (non-fatal):', e?.message || e);
+    }
+
+    const enrichedSpec = readiness ? ({ ...spec, readiness } as TicketSpec) : spec;
+    const md = generateTicketMarkdown(enrichedSpec, {
       generatedBy: opts.generatedBy || 'refine-prd council',
       grokRoot: opts.grokRoot
     });
@@ -141,6 +163,7 @@ export async function emitRefinedTickets(
       sourcePrd: spec.sourcePrd,
       justification: spec.justification,
       isHardening,
+      readiness,
       ... (spec as any)
     };
 
