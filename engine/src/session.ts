@@ -219,6 +219,33 @@ export class SessionManager {
     return dir;
   }
 
+  /**
+   * Generalized helper for any ticket-emitting tool (refine, self-prd, future anatomy/deepener, etc.).
+   * Writes the ticket.md under the canonical session layout and registers it in state.
+   */
+  async persistTicket(
+    sessionDir: string,
+    id: string,
+    mdContent: string,
+    meta: { title: string; status?: Ticket['status']; phasesCompleted?: string[]; [k: string]: any }
+  ): Promise<string> {
+    const dir = this.ensureTicketDir(sessionDir, id);
+    const ticketPath = path.join(dir, 'ticket.md');
+    fs.writeFileSync(ticketPath, mdContent, 'utf8');
+
+    const t = {
+      id,
+      title: meta.title,
+      path: path.join('tickets', id, 'ticket.md'),
+      status: meta.status || 'pending',
+      phasesCompleted: meta.phasesCompleted || [],
+      ...meta,
+    } as Ticket;
+
+    await this.addTicket(sessionDir, t);
+    return ticketPath;
+  }
+
   /** Locked + async. Appends to phasesCompleted (the key for mid-ticket resumption). */
   async appendPhase(sessionDir: string, ticketId: string, phase: string, artifactPath?: string): Promise<void> {
     const lockPath = getStateLock(sessionDir);

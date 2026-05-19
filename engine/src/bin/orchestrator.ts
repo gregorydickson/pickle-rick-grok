@@ -28,6 +28,10 @@ import type * as _LoopC from "../self-improvement-loop-closer.js";
 
 import * as fs from "fs";
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { SessionManager } from '../session.js';
 import { WorkerSpawner } from '../workers.js';
 import { CircuitBreaker } from '../circuit.js';
@@ -331,10 +335,13 @@ function buildPhasePrompt(ticket: any, phase: string, sessionDir: string, state:
   const sendToMorty = fs
     .readFileSync(path.join(__dirname, '../../../references/send-to-morty.md'), 'utf8')
     .replace(/```/g, '');
-  const ticketContent = fs.readFileSync(
-    path.join(sessionDir, 'tickets', ticket.id, 'ticket.md'),
-    'utf8'
-  );
+
+  const sm = new SessionManager();
+  const ticketPath = path.join(sm.getTicketDir(sessionDir, ticket.id), 'ticket.md');
+  if (!fs.existsSync(ticketPath)) {
+    throw new Error(`[orchestrator] Missing ticket.md at canonical location: ${ticketPath}. Refine or generator must use SessionManager.ensureTicketDir + write under the session.`);
+  }
+  const ticketContent = fs.readFileSync(ticketPath, 'utf8');
 
   return [
     base,

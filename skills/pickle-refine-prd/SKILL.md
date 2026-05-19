@@ -8,15 +8,15 @@ triggers:
   - decompose tickets
   - 3-analyst
 references:
-  - path: ../../references/refine/refine-contract.md
-  - path: ../../references/refine/ticket-template.md
-  - path: ../../references/personas/requirements-analyst.md
-  - path: ../../references/personas/codebase-analyst.md
-  - path: ../../references/personas/risk-analyst.md
-  - path: ../../references/prd-template.md
-  - path: ../../references/persona.md
+  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/refine/refine-contract.md
+  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/refine/ticket-template.md
+  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/personas/requirements-analyst.md
+  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/personas/codebase-analyst.md
+  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/personas/risk-analyst.md
+  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/prd-template.md
+  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/persona.md
     conditional: true
-  - path: ../../references/spawn-subagent-contract.md
+  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/spawn-subagent-contract.md
 ---
 
 # Pickle Refine PRD — Large Agent Team Decomposition (The One Exception)
@@ -26,23 +26,30 @@ This is the **only** process in the entire Pickle Rick Grok system that is allow
 
 Everything downstream (the 8-phase ticket work, anatomy, szechuan, citadel, overnight runs) deliberately uses the reliable headless `grok -p` + `WorkerSpawner` + `ManagerRitual` path for crash safety and detachability.
 
-See `references/refine/refine-contract.md` for the full philosophy and rules.
+See `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/refine-contract.md` for the full philosophy and rules.
 
 ## Step 0: Bootstrap / Session
-If you have a prior session from `/pickle-prd` or setup:
+**Always** obtain or create a canonical session first (the session directory is the run context for state + tickets).
 
 ```bash
-npx tsx engine/src/bin/setup.ts --task "refine existing prd" --runtime grok --backend grok --resume
+# Create (or resume) the session that will own the tickets
+npx tsx /Users/gregorydickson/.grok/pickle-rick-grok/engine/src/bin/setup.ts \
+  --task "refine PRD + decompose to tickets" --runtime grok --backend grok [--resume]
 ```
 
-Otherwise just work in the current directory and create `prd_refined.md` + `tickets/` at root. Later the user can feed the session to the orchestrator.
+Capture the `SESSION_ROOT=...` it prints. From this point on, `sessionDir` owns `tickets/`.
+
+`workingDir` (from session state) = the target tree being edited.  
+`sessionDir/tickets/<id>/ticket.md` = where every physical ticket definition lives (via `SessionManager.ensureTicketDir`).
+
+Never create a top-level `tickets/` at cwd root. This is the only layout the orchestrator, ritual, mux-runner, and self-improvement loop consume.
 
 Always discover the target root (usually `process.cwd()` or the grok install root).
 
 ## Step 1: Load Inputs
 - Read the original `prd.md` (or `prds/latest.md` etc.)
-- Read `references/prd-template.md`
-- Read the full refine contract: `references/refine/refine-contract.md`
+- Read `/Users/gregorydickson/.grok/pickle-rick-grok/references/prd-template.md`
+- Read the full refine contract: `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/refine-contract.md`
 - Explore the target tree (list_dir, grep, read key files in engine/src, skills/, etc.)
 
 If no `prd.md` exists yet, tell the user to run `/pickle-prd` first.
@@ -78,23 +85,36 @@ You may do a 4th "synthesis critic" spawn if the three are suspiciously aligned 
 After the analysts are quiet:
 
 1. Synthesize a **complete `prd_refined.md`** at the root of the target (or session dir).
-   - Follow the exact structure of `references/prd-template.md`
+   - Follow the exact structure of `/Users/gregorydickson/.grok/pickle-rick-grok/references/prd-template.md`
    - Every single requirement row **must** have a real, runnable Verification column.
    - Add a "Hardening Tickets" section at the bottom if the Risk/Codebase analysts surfaced material new surfaces.
 
 2. Write a short `refine-summary.md` (optional but useful) capturing the key debates between the analysts.
 
 ## Step 4: Atomic Ticket Decomposition
-For every distinct, verifiable chunk in the refined PRD, create:
+**All tickets must be written under the session directory** (never at cwd root).
 
-```
-tickets/
-  001-short-slug/
-    ticket.md
-  002-...
+For every distinct, verifiable chunk:
+
+```ts
+const sm = new SessionManager();
+const tdir = sm.ensureTicketDir(sessionDir, ticketId);
+fs.writeFileSync(path.join(tdir, 'ticket.md'), ticketMarkdownFromTemplate);
+await sm.addTicket(sessionDir, {
+  id: ticketId,
+  title: "...",
+  path: `tickets/${ticketId}/ticket.md`,
+  status: 'pending',
+  phasesCompleted: [],
+  // isSelfMeta, meta, etc. as appropriate
+});
 ```
 
-Use the exact shape from `references/refine/ticket-template.md`.
+Use the exact shape from `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/ticket-template.md`.
+
+After all tickets:
+- Update `state.tickets` array + `state.step = 'implementing'`
+- `sm.writeState(sessionDir, state)`
 
 Rules for good tickets:
 - One focused change (ideally < 5 files, < 45 min for an implementer Morty)
@@ -107,29 +127,23 @@ Example ticket id pattern: `001-add-foo-bar`, `H-010-anatomy-ritual-after-x`
 
 ## Step 5: Persist + Emit Events (Critical for Metrics & Pipeline Handoff)
 
-After the tickets exist:
+After writing every `ticket.md` via `ensureTicketDir` + `addTicket` (never at cwd root):
 
 ```ts
-// Example — adapt the paths after install.sh
 import { Activity } from "./engine/src/activity-logger.js";
 import { SessionManager } from "./engine/src/session.js";
 
 const sm = new SessionManager();
-const sessionDir = "..."; // if you have one
-Activity.refinementCompleted(sessionId || "adhoc", tickets.length, hardeningTickets.length);
+const sessionDir = "..."; // from Step 0
 
-// If you created a session, also update state
-if (sessionDir) {
-  const state = sm.loadState(sessionDir);
-  state.step = "implementing";
-  state.tickets = ticketsYouCreated.map(t => ({ id: t.id, title: ..., status: "pending", phasesCompleted: [] }));
-  sm.writeState(sessionDir, state);
-}
-```
+// Tickets already written + registered via ensureTicketDir + addTicket above
 
-Also fire:
-```ts
-Activity.hardeningTicketsTriggered(sessionId, hardeningCount);
+const state = sm.loadState(sessionDir);
+state.step = "implementing";
+sm.writeState(sessionDir, state);
+
+Activity.refinementCompleted(state.sessionId, tickets.length, hardeningTickets.length);
+Activity.hardeningTicketsTriggered(state.sessionId, hardeningCount);
 ```
 
 These events power `/pickle-metrics`, standup, and the self-improvement loop.
@@ -139,7 +153,8 @@ Print a crisp summary:
 - Number of tickets created
 - Number of hardening tickets
 - Path to `prd_refined.md`
-- Ready command: `npx tsx engine/src/bin/pipeline.ts <session> --no-refine --target /path/to/grok-root` (or `/pickle-tmux` / direct `mux-runner`)
+- Session directory (the one that now owns the tickets)
+- Ready command: `npx tsx engine/src/runners/mux-runner.ts <sessionDir>` or `npx tsx engine/src/bin/pipeline.ts <sessionDir> --no-refine --target <root>` (or `/pickle-tmux`)
 
 Then emit the completion token:
 
@@ -158,7 +173,7 @@ If this was part of a larger `/pickle-pipeline` call, the manager there will now
 - The final `prd_refined.md` must be good enough that Citadel and the next self-PRD generator are happy with it.
 
 ## Why Only This Step Gets the Big Native Team
-See the top of `references/refine/refine-contract.md`.  
+See the top of `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/refine-contract.md`.  
 Refinement is the last high-creativity, high-judgment, multi-perspective act. Once the tickets are cut, we want boring, reliable, detachable, resumable execution via the headless path. This split is intentional and architectural.
 
 Rick: "The analysts are the last chance to catch Jerry's vague bullshit before it becomes 50 tickets of technical debt. Use the full power of Grok's spawn_subagent. Make the food good, Morty."
