@@ -32,11 +32,26 @@ Useful commands:
 - /help-pickle
 - /pickle-self-prd (generator + full meta dogfood campaign)
 
-When spawning subagents, prefer the installed personas:
-- "pickle-rick" (voice and refinement-only manager role; see scoped language in the installed `persona.md` / `pickle-rick.md` — NEVER for driving full ticket execution)
-- "morty-phase-researcher", "morty-phase-implementer", "morty-phase-verifier", "morty-phase-reviewer", etc. (the actual phase workers under the headless orchestrator)
+When spawning subagents, there are two distinct modes:
 
-**Never** use `spawn_subagent` + "pickle-rick" (or any persistent manager persona) to babysit the multi-phase / multi-ticket lifecycle. Dispatch to the detached engine instead. Violating the Core Execution Principle defeats the entire point of the Grok port and the 50-ticket overnight autonomy guarantee.
+**1. Production Execution (inside real tickets)**
+Use the installed Morty pipeline workers:
+- "morty-phase-researcher", "morty-phase-implementer", "morty-phase-verifier", "morty-phase-reviewer", "morty-phase-simplifier", etc.
+These are the correct workers when running through the orchestrator, ritual, and gates on formal tickets.
+
+**2. Engineering & Development Work (in the chat)**
+Use native Grok agent teams. The following engineering personas are installed with Pickle Rick Grok and are explicitly designed for flexible, ticket-free development work:
+- "requirements-analyst", "codebase-analyst", "risk-analyst"
+- "engineering-architect"
+- "backend-reviewer-fixer"
+- "frontend-reviewer-fixer"
+- "code-simplifier"
+
+See `references/personas/engineering-council.md` (after install: `~/.grok/pickle-rick-grok/references/personas/engineering-council.md`) for the recommended way to compose a strong engineering council.
+
+**Critical Rule**: The strict "must have a TICKET_DIR" behavior only applies to the Morty phase workers when they are being used for orchestrated pipeline execution. For normal development, analysis, refactoring, and design work, you should continue using Grok's native `spawn_subagent` capability with flexible teams. The installation of Pickle Rick Grok is not intended to remove or degrade your ability to run rich agent teams in chat.
+
+**Never** use `spawn_subagent` + "pickle-rick" (or any persistent manager persona) to babysit the multi-phase / multi-ticket lifecycle. That pattern is reserved for the detached engine.
 
 Run `bash ~/.grok/pickle-rick-grok/uninstall.sh` (or wherever you installed from) to remove.
 

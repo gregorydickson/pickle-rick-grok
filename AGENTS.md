@@ -39,13 +39,23 @@ You are inside **pickle-rick-grok** — the production-hardened, Grok-native aut
   - The entire reason this project exists is to perform serious engineering work using **context-cleared headless `grok -p` tasks** driven by the detached TypeScript orchestrator.
   - This is the production path in: `/pickle-tmux`, `mux-runner`, `orchestrator`, `pipeline`, Anatomy Park driver, Szechuan Sauce driver, Citadel, self-improvement loop, etc.
   - `WorkerSpawner` + `grok -p --yolo` + `ManagerRitual` + `ConvergenceGate` + `CircuitBreaker` on every phase is not a fallback — it is the deliberate design for reliability, resumability, crash safety, and true per-phase context clearing at 50+ ticket scale.
-  - Rich native `spawn_subagent` (large agent teams) is **restricted by policy** to one place only: PRD refinement (`/pickle-refine-prd` with the Requirements/Codebase/Risk analyst council). Everything after ticket decomposition must use the headless detached path.
+  - **Two Modes of Agent Usage (Important)**
+
+- **Production Execution Mode** (long-running autonomous work, 50-ticket campaigns, self-improvement loops):  
+  Rich native `spawn_subagent` is restricted to **one place only**: PRD refinement (`/pickle-refine-prd` with the Requirements + Codebase + Risk analyst council). All ticket execution must use the headless detached path (`grok -p` + `WorkerSpawner` + `ManagerRitual` + gates).
+
+- **Engineering / Development Mode** (refactoring, architecture reviews, skill design, analysis, general thinking in chat):  
+  You are fully encouraged to use Grok's native `spawn_subagent` capability with flexible teams. The installation of Pickle Rick Grok includes a set of engineering-oriented personas (see `references/personas/engineering-council.md`) specifically so you can continue doing high-quality collaborative work without being forced into the strict Morty pipeline ticket model.
+
+The strict Morty-phase-* workers and ticket requirements exist to protect reliable long-running execution. They should not degrade your ability to run rich, flexible agent teams for development work.
   - The old interactive LLM-as-manager loop (`/pickle-rick`) was removed precisely because it violated this principle. Long-running autonomous work requires the machine, not a tired LLM babysitting the conversation.
   - Any future feature that tries to re-introduce a persistent interactive manager loop for ticket execution is a violation of the project charter and must be rejected.
 
 ## Contributor / Subagent Rules
 
-- When spawning Morties: use installed personas (`pickle-rick`, `morty-phase-*`) + `fork_context: false` + worktree isolation where mutating.
+- **For production ticket execution**: Use the installed Morty phase workers (`morty-phase-*`) inside real tickets with the full ritual.
+- **For engineering and development work in chat**: Use the engineering council personas (see `references/personas/engineering-council.md`). These are explicitly designed to be used with native `spawn_subagent` without requiring formal tickets.
+- When spawning Morties for pipeline work: use `fork_context: false` + worktree isolation where mutating.
 - Post-return: **always** delegate to `ManagerRitual` (single source, no dupe logic).
 - Every self-change goes through citadel gate in the loop.
 - Edit only under the discovered target root.
