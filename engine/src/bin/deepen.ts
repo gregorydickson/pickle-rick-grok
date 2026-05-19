@@ -24,7 +24,7 @@ if (cmd === 'run' || cmd === 'loop') {
   const maxItersFlag = args.find(a => a.startsWith('--max-iterations'));
   const maxIterations = maxItersFlag ? parseInt(maxItersFlag.split('=')[1] || args[args.indexOf(maxItersFlag) + 1] || '20', 10) : 20;
 
-  console.log(`[deepen] ${cmd.toUpperCase()} architecture deepening for ${sessionDir} (maxIters=${maxIterations})`);
+  // console.log(`[deepen] ${cmd.toUpperCase()  /* removed by anatomy-park */} architecture deepening for ${sessionDir} (maxIters=${maxIterations})`);
 
   const driver = new ArchitectureDeepener(sessionDir);
   const state = driver.init(['engine/src', 'skills', '.']);

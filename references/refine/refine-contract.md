@@ -32,8 +32,10 @@ spawn_subagent({
    - They are instructed to "read the other two analysts' work and either strengthen or refute".
    - Manager may add a 4th "synthesis critic" pass if the three are in violent agreement on something suspicious.
 4. **Synthesis** (Manager only):
-   - Produce `prd_refined.md` at the root (or session dir).
-   - It must be a strict superset of the original template with every requirement now having a real Verification column.
+   - **Default**: Overwrite the **original input PRD file in place** with the refined version (rich ACs, machine Verifies, hardening section).
+   - Rationale: "Refine this PRD" naturally means the supplied artifact gets upgraded. Separate `prd_refined.md` files create sprawl and version-tracking debt.
+   - Legacy sidecar: Only emit an additional `prd_refined.md` if the user explicitly requests it.
+   - The result must still be a strict superset of the original template with every requirement now having a real Verification column.
    - Append a "Hardening Tickets" section when the work is non-trivial.
 5. **Decomposition** (Manager only):
    - Break the refined requirements into atomic `tickets/<NNN-slug>/ticket.md` files.
@@ -49,10 +51,10 @@ spawn_subagent({
    - These are done via small `npx tsx -e 'import {Activity} from "./engine/src/activity-logger.js"; ...'` calls (same pattern used by the detached orchestrator and pipeline).
 
 ## Output Artifacts (non-negotiable)
-- `prd_refined.md` (beautiful, machine-checkable, ready for citadel)
-- `tickets/` tree with one dir per ticket containing `ticket.md`
-- Optional: `refine-notes.md` or `analyst-round-*.md` for audit trail (manager may keep or discard)
-- Activity events written to the unified log
+- The **original PRD file** (updated in place with rich ACs, Verifies, and hardening section) — this is the new default.
+- `tickets/` tree (under the session directory only) with one dir per ticket containing `ticket.md`
+- Optional: `refine-summary.md`, analyst round notes, or `prd_refined.md` (only if user explicitly asked for sidecar)
+- Activity events written to the unified log (refinement_completed, hardening_tickets_triggered)
 
 ## Hardening Ticket Rules
 When analysts surface material risk or new subsystems, the manager **must** emit 1–2 extra tickets of the form:
@@ -62,7 +64,7 @@ When analysts surface material risk or new subsystems, the manager **must** emit
 These hardening tickets are executed **after** the main implementation tickets in the pipeline, using the same 8-phase ritual but scoped to the final diff.
 
 ## Success Criteria for the Refine Step
-- `prd_refined.md` exists and every requirement row has a non-theatrical Verify cell.
+- The original PRD file has been updated in place; every requirement row now has a non-theatrical, runnable Verify cell.
 - At least 60% of tickets are < 5 files changed (the analysts were good at scoping).
 - Hardening tickets exist for any change that touches ritual, session, citadel, orchestrator, git_safety, or self-* surfaces.
 - Manager emits `<promise>REFINEMENT_COMPLETE</promise>` (or the standard `TASK_COMPLETED` for pipeline handoff).

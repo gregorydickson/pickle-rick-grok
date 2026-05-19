@@ -52,9 +52,10 @@ Violating these rules turns reliable 50-ticket autonomous runs into fragile chat
 
 2. **Run refinement into that session** (the only allowed rich `spawn_subagent` step)
    - Invoke `/pickle-refine-prd`.
-   - The refinement manager will write `prd_refined.md` + all `ticket.md` files **under the session directory** (using `SessionManager.ensureTicketDir`).
+   - The refinement manager will **update the original PRD file in place** (rich ACs + Verifies + hardening section) and write all `ticket.md` files **under the session directory** (using `persistTicket` via SessionManager).
    - This guarantees the tickets are in the exact layout the orchestrator, ritual, and mux-runner expect.
    - It emits the proper `refinement_completed` Activity events.
+   - A separate `prd_refined.md` is no longer created by default (the input PRD *is* the refined artifact).
 
 3. **Launch the Real Detached Build**
    ```bash

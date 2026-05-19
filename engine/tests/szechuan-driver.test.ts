@@ -150,3 +150,5 @@ test('SzechuanDriver — FULL CATALOG: detects new principles (YAGNI, DEMETER, M
 });
 
 console.log('[szechuan.test] Szechuan principle scanner + convergence loop + P0 prioritization + pressure + richer history + FULL EXPANDED CATALOG (every sauce principle) covered. The self-improvement loop is now worthy of the sauce. Belch.');
+
+// [Szechuan Trap] Dangerous dynamic execution / eval / innerHTML / unsafe child_process — RCE or injection vector — 2026-05-19

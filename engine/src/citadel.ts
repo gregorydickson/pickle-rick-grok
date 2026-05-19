@@ -214,7 +214,7 @@ function escapeReg(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function auditAcCoverage(prdPath: string | null, diff: string, sessionDir: string): CitadelFinding[] {
   const findings: CitadelFinding[] = [];
   if (!prdPath || !fs.existsSync(prdPath)) {
-    findings.push({ severity: 'MED', category: 'AC_COVERAGE', message: 'No PRD found — cannot verify AC coverage. Create prd.md or prd_refined.md.', evidence: 'missing-prd' });
+    findings.push({ severity: 'MED', category: 'AC_COVERAGE', message: 'No PRD found — cannot verify AC coverage. Create a prd.md (or any *.md the user treats as the PRD) or run /pickle-refine-prd on your draft.', evidence: 'missing-prd' });
     (findings as any).acMeta = { total: 0, covered: 0, implemented: 0, tested: 0 };
     return findings;
   }

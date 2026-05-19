@@ -87,7 +87,7 @@ You can also be explicit:
 
 - The more you can articulate **why** something matters and **how you will know it works**, the better the output.
 - Don’t worry about perfect wording on the first try — the system will push you with good questions.
-- Review the generated `prd.md` and `prd_refined.md` before saying “build”. The quality of the requirements directly impacts the quality of the implementation.
+- Review the (now in-place refined) PRD before saying “build”. The quality of the requirements directly impacts the quality of the implementation. (Refinement overwrites the original draft by default.)
 - Use `/help-pickle` anytime to see what’s available.
 
 ---

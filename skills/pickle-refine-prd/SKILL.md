@@ -1,6 +1,6 @@
 ---
 name: pickle-refine-prd
-description: Run the large native agent team (Requirements + Codebase + Risk analysts) for parallel multi-cycle refinement + atomic ticket decomposition. This is the ONLY step allowed to use rich spawn_subagent teams instead of headless grok -p. Produces prd_refined.md + tickets/ ready for orchestrator.
+description: Run the large native agent team (Requirements + Codebase + Risk analysts) for parallel multi-cycle refinement + atomic ticket decomposition. This is the ONLY step allowed to use rich spawn_subagent teams instead of headless grok -p. Updates the original PRD **in place** by default (rich ACs, Verifies, hardening section) and emits session-owned tickets/. Sidecar `prd_refined.md` is opt-in only.
 version: 3.0.0-large-team-grok
 triggers:
   - pickle-refine-prd
@@ -84,12 +84,16 @@ You may do a 4th "synthesis critic" spawn if the three are suspiciously aligned 
 ## Step 3: Synthesis (You, the Manager, do this)
 After the analysts are quiet:
 
-1. Synthesize a **complete `prd_refined.md`** at the root of the target (or session dir).
+**Default behavior (in-place refinement)**: Overwrite the **original input PRD file** (the exact path the user supplied to you in Step 1) with the fully refined version.
+   - This is now the canonical and preferred behavior. "Refine this PRD" means upgrade the artifact the user gave you.
    - Follow the exact structure of `/Users/gregorydickson/.grok/pickle-rick-grok/references/prd-template.md`
    - Every single requirement row **must** have a real, runnable Verification column.
    - Add a "Hardening Tickets" section at the bottom if the Risk/Codebase analysts surfaced material new surfaces.
+   - The file on disk is upgraded in place. No extra `prd_refined.md` sprawl.
 
-2. Write a short `refine-summary.md` (optional but useful) capturing the key debates between the analysts.
+**Legacy / opt-in sidecar mode**: Only if the user explicitly says "produce a separate prd_refined.md" (or passes a flag in future), emit an additional sidecar file. Default is always in-place.
+
+2. Write a short `refine-summary.md` (optional but useful) capturing the key debates between the analysts. (You may also append analyst round notes under the session dir for auditability.)
 
 ## Step 4: Atomic Ticket Decomposition
 **All tickets must be written under the session directory** (never at cwd root).
@@ -151,7 +155,7 @@ These events power `/pickle-metrics`, standup, and the self-improvement loop.
 Print a crisp summary:
 - Number of tickets created
 - Number of hardening tickets
-- Path to `prd_refined.md`
+- Original PRD path (now updated in place with rich ACs + Verifies)
 - Session directory (the one that now owns the tickets)
 - Ready command: `npx tsx engine/src/runners/mux-runner.ts <sessionDir>` or `npx tsx engine/src/bin/pipeline.ts <sessionDir> --no-refine --target <root>` (or `/pickle-tmux`)
 
@@ -169,7 +173,7 @@ If this was part of a larger `/pickle-pipeline` call, the manager there will now
 - Every ticket must have machine-checkable Verify commands (the Requirements Analyst's whole reason for existing).
 - Hardening tickets are mandatory for any change that touches the meta surfaces (ritual, session, citadel, orchestrator, git_safety, self-*).
 - Scope lists in tickets must be brutally honest — the ConvergenceGate will later punish violations.
-- The final `prd_refined.md` must be good enough that Citadel and the next self-PRD generator are happy with it.
+- The original PRD (now updated in place) must be good enough that Citadel and the next self-PRD generator are happy with it. If a sidecar was explicitly requested, the `prd_refined.md` must also satisfy the same bar.
 
 ## Why Only This Step Gets the Big Native Team
 See the top of `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/refine-contract.md`.  

@@ -34,7 +34,7 @@ This is the Core Execution Principle. Violating it defeats the entire point of t
 
 2. **Run refinement into that session**
    - Direct the user (or invoke) `/pickle-refine-prd`.
-   - The refinement manager will now create `prd_refined.md` + write every `ticket.md` **under the session directory** (`<SESSION_ROOT>/tickets/...`) using the proper `SessionManager` APIs.
+   - The refinement manager will now **update the original PRD in place** (rich ACs + Verifies) + write every `ticket.md` **under the session directory** (`<SESSION_ROOT>/tickets/...`) using `persistTicket`. A separate `prd_refined.md` is not created unless the user explicitly requests the legacy sidecar.
    - This is the only layout the orchestrator and ritual understand.
 
 3. **Launch the real detached orchestrator** using the installed path and `background: true`:

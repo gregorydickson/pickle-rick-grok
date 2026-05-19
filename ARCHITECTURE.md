@@ -103,7 +103,7 @@ The orchestrator can request `capability_mode: "read-only"` for research/review 
 ~/.local/share/pickle-rick/
   sessions/<date-hash>/
     state.json
-    prd.md / prd_refined.md
+    prd.md (or user-supplied PRD, updated in place by refine) / legacy prd_refined.md
     tickets/
       001-foo/
         research_*.md, plan_*.md, ...

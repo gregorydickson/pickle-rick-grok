@@ -2,7 +2,7 @@
 
 **Generated**: {{DATE}} via /pickle-refine-prd large-team decomposition
 **Category**: {{CATEGORY}} | **Severity**: {{SEVERITY}}
-**Source PRD**: prd_refined.md (or prd.md)
+**Source PRD**: the refined PRD (original file updated in place by `/pickle-refine-prd`, or `prd_refined.md` / `prd.md` in legacy runs)
 **Working Dir**: {{GROK_ROOT}}
 
 ## Justification

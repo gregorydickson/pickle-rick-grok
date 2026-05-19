@@ -13,7 +13,7 @@ triggers:
 
 ## Core Workflow (P0)
 - `/pickle-prd` — Draft a machine-verifiable PRD with verification column + contracts
-- `/pickle-refine-prd` — **Large native agent team** (Requirements + Codebase + Risk analysts, multi-cycle cross-critique via spawn_subagent). THE ONLY step allowed to use rich parallel teams instead of headless `grok -p`. Produces prd_refined.md + atomic tickets.
+- `/pickle-refine-prd` — **Large native agent team** (Requirements + Codebase + Risk analysts, multi-cycle cross-critique via spawn_subagent). THE ONLY step allowed to use rich parallel teams instead of headless `grok -p`. Updates the original PRD **in place** (rich ACs + Verifies + hardening) and emits session-owned atomic tickets. (Legacy sidecar `prd_refined.md` still supported if explicitly requested.)
 - `/pickle-tmux` — **Primary execution path** — Detached/background long-running mode via orchestrator + headless `grok -p` workers + full ritual/gate/circuit safety. This is the only supported way to run the 8-phase lifecycle at scale.
 - `/pickle-pipeline` — Full chain (optional refine + tmux-style build + citadel + anatomy + szechuan) in one command. Use this for real campaigns.
 

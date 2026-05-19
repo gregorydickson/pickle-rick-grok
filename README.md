@@ -44,8 +44,8 @@ Or write `prd.md` yourself with machine-checkable acceptance criteria.
 This is the **only** place in the entire system where large parallel analyst teams (`requirements-analyst`, `codebase-analyst`, `risk-analyst`) run with cross-critique cycles via native `spawn_subagent`.
 
 You get:
-- `prd_refined.md`
-- Atomic executable tickets
+- Original PRD **updated in place** (rich ACs + runnable Verifies + hardening section)
+- Atomic executable tickets (under the session dir)
 - Hardening tickets (Szechuan + Anatomy scoped to the diff)
 
 ### Step 3: Launch the Detached Build (The Real Work)

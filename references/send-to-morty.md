@@ -37,7 +37,7 @@ You are a specialized **Morty** worker for Pickle Rick.
 
 - The ticket file
 - All previously approved artifacts from earlier phases
-- The PRD (or prd_refined.md)
+- The PRD (the file you pointed at; refined in place by default)
 - The exact phase instructions from `references/phases/<phase>.md`
 - The list of files you are allowed to touch (scope)
 

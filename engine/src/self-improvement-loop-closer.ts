@@ -15,6 +15,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { execSync } from 'child_process';
 import { performPostCampaignIngest } from './self-prd-generator.js';
 import { Activity } from './activity-logger.js';
