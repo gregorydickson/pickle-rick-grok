@@ -16,6 +16,9 @@
  */
 import { SessionManager } from '../session.js';
 import { runOrchestrator, RunOrchestratorOptions } from '../bin/orchestrator.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import { execSync } from 'child_process';
 
 export interface DetachedOptions {
   monitor?: boolean;
@@ -25,6 +28,43 @@ export interface DetachedOptions {
    *  This is the normal recovery flow after fixing an engine bug, a crash, or a bad max_turns event.
    */
   recoverFailed?: boolean;
+  /** Force post phases (citadel+anatomy+szechuan+closer) after orchestrator success. */
+  chainPost?: boolean;
+  /** Marks as self-improvement run for auto post-chaining detection. */
+  selfImprovement?: boolean;
+}
+
+/** Cheap early env probe for worker spawns (captures PATH/grok visibility for "works in shell, fails in mux" RCA). */
+function runWorkerEnvProbe(sessionDir: string): any {
+  const p = (process.env.PATH || '').split(path.delimiter).slice(0, 6);
+  const probe: any = {
+    ts: new Date().toISOString(),
+    node: process.version,
+    platform: process.platform,
+    pathHead: p,
+    cwd: process.cwd(),
+    PICKLE_FORCE_HEADLESS: process.env.PICKLE_FORCE_HEADLESS || null,
+  };
+  try {
+    const w = execSync('which grok 2>/dev/null || which grok-cli 2>/dev/null || echo "GROK_NOT_IN_PATH"', { encoding: 'utf8', timeout: 4000 }).trim();
+    probe.whichGrok = w;
+    probe.grokInPath = !w.includes('NOT_IN_PATH');
+  } catch (e: any) {
+    probe.whichErr = e?.message || String(e);
+  }
+  try {
+    probe.grokHelp = execSync('grok --help 2>&1 | head -3', { encoding: 'utf8', timeout: 6000 }).trim().slice(0, 180);
+  } catch (e: any) {
+    probe.helpErr = (e?.status ? `exit=${e.status}` : (e?.message || String(e)));
+  }
+  try {
+    const probeFile = path.join(sessionDir, 'worker-env-probe.json');
+    fs.mkdirSync(sessionDir, { recursive: true });
+    fs.writeFileSync(probeFile, JSON.stringify(probe, null, 2));
+  } catch (e: any) {
+    console.warn('[mux-runner] env-probe write skipped:', e?.message);
+  }
+  return probe;
 }
 
 export async function runDetached(sessionDir: string, options: DetachedOptions = {}) {
@@ -44,6 +84,29 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
   if (!claim.ok) {
     console.error(`[mux-runner] ${claim.reason}. Existing pid=${claim.existingPid}. Use kill or wait, or rm .orchestrator.pid if you are SURE after a reboot.`);
     throw new Error('concurrent orchestrator detected for this sessionDir');
+  }
+
+  // Early cheap env probe (before heavy load) — forensics for grok CLI visibility in spawned workers
+  const probe = runWorkerEnvProbe(sessionDir);
+  if (probe.grokInPath === false) {
+    console.warn('[mux-runner] WARNING: grok not found in PATH for this worker env — interactive may work, detached spawns will fail. See worker-env-probe.json');
+  }
+
+  // P0 guard: validate full ticket.md artifacts exist vs state (catches partial refine / zombie tickets)
+  // BEFORE loading heavy state or entering orchestrator. Hard fail with recovery.
+  try {
+    const val = sm.validateTicketArtifacts(sessionDir);
+    if (!val.valid) {
+      console.error(val.error || '[mux-runner] validateTicketArtifacts P0 GUARD FAILED');
+      console.error('Recovery: rm -rf ' + sessionDir + ' ; re-invoke via run-pipeline --prd ... --fresh then /pickle-refine-prd ; or npx tsx engine/src/bin/recover.ts ' + sessionDir + ' --reset-failed --force');
+      sm.releaseOrchestratorRun(sessionDir);
+      throw new Error('[mux-runner] P0 ticket artifacts validation failed (partial-refine zombie)');
+    }
+  } catch (vErr: any) {
+    if (String(vErr?.message || vErr).includes('P0 ticket') || String(vErr?.message || vErr).includes('validateTicketArtifacts')) {
+      throw vErr;
+    }
+    // non-fatal on unexpected (e.g. no state yet)
   }
 
   let state: any;
@@ -72,6 +135,12 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
       console.log('[mux-runner] --recover-failed: no failed tickets found');
     }
   }
+
+  // Decide post-chaining: explicit flag, or self-improvement flag, or auto-detect R-META/self-meta tickets in state
+  const hasMetaTickets = (state.tickets || []).some((t: any) =>
+    String(t.id || '').startsWith('R-META') || t.isSelfMeta || t.meta
+  );
+  const shouldChainPost = !!(options.chainPost || options.selfImprovement || hasMetaTickets || (state as any).selfImprovement);
 
   // Touch / init the campaign status so monitors see the run starting immediately
   const initialSnap = sm.countRemainingTickets(sessionDir);
@@ -139,6 +208,50 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
   // Drive the REAL production orchestrator + ritual (no more stub)
   try {
     await runOrchestrator(sessionDir, orchOptions);
+    if (!shuttingDown && shouldChainPost) {
+      const postTarget = sm.getWorkingDirSafe(sessionDir);
+      console.log(`[mux-runner] SUCCESS + chain-post/self-meta: running best-effort post block (citadel+anatomy+szechuan+closer) to ${postTarget} before lock release`);
+      try {
+        // Citadel
+        try {
+          const citMod: any = await import('../citadel.js');
+          const c = citMod.runCitadel(sessionDir);
+          console.log(`[mux-runner] Post Citadel: ${c?.findings?.length ?? 0} findings (overall=${c?.overall || 'PASS'})`);
+        } catch (ce: any) { console.error('[mux-runner] post-citadel non-fatal:', ce?.message || ce); }
+
+        // Anatomy Park
+        try {
+          const anaMod: any = await import('../anatomy.js');
+          const anatomy = new anaMod.AnatomyParkDriver(sessionDir);
+          const apSubs = ['engine/src', 'skills', 'references', 'prds'];
+          let apState: any; try { apState = anatomy.load(); } catch { apState = anatomy.init(apSubs); }
+          for (const sub of apSubs) {
+            const r = anatomy.executeThreePhaseCycle(apState, sub);
+            console.log(`  [anatomy] ${sub}: ${r?.ok ? 'ok' : 'issues'} trap=${!!r?.trapDoorAdded}`);
+          }
+        } catch (ae: any) { console.error('[mux-runner] post-anatomy non-fatal:', ae?.message || ae); }
+
+        // Szechuan
+        try {
+          const szMod: any = await import('../szechuan.js');
+          const szech = new szMod.SzechuanDriver(sessionDir);
+          let szState: any; try { szState = szech.load(); } catch { szState = szech.init([postTarget]); }
+          const szr = szech.runConvergence(szState);
+          console.log(`[mux-runner] Post Szechuan: converged=${!!szr?.converged} iters=${szr?.iterations || 0}`);
+        } catch (se: any) { console.error('[mux-runner] post-szechuan non-fatal:', se?.message || se); }
+
+        // Closer + post-campaign ingest (for self-improvement)
+        try {
+          const clMod: any = await import('../self-improvement-loop-closer.js');
+          const prdMod: any = await import('../self-prd-generator.js');
+          const clRes = clMod.runSelfImprovementLoopCloser(sessionDir, postTarget);
+          console.log(`[mux-runner] Post Closer: ${clRes?.summary || 'done'}`);
+          prdMod.performPostCampaignIngest(postTarget, sessionDir);
+        } catch (ce: any) { console.error('[mux-runner] post-closer/ingest non-fatal:', ce?.message || ce); }
+      } catch (pErr: any) {
+        console.error('[mux-runner] Post block error (non-fatal):', pErr?.message || pErr);
+      }
+    }
     if (shuttingDown) {
       console.log('[mux-runner] Graceful shutdown completed. Session is resumable. Go forth and conquer, Rick.');
     } else {
@@ -157,10 +270,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const sessionDir = process.argv[2];
   const monitor = process.argv.includes('--monitor');
   const recoverFailed = process.argv.includes('--recover-failed') || process.argv.includes('--reset-failed');
+  const chainPost = process.argv.includes('--chain-post');
+  const selfImp = process.argv.includes('--self-improvement');
   const hbIdx = process.argv.indexOf('--heartbeat-ms');
   const hb = hbIdx !== -1 ? parseInt(process.argv[hbIdx + 1] || '300000', 10) : undefined;
 
-  const hbOpts: any = { monitor, recoverFailed };
+  const hbOpts: any = { monitor, recoverFailed, chainPost, selfImprovement: selfImp };
   if (hb !== undefined) hbOpts.heartbeatIntervalMs = hb;
 
   runDetached(sessionDir, hbOpts).catch((e) => {

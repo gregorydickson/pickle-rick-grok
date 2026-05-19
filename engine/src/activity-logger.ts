@@ -36,7 +36,11 @@ export type ActivityEventType =
   | 'meta_phase_started'
   | 'post_campaign_ingest'
   | 'prd_feedback_ingested'
-  | 'self_meta_ticket';
+  | 'self_meta_ticket'
+  | 'prdPipelineInitiated'
+  | 'sessionLinkedToPrd'
+  | 'preflightReport'
+  | 'awaitingRefineForPrd';
 
 export interface ActivityEvent {
   ts: string;
@@ -378,6 +382,47 @@ export const Activity = {
       session: sessionId,
       ticket: ticketId,
       details: { title, meta: true },
+    });
+  },
+
+  prdPipelineInitiated(sessionId: string, prdPath?: string, extra?: Record<string, any>) {
+    const evt: any = {
+      ts: new Date().toISOString(),
+      event: 'prdPipelineInitiated' as const,
+      source: 'pipeline',
+      session: sessionId,
+    };
+    if (prdPath || extra) evt.details = { prdPath, ...(extra || {}) };
+    logActivity(evt);
+  },
+
+  sessionLinkedToPrd(sessionId: string, prdPath: string, linkedAt?: string) {
+    logActivity({
+      ts: new Date().toISOString(),
+      event: 'sessionLinkedToPrd' as const,
+      source: 'session-manager',
+      session: sessionId,
+      details: { prdPath, linkedAt: linkedAt || new Date().toISOString() },
+    });
+  },
+
+  preflightReport(sessionId: string, summary: Record<string, any>) {
+    logActivity({
+      ts: new Date().toISOString(),
+      event: 'preflightReport' as const,
+      source: 'preflight',
+      session: sessionId,
+      details: summary,
+    });
+  },
+
+  awaitingRefineForPrd(sessionId: string, prdPath: string, reasons?: string[]) {
+    logActivity({
+      ts: new Date().toISOString(),
+      event: 'awaitingRefineForPrd' as const,
+      source: 'preflight',
+      session: sessionId,
+      details: { prdPath, reasons: reasons || [] },
     });
   },
 

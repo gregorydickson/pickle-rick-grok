@@ -115,6 +115,29 @@ function runGit(cmd: string, cwd: string): string {
 }
 
 function findPrd(sessionDir: string, cwd: string): string | null {
+  // P0-5: prefer stamped machine linkage from session (sourcePrd or .prd-source.json) if present & exists
+  try {
+    const sm = new SessionManager();
+    const state = sm.loadState(sessionDir);
+    if (state.sourcePrd && fs.existsSync(state.sourcePrd)) {
+      return state.sourcePrd;
+    }
+  } catch {
+    /* no state or no stamp — fall through to heuristic candidates */
+  }
+  // also check sidecar written by stampPrdSource
+  try {
+    const metaP = path.join(sessionDir, '.prd-source.json');
+    if (fs.existsSync(metaP)) {
+      const meta = JSON.parse(fs.readFileSync(metaP, 'utf8'));
+      if (meta.prdPath && fs.existsSync(meta.prdPath)) {
+        return meta.prdPath;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
   const candidates = [
     path.join(sessionDir, 'prd_refined.md'),
     path.join(sessionDir, 'prd.md'),

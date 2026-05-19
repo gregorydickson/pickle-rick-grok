@@ -1,19 +1,18 @@
 #!/usr/bin/env node
 /**
- * pipeline.ts — Full autonomous pipeline: refine? → build (orchestrator) → citadel → anatomy-park → szechuan (FULL EXPANDED)
+ * pipeline.ts — *Post-build* phases runner: citadel → anatomy-park → szechuan (+ deepen + self-improvement closer/ingest)
+ *
+ * (refine + build/orchestrator are handled upstream by run-pipeline / mux-runner; this is the post slice for chaining)
  *
  * SZECHUAN NOW: every principle from both original sauce md files (KISS thru Audit Trail, financial elevation included).
  * Scanner comprehensive, prioritized, confidence-filtered, walks entire project (code + md + sh) to deslop the self-improvement loop itself.
  *
  * META PHASES (first-class):
- *   --self-improvement  →  pre: generateSelfPrd (backlog-aware, targets ritual/persist/citadel-depth)
- *                        (optionally auto-decomposes seeds to tickets/<R-META>/ticket.md via sessionDirToPopulate)
- *                        post: runSelfImprovementLoopCloser + performPostCampaignIngest (writes backlog, emits Activity)
- *   Always passes correct targetRoot (explicit --target or cwd), never sessionDir.
- *   Emits meta_phase_started / self_prd_generated / post_campaign_ingest / loop_closed.
+ *   --self-improvement  →  runSelfImprovementLoopCloser + performPostCampaignIngest (writes backlog, emits Activity)
+ *   --target <grok-root> always honored for drivers.
  *
  * Real drivers + citadel gate + ritual. Self-dogfood at 50+ ticket scale.
- * For true meta autonomy the caller (runFullSelfLoop) now passes session so tickets are born executable.
+ * Early P0 validateTicketArtifacts guard (unless --force). Prefers stamped state.sourcePrd for PRD lookups.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -24,6 +23,7 @@ import { ArchitectureDeepener } from '../arch-deepener.js';
 import { Activity } from '../activity-logger.js';
 import { generateSelfPrd as runSelfPrdGenerator, performPostCampaignIngest } from '../self-prd-generator.js';
 import { runSelfImprovementLoopCloser } from '../self-improvement-loop-closer.js';
+import { SessionManager } from '../session.js';
 
 const sessionDir = process.argv[2];
 if (!sessionDir) {
@@ -38,15 +38,41 @@ const explicitDeepen = args.includes('--deepen');
 const doDeepen = explicitDeepen || selfMode; // self-improvement implies architecture deepening
 const explicitTarget = (args.includes('--target') ? args[args.indexOf('--target') + 1] : null) || process.cwd();
 const targetRoot = path.resolve(explicitTarget);
+const force = args.includes('--force') || args.includes('--skip-validate');
 
 console.log(`[pipeline] Starting for session ${path.basename(sessionDir)} target=${targetRoot} selfMode=${selfMode} deepen=${doDeepen}`);
+
+// P0 early guard (unless --force): validateTicketArtifacts before any post work (defends direct calls from loop-closer/self-improvement)
+if (!force) {
+  try {
+    const val = new SessionManager().validateTicketArtifacts(sessionDir);
+    if (!val.valid) {
+      console.error(val.error || '[pipeline] validateTicketArtifacts P0 GUARD FAILED');
+      console.error('Recovery: (1) re-run with --force (last resort, may crash later); (2) use recover.ts --reset-failed; (3) ensure refine materialized all ticket.md');
+      process.exit(1);
+    }
+  } catch (vErr: any) {
+    console.warn('[pipeline] validateTicketArtifacts check non-fatal (proceeding):', vErr?.message || vErr);
+  }
+}
+
+// Prefer stamped sourcePrd from state for internal PRD lookups (citadel etc) — avoids stale heuristic paths
+let prdOverride: string | undefined;
+try {
+  const sm = new SessionManager();
+  const st: any = sm.loadState(sessionDir);
+  if (st && st.sourcePrd && fs.existsSync(st.sourcePrd)) {
+    prdOverride = st.sourcePrd;
+    console.log(`[pipeline] Using stamped sourcePrd: ${prdOverride}`);
+  }
+} catch { /* no state or no stamp — citadel will fall back */ }
 
 // PRD / refine phase omitted here for brevity (handled by caller or skill orchestrator)
 
 console.log('[pipeline] Citadel...');
 let citadelReport: any;
 try {
-  citadelReport = runCitadel(sessionDir);
+  citadelReport = runCitadel(sessionDir, prdOverride);
   console.log(`[pipeline] Citadel: ${citadelReport.findings?.length ?? 0} findings (overall=${citadelReport.overall})`);
 } catch (cErr: any) {
   console.error('[pipeline] Citadel error (non-fatal for self-mode):', (cErr as any)?.message || cErr);

@@ -146,3 +146,56 @@ export interface AnatomyParkState {
   currentIteration?: number;
   [key: string]: any;
 }
+
+// === SESSION STATE (was ad-hoc / inferred; now first-class for PRD linkage + preflight) ===
+export interface SessionTicket extends Ticket {
+  path?: string;
+  phasesCompleted?: string[];
+  sourcePrd?: string;
+  justification?: string;
+  isHardening?: boolean;
+  category?: string;
+  severity?: string;
+  [key: string]: any; // tolerate rich meta from emitter / generators
+}
+
+export interface SessionState {
+  sessionId: string;
+  createdAt: string;
+  workingDir: string;
+  step: Step;
+  tickets: Array<Ticket & Record<string, any>>;
+  maxIterations: number;
+  backend: Backend;
+  runtime: Runtime;
+  flags: Record<string, any>;
+  breaker: Record<string, any>;
+  currentTicketId?: string;
+  /** PRD linkage for machine-owned "run pipeline on PRD" flows (P0-1) */
+  sourcePrd?: string;
+  prdLinkedAt?: string;
+  prdContentHash?: string;
+  [key: string]: any; // graceful evolution + backward compat for old sessions
+}
+
+// === PREFLIGHT (P0-2 machine guards for PRD→session) ===
+export interface PreflightReport {
+  ok: boolean;
+  needsRefine: boolean;
+  isZombie: boolean;
+  isConsistent: boolean;
+  ticketCountOnDisk: number;
+  missingTicketIds: string[];
+  sourcePrdMatch: boolean;
+  diagnostics: string[];
+  prdPath?: string;
+  sessionSourcePrd?: string;
+  refinement?: {
+    sufficient: boolean;
+    score: number;
+    reasons: string[];
+  };
+  ticketFilesOnDisk?: number; // alias/detail
+  isMeta?: boolean; // attached by run-pipeline for post decision (meta R-META tickets)
+  [key: string]: any;
+}

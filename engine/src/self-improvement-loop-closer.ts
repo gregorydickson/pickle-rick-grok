@@ -5,12 +5,14 @@
  * Called by pipeline as final meta-phase (or standalone for cron).
  * Always writes backlog, always emits real Activity.selfImprovementLoopClosed + post_campaign.
  * runFullSelfLoop now:
- *   - creates session
- *   - gen PRD WITH sessionDirToPopulate → autoDecompose writes 50 real executable R-META ticket.md + updates state
- *   - fires pipeline --no-refine --self-improvement (orchestrator sees tickets + isSelfMeta flags, runs full 8-phase ritual)
- *   - closer ingests
+ *   - creates session via createSessionForPrd (PRD-linked provenance)
+ *   - gen PRD + autoDecompose (via emitter) writes 50 R-META ticket.md
+ *   - writes the generated PRD artifact
+ *   - fires the canonical run-pipeline.ts --prd <generated> --self-improvement --no-refine (preflight + build + citadel+anatomy+szech+closer/ingest all in one)
+ *   - (no duplicate closer; the dispatch owns the full post)
  *
  * 100% autonomous for the 50-ticket self case. No /pickle-refine-prd required for meta dogfood.
+ * Closes the "self-loop sometimes skips the build" gap (was missing await + old direct pipeline on session + no PRD stamp).
  */
 
 import * as fs from 'fs';
@@ -53,28 +55,48 @@ export async function runFullSelfLoop(opts: CloserOptions = {}): Promise<void> {
   const iters = opts.iterations || 1;
   const root = opts.targetRoot || process.cwd();
   const sm = new SessionManager();
-  const pipelineBin = path.join(__dirname, 'pipeline.ts');
+  const runPipelineBin = path.join(__dirname, 'run-pipeline.ts');
 
   for (let i = 1; i <= iters; i++) {
     console.log(`\n[loop-closer] SELF-ITER ${i}/${iters}`);
-    const { sessionDir } = sm.createSession(root, `self-meta-${i}`, 200, 'grok', 'grok');
-    console.log(`[loop-closer] session ${sessionDir}`);
 
-    // gen PRD — pass session so auto-decompose writes the full ticket.md files (ACs/contracts/justifs)
-    // This is the magic that makes --no-refine work for true hands-off meta runs.
+    // Per-iter PRD path (written here for provenance). Use createSessionForPrd so run-pipeline --prd will find+reuse the populated session.
+    const today = new Date().toISOString().slice(0, 10);
+    const prdDir = path.join(root, 'prds');
+    fs.mkdirSync(prdDir, { recursive: true });
+    const prdPath = path.join(prdDir, `self-meta-epic-${today}-iter${i}.md`);
+    const task = `self-r-meta-iter-${i}`;
+
+    const res = await sm.createSessionForPrd(root, task, prdPath, 200, 'grok' as any, 'grok' as any);
+    const sessionDir = res.sessionDir;
+    console.log(`[loop-closer] session (PRD-linked) ${sessionDir}`);
+
+    // gen PRD content + populate tickets into the stamped session (now awaited — was the skip-build bug)
     const genMod = await import('./self-prd-generator.js');
-    const g = genMod.generateSelfPrd(root, { full: true, sessionDirToPopulate: sessionDir });
-    console.log(`[loop-closer] gen: ${g.gapCount} gaps, ${g.ticketsPopulated || 0} tickets auto-written`);
+    const g = await genMod.generateSelfPrd(root, { full: true, sessionDirToPopulate: sessionDir });
+    console.log(`[loop-closer] gen: ${g.gapCount} gaps, ${g.ticketsPopulated || 0} tickets auto-written (emitter path)`);
 
-    // real pipeline with meta + no-refine (tickets already exist + populated in state)
-    try {
-      execSync(`npx tsx ${pipelineBin} ${sessionDir} --self-improvement --target ${root} --no-refine`, { stdio: 'inherit', cwd: root });
-    } catch (e) {
-      console.warn('[loop-closer] pipeline exited non-zero (may be expected on first/empty runs or citadel FAILs)');
+    // Write the PRD artifact (now the canonical entrypoint key)
+    if (!opts.dry) {
+      fs.writeFileSync(prdPath, g.prdMarkdown, 'utf8');
+      try {
+        await sm.stampPrdSource(sessionDir, prdPath);
+      } catch (e: any) {
+        console.warn('[loop-closer] stamp non-fatal:', e?.message || e);
+      }
     }
 
-    // explicit closer too (ingest + write backlog + emit)
-    runSelfImprovementLoopCloser(sessionDir, root);
+    // Launch via the single canonical thin dispatcher (does preflight, validate, mux, post citadel+ap+sz+closer/ingest for --self)
+    // This unifies the self-loop with user-facing run-pipeline and guarantees the build phase is never skipped.
+    try {
+      const bgFlag = opts.background ? ' --background' : '';
+      execSync(`npx tsx ${runPipelineBin} --prd ${prdPath} --self-improvement --no-refine --target ${root}${bgFlag}`, { stdio: 'inherit', cwd: root });
+    } catch (e) {
+      console.warn('[loop-closer] run-pipeline exited non-zero (may be expected on first/empty runs or citadel FAILs)');
+    }
+
+    // No explicit closer here: run-pipeline --self-improvement already ran the full post (closer + ingest + Activity) inside its meta phase.
+    // (Prevents duplicate backlog appends that the old direct-pipeline path could cause.)
   }
   console.log('[loop-closer] FULL SELF LOOP COMPLETE. <promise>META_CLOSED</promise>');
 }

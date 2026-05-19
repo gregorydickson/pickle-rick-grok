@@ -12,7 +12,7 @@
  *   - autoDecomposeIntoTickets bootstraps state + writes 50 executable tickets/<R-META-xxx>/ticket.md
  *     (rich ## Justification, machine AC|Verify tables with runnable cmds, scope, contracts, 8-phase notes)
  *   - state is orchestrator/mux-runner ready (workingDir=grokRoot, isSelfMeta flags, step=implementing)
- *   - prints the exact detached launch command (mux-runner or pipeline --no-refine --self)
+ *   - prints the exact detached launch command (run-pipeline.ts --prd <generated-prd> --self-improvement --no-refine [--background] — canonical; mux-runner bare-session alt for power users)
  *
  * ZERO external /pickle-refine-prd, zero pre-createSession, zero human glue.
  * The self-PRD generator *is* the ticket factory for hands-off meta dogfood.
@@ -27,6 +27,7 @@ import { Activity } from './activity-logger.js';
 import { SessionManager } from './session.js';
 import type { Ticket, SessionState, Backend, Runtime } from './types.js';
 import { safeRead } from './lib/phase-utils.js';
+import { emitRefinedTickets, type TicketSpec } from './lib/ticket-emitter.js';
 
 const GROK_CRITICAL_FILES = [
   'engine/src/bin/orchestrator.ts',
@@ -440,67 +441,38 @@ function getScopeForCategory(cat: string): string[] {
   return map[cat] || ['engine/src/bin/pipeline.ts', 'engine/src/self-prd-generator.ts', 'engine/src/self-improvement-loop-closer.ts'];
 }
 
-function generateRichTicketMarkdown(seed: SelfTicketSeed, grokRoot: string): string {
+function seedToTicketSpec(seed: SelfTicketSeed, grokRoot: string): TicketSpec {
   const scopes = getScopeForCategory(seed.category);
   const shortVerif = seed.verification.replace(/`/g, '').slice(0, 120);
-  const today = new Date().toISOString().slice(0, 10);
+  const scopeStr = scopes.map((s) => `- ${s}`).join('\n') + `\n- engine/tests/*${seed.category}*.test.ts (add or update one test if it makes AC-01 pass)\n- No other files. Violate = ritual fails the ticket.`;
 
-  return `# ${seed.id} — ${seed.title}
-
-**Generated**: Self-PRD Generator auto-decompose @ ${today}
-**Category**: ${seed.category} | **Severity**: ${seed.severity}
-**Grok Root**: ${grokRoot}
-**Self-Meta**: true — this ticket was born from the engine scanning itself. Eat your own dogfood.
-
-## Justification
-${seed.description}
+  return {
+    id: seed.id,
+    title: seed.title,
+    justification: `${seed.description}
 
 Evidence from scanner: the gap was live in the current tree against reliability-backlog.md. This is one atomic slice of the meta-loop closure. The 8-phase lifecycle (researcher → research-reviewer → planner → plan-reviewer → implementer → verifier → reviewer → simplifier) must research the exact site, plan the minimal patch, implement, verify the command below, and leave the tree cleaner.
 
-**Why this matters for 50-ticket autonomy**: Without these, the self-loop cannot run detached overnight. Jerry reboots, signals fly, state must survive. Close it or the pickle starves.
-
-## Acceptance Criteria (machine-checkable, verifier-enforceable)
-| ID | Criterion | Verify |
-|----|-----------|--------|
-| AC-01 | Gap closed per description — the behavior or code now satisfies the original scanner intent | ${shortVerif} (run in working dir; must exit 0 or report success) |
-| AC-02 | All 8 Morty phases complete for this ticket via canonical ManagerRitual (promise token + artifact) | state.json shows phasesCompleted includes all 8 roles for ${seed.id}; ritual logs show no bypass |
-| AC-03 | Scope strictly honored — only files under declared scope mutated (plus minimal tests) | git diff --name-only HEAD shows paths inside [${scopes.join(', ')}] |
-| AC-04 | Post-implementation generator run no longer flags this exact category (or verification passes) | npx tsx engine/src/self-prd-generator.ts --full 2>&1 | grep -i ${seed.category} → suppressed or victory |
-| AC-05 | Conformance + citadel happy on the delta; no new slop or TODOs introduced in scope | conformance_${seed.id}.md exists with pass signals; citadel on session reports no CRITICAL on this ticket |
-| AC-06 | Meta ticket special path exercised (orchestrator logs "META TICKET", Activity.selfMetaTicket emitted) | grep logs for "META TICKET ${seed.id}" or Activity event |
-
-## Contracts
-- Smallest change that satisfies the AC table (no Jerry bloat, no 400-line "refactors")
-- All state writes go through writeJsonAtomic or equivalent tmp+rename
-- Git ops respect the pinned branch + scoped restore only
-- If touching ritual/session/orchestrator: ensure ManagerRitual is the single post-return choke point
-- Emit Activity events for meta observability where the surface already supports it
-- Rollback on gate/circuit trip must leave tree identical to preSha for this ticket's files
-
-## Scope (Morty is ONLY allowed to touch these)
-${scopes.map(s => `- ${s}`).join('\n')}
-- engine/tests/ *${seed.category}*.test.ts (add or update one test if it makes AC-01 pass)
-- No other files. Violate = ritual fails the ticket.
-
-## Non-Goals
-- Do not touch user-facing skills or claude-side unless the gap explicitly lists them
-- Do not change defaults for non-self (normal /pickle) runs
-- Do not add deps or big new abstractions
-- Victory condition is "gap disappears from next generator scan", not "perfect code"
-
-## Implementation Notes for the 8 Phases
-- **Researcher**: locate the functions/files in verification + analogous patterns; list data flows for claim/ritual/citadel
-- **Planner**: one-page plan with exact diff sketch + which AC each hunk satisfies
-- **Implementer**: do the edit + commit; write conformance_${seed.id}.md citing the ACs + output of the verify command
-- **Verifier**: literally exec the verification string + typecheck/lint on touched files; fail ticket if any AC red
-- **Reviewer/Simplifier**: shave any fat, ensure the change would make the *next* self-PRD smaller
-
-When every phase emits <promise>I AM DONE</promise> and artifacts pass ritual contracts, the ticket is done. The loop-closer will then ingest and the next generator run will have one fewer P0.
-
-**Rick**: "This ticket.md *is* the acceptance criteria for the meta loop itself. If you can't close your own gaps autonomously, you don't deserve to call yourself a Rick. Now go make the numbers go down, Morty."
-
-Wubba lubba dub dub. Close the loop.
-`;
+**Why this matters for 50-ticket autonomy**: Without these, the self-loop cannot run detached overnight. Jerry reboots, signals fly, state must survive. Close it or the pickle starves.`,
+    acceptanceCriteria: [
+      { id: 'AC-01', criterion: 'Gap closed per description — the behavior or code now satisfies the original scanner intent', verify: `${shortVerif} (run in working dir; must exit 0 or report success)` },
+      { id: 'AC-02', criterion: `All 8 Morty phases complete for this ticket via canonical ManagerRitual (promise token + artifact) for ${seed.id}`, verify: `state.json shows phasesCompleted includes all 8 roles for ${seed.id}; ritual logs show no bypass` },
+      { id: 'AC-03', criterion: 'Scope strictly honored — only files under declared scope mutated (plus minimal tests)', verify: `git diff --name-only HEAD shows paths inside [${scopes.join(', ')}]` },
+      { id: 'AC-04', criterion: 'Post-implementation generator run no longer flags this exact category (or verification passes)', verify: `npx tsx engine/src/self-prd-generator.ts --full 2>&1 | grep -i ${seed.category} → suppressed or victory` },
+      { id: 'AC-05', criterion: 'Conformance + citadel happy on the delta; no new slop or TODOs introduced in scope', verify: `conformance_${seed.id}.md exists with pass signals; citadel on session reports no CRITICAL on this ticket` },
+      { id: 'AC-06', criterion: 'Meta ticket special path exercised (orchestrator logs "META TICKET", Activity.selfMetaTicket emitted)', verify: `grep logs for "META TICKET ${seed.id}" or Activity event` },
+    ],
+    contracts: `Smallest change that satisfies the AC table (no Jerry bloat, no 400-line "refactors"). All state writes go through writeJsonAtomic or equivalent tmp+rename. Git ops respect the pinned branch + scoped restore only. If touching ritual/session/orchestrator: ensure ManagerRitual is the single post-return choke point. Emit Activity events for meta observability where the surface already supports it. Rollback on gate/circuit trip must leave tree identical to preSha for this ticket's files.`,
+    scope: scopeStr,
+    nonGoals: `Do not touch user-facing skills or claude-side unless the gap explicitly lists them. Do not change defaults for non-self (normal /pickle) runs. Do not add deps or big new abstractions. Victory condition is "gap disappears from next generator scan", not "perfect code".`,
+    category: seed.category,
+    severity: seed.severity,
+    sourcePrd: 'self-generated',
+    generatedBy: 'self-prd-generator',
+    // extra carried via spread in emitter
+    isSelfMeta: true as any,
+    meta: true as any,
+  };
 }
 
 export async function autoDecomposeIntoTickets(
@@ -553,28 +525,25 @@ export async function autoDecomposeIntoTickets(
     }
   }
 
-  const created: Ticket[] = [];
-  for (const seed of seeds) {
-    const md = generateRichTicketMarkdown(seed, grokRoot);
-    await sm.persistTicket(sessionDir, seed.id, md, {
-      title: seed.title,
-      status: 'pending',
-      phasesCompleted: [],
-      isSelfMeta: true,
-      meta: true,
-    });
+  // Prefer the canonical emitter for ticket writing (P0-7): uniform md gen from TicketSpec, persistTicket, state flip, Activity.refinementCompleted etc.
+  // Self seeds are mapped to rich ACs + justification + self-meta flags so R-META tickets retain full dogfood quality and 8-phase specificity.
+  const specs: TicketSpec[] = seeds.map((seed) => seedToTicketSpec(seed, grokRoot));
+  const emitRes = await emitRefinedTickets(sessionDir, specs, {
+    updateStateToImplementing: true,
+    emitActivity: true,
+    generatedBy: 'self-prd-generator (R-META autonomous)',
+    grokRoot,
+  });
 
-    const t: Ticket = {
-      id: seed.id,
-      title: seed.title,
-      path: path.join('tickets', seed.id, 'ticket.md'),
-      status: 'pending',
-      phasesCompleted: [],
-      isSelfMeta: true,
-      meta: true,
-    };
-    created.push(t);
-  }
+  const created: Ticket[] = seeds.map((seed) => ({
+    id: seed.id,
+    title: seed.title,
+    path: path.join('tickets', seed.id, 'ticket.md'),
+    status: 'pending',
+    phasesCompleted: [],
+    isSelfMeta: true,
+    meta: true,
+  }));
 
   if (opts.updateState && state) {
     state.tickets = created;
@@ -583,7 +552,7 @@ export async function autoDecomposeIntoTickets(
 
     try {
       sm.updateCampaignStatusSync(sessionDir, {
-        note: `self-prd auto-decomposed ${created.length} R-META tickets`,
+        note: `self-prd auto-decomposed ${created.length} R-META tickets (via emitter)`,
         progress: { total: created.length, done: 0, failed: 0, remaining: created.length },
       });
     } catch {
@@ -708,41 +677,55 @@ async function main() {
   }
 
   // THE AUTONOMY PAYOFF: --full now auto-creates a complete ready session + decomposes 50 tickets
-  // so the generator itself is the single source of truth for hands-off 50-ticket self runs.
+  // (now via createSessionForPrd + stamp for canonical PRD→session provenance). The generator is the single source of truth.
   const sessIdx = args.indexOf('--session');
   let sessionToPopulate = sessIdx !== -1 ? args[sessIdx + 1] : undefined;
   let autoCreated = false;
 
+  // Compute intended PRD path early so we can createSessionForPrd (machine-owned linkage, no zombies)
+  // and later launch via the canonical run-pipeline.ts --prd path (P0-7).
+  const explicitMd = args.find((a) => a.endsWith('.md') && !a.startsWith('--'));
+  const intendedPrdPath = explicitMd
+    ? path.resolve(explicitMd)
+    : path.join(target, 'prds', `self-meta-epic-${new Date().toISOString().slice(0, 10)}.md`);
+
   if (!sessionToPopulate && !dry && !post) {
-    // Auto-birth a production-grade session under the canonical XDG layout.
-    // workingDir = discovered grok root so workers edit the right tree.
-    // Then populate will write the 50 rich ticket.md + state update.
+    // Auto-birth via the PRD-aware factory (stamps sourcePrd even if file written moments later — stamp tolerates).
     const sm = new SessionManager();
-    const created = sm.createSession(target, `self-r-meta-${new Date().toISOString().slice(0,10)}`, 50, 'grok', 'grok');
-    sessionToPopulate = created.sessionDir;
+    const task = `self-r-meta-${new Date().toISOString().slice(0, 10)}`;
+    const res = await sm.createSessionForPrd(target, task, intendedPrdPath, 200, 'grok' as Backend, 'grok' as Runtime);
+    sessionToPopulate = res.sessionDir;
     autoCreated = true;
-    console.log(`[self-prd] AUTONOMOUS SESSION CREATED for full decomposition: ${sessionToPopulate}`);
+    console.log(`[self-prd] AUTONOMOUS SESSION CREATED (PRD-linked) for full decomposition: ${sessionToPopulate}`);
   }
 
   const out = await generateSelfPrd(target, { full, dry, sessionDirToPopulate: sessionToPopulate });
-  const outPath = args.find(a => a.endsWith('.md')) ||
-    path.join(target, 'prds', `self-meta-epic-${new Date().toISOString().slice(0,10)}.md`);
+  const outPath = explicitMd || intendedPrdPath;
 
   if (!dry) {
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, out.prdMarkdown, 'utf8');
+    // Re-stamp now that PRD content exists (idempotent; ensures hash + sidecar for findLinked + preflight)
+    if (sessionToPopulate) {
+      try {
+        const sm2 = new SessionManager();
+        await sm2.stampPrdSource(sessionToPopulate, outPath);
+      } catch (e: any) {
+        console.warn('[self-prd] post-write stamp non-fatal:', e?.message || e);
+      }
+    }
   }
   console.log(`[self-prd] ${out.gapCount} remaining gaps, ${out.estimatedTickets} seeds. PRD: ${outPath}`);
   if (full) out.draftTicketTitles.forEach(t => console.log(t));
   if (out.ticketsPopulated) {
-    console.log(`[self-prd] ${out.ticketsPopulated} R-META tickets auto-written — ready for pipeline --no-refine --self-improvement`);
+    console.log(`[self-prd] ${out.ticketsPopulated} R-META tickets auto-written — ready for run-pipeline --prd <this-prd> --self-improvement --no-refine`);
     if (autoCreated && sessionToPopulate) {
       console.log(`[self-prd] *** 100% HANDS-OFF 50-TICKET SELF-RUN SESSION: ${sessionToPopulate}`);
-      console.log(`[self-prd] NO REFINE. NO BABYSITTING. PURE DOGFOOD.`);
-      console.log(`    LAUNCH (tmux recommended):`);
-      console.log(`      npx tsx engine/src/runners/mux-runner.ts ${sessionToPopulate} --heartbeat-ms 300000`);
-      console.log(`    (detach, sleep 12h, morning: npx tsx engine/src/bin/standup.ts ; cat reliability-backlog.md)`);
-      console.log(`    Alt full-pipeline: npx tsx engine/src/bin/pipeline.ts ${sessionToPopulate} --self-improvement --target ${target} --no-refine`);
+      console.log(`[self-prd] NO REFINE. NO BABYSITTING. PURE DOGFOOD. Machine owns prd linkage + preflight.`);
+      console.log(`    CANONICAL LAUNCH:`);
+      console.log(`      npx tsx engine/src/bin/run-pipeline.ts --prd ${outPath} --self-improvement --no-refine --target ${target} --background`);
+      console.log(`    (tmux it, detach, sleep 12h; morning: /pickle-standup ; cat reliability-backlog.md ; /pickle-metrics --days 1)`);
+      console.log(`    Power-user alt (if you have the session): npx tsx engine/src/runners/mux-runner.ts ${sessionToPopulate} --heartbeat-ms 300000`);
       console.log(`[self-prd] The pickle just made its own dinner *and* the fork. *belch*`);
     }
   } else if (sessionToPopulate) {

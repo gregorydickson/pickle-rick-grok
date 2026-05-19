@@ -1,7 +1,7 @@
 ---
 name: pickle-refine-prd
 description: Run the large native agent team (Requirements + Codebase + Risk analysts) for parallel multi-cycle refinement + atomic ticket decomposition. This is the ONLY step allowed to use rich spawn_subagent teams instead of headless grok -p. Updates the original PRD **in place** by default (rich ACs, Verifies, hardening section) and emits session-owned tickets/. Sidecar `prd_refined.md` is opt-in only.
-version: 3.0.0-large-team-grok
+version: 3.1.0-grok-p0-dispatch-stamped-session
 triggers:
   - pickle-refine-prd
   - refine prd
@@ -31,20 +31,29 @@ See `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/refine-contr
 ## Step 0: Bootstrap / Session
 **Always** obtain or create a canonical session first (the session directory is the run context for state + tickets).
 
+**New P0-6 canonical flow (from run-pipeline)**:
+- When the user (or /pickle-pipeline) says "run /pickle-refine-prd" after a `run-pipeline.ts --prd <foo>` invocation, the bin has *already* created the session, stamped the sourcePrd (in state + campaign-status.json + .prd-source.json sidecar), and printed `SESSION_ROOT=...`.
+- **Do not run setup.ts again** (that would create a zombie/orphan). Use the SESSION_ROOT from the run-pipeline output.
+- The stamp lets `/pickle-refine-prd` (and later run-pipeline --no-refine) know this session belongs to that PRD. Machine owns the linkage.
+
+**If no stamped session was provided** (standalone refine or old sessions):
 ```bash
 # Create (or resume) the session that will own the tickets
-npx tsx /Users/gregorydickson/.grok/pickle-rick-grok/engine/src/bin/setup.ts \
+npx tsx engine/src/bin/setup.ts \
   --task "refine PRD + decompose to tickets" --runtime grok --backend grok [--resume]
 ```
+Capture the `SESSION_ROOT=...` it prints.
 
-Capture the `SESSION_ROOT=...` it prints. From this point on, `sessionDir` owns `tickets/`.
+From this point on, `sessionDir` owns `tickets/`.
 
 `workingDir` (from session state) = the target tree being edited.  
-`sessionDir/tickets/<id>/ticket.md` = where every physical ticket definition lives (via `SessionManager` + `persistTicket`).
+`sessionDir/tickets/<id>/ticket.md` = where every physical ticket definition lives (via `SessionManager` + `persistTicket` via the emitter).
 
-Never create a top-level `tickets/` at cwd root. This is the only layout the orchestrator, ritual, mux-runner, and self-improvement loop consume.
+Never create a top-level `tickets/` at cwd root. This is the only layout the orchestrator, ritual, mux-runner, run-pipeline, and self-improvement loop consume.
 
 Always discover the target root (usually `process.cwd()` or the grok install root).
+
+The preflight in run-pipeline + stamp is what killed the zombie session problem.
 
 ## Step 1: Load Inputs
 - Read the original `prd.md` (or `prds/latest.md` etc.)
@@ -153,8 +162,8 @@ Print a crisp summary:
 - Number of tickets created
 - Number of hardening tickets
 - Original PRD path (now updated in place with rich ACs + Verifies)
-- Session directory (the one that now owns the tickets)
-- Ready command: `npx tsx engine/src/runners/mux-runner.ts <sessionDir>` or `npx tsx engine/src/bin/pipeline.ts <sessionDir> --no-refine --target <root>` (or `/pickle-tmux`)
+- Session directory (the one that now owns the tickets, stamped to the PRD)
+- Ready command: `npx tsx engine/src/bin/run-pipeline.ts --prd <the-original-prd> --no-refine --target <root> [--self-improvement] [--background]` (or bare `.../run-pipeline.ts <sessionDir> --no-refine` for power users; legacy: mux-runner or /pickle-tmux)
 
 Then emit the completion token:
 
@@ -162,7 +171,11 @@ Then emit the completion token:
 <promise>REFINEMENT_COMPLETE</promise>
 ```
 
-If this was part of a larger `/pickle-pipeline` call, the manager there will now proceed to the build phase with `--no-refine`.
+If this was part of a run-pipeline flow (the common case now), tell the user:
+"Refinement done. Re-invoke the exact same command you used to get here, but add `--no-refine`:
+`npx tsx engine/src/bin/run-pipeline.ts --prd <the-prd> --no-refine --target . [--self-improvement] [--background]`"
+
+The preflight will now see the materialized tickets + stamp, skip the refine gate, validate, and launch the build + post phases.
 
 ## Hard Rules You Must Never Violate
 - **Never** use `grok -p` or `WorkerSpawner` for the analyst work in this skill. This is the deliberate large-team exception.

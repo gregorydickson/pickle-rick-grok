@@ -17,6 +17,9 @@ import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
 import { SessionState, Ticket, Step, Backend, Runtime, CampaignStatus, CampaignProgress } from './types.js';
+import { Activity } from './activity-logger.js';
+import * as Preflight from './lib/pipeline-preflight.js';
+import type { PreflightReport } from './types.js';
 
 function getDataRoot(): string {
   const xdg = process.env.XDG_DATA_HOME;
@@ -472,6 +475,138 @@ export class SessionManager {
       merged.progress = { ...(current.progress || {}), ...patch.progress };
     }
     writeJsonAtomic(p, merged);
+  }
+
+  // === PRD LINKAGE + PREFLIGHT EXTENSIONS (P0-1 / P0-2 / P0-5) ===
+
+  /**
+   * Create a fresh session and immediately stamp it with source PRD linkage.
+   * This is the canonical machine entry for "run pipeline on PRD".
+   * Fires prdPipelineInitiated + sessionLinkedToPrd.
+   * Async because stamp uses lock.
+   */
+  async createSessionForPrd(
+    workingDir: string,
+    task: string,
+    prdPath: string,
+    maxIterations = 200,
+    backend: Backend = 'grok',
+    runtime: Runtime = 'grok'
+  ): Promise<{ sessionId: string; sessionDir: string }> {
+    const res = this.createSession(workingDir, task, maxIterations, backend, runtime);
+    await this.stampPrdSource(res.sessionDir, prdPath);
+    Activity.prdPipelineInitiated(res.sessionId, prdPath, { via: 'createSessionForPrd' });
+    return res;
+  }
+
+  /**
+   * Find an existing session directory that is already linked (via state.sourcePrd or .prd-source.json)
+   * to the given PRD path. Returns the full sessionDir or null.
+   * Used by dispatch to avoid zombie reuse of prior partial runs on same PRD.
+   */
+  findLinkedSessionForPrd(prdPath: string): string | null {
+    if (!prdPath) return null;
+    const target = path.resolve(prdPath);
+    try {
+      const dirs = fs.readdirSync(this.dataRoot, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => d.name)
+        .sort()
+        .reverse(); // newest first
+
+      for (const id of dirs) {
+        const sdir = path.join(this.dataRoot, id);
+        // 1. state.json stamp
+        try {
+          const st = this.loadState(sdir);
+          if (st.sourcePrd && path.resolve(st.sourcePrd) === target) {
+            return sdir;
+          }
+        } catch {
+          /* skip corrupt */
+        }
+        // 2. sidecar .prd-source.json (authoritative for linkage even if state pruned)
+        const metaP = path.join(sdir, '.prd-source.json');
+        if (fs.existsSync(metaP)) {
+          try {
+            const m = JSON.parse(fs.readFileSync(metaP, 'utf8'));
+            if (m.prdPath && path.resolve(m.prdPath) === target) {
+              return sdir;
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    } catch {
+      /* dataRoot issues */
+    }
+    return null;
+  }
+
+  /**
+   * Stamp a session with its originating PRD (idempotent, atomic on state + writes .prd-source.json sidecar).
+   * Always uses lock for state mutation. Updates prdLinkedAt + content hash for drift detection.
+   * Emits sessionLinkedToPrd.
+   */
+  async stampPrdSource(sessionDir: string, prdPath: string, opts?: { content?: string }): Promise<void> {
+    const resolved = path.resolve(prdPath);
+    let hash = '';
+    try {
+      const content = opts?.content || (fs.existsSync(resolved) ? fs.readFileSync(resolved, 'utf8') : '');
+      if (content) {
+        // stable cheap hash (matches lib compute)
+        let h = 0;
+        for (let i = 0; i < content.length; i++) h = (h * 31 + content.charCodeAt(i)) | 0;
+        hash = 'h' + ((h >>> 0).toString(16));
+      }
+    } catch {
+      /* best effort */
+    }
+
+    const lockPath = getStateLock(sessionDir);
+    await withFileLock(lockPath, () => {
+      try {
+        const state = this.loadState(sessionDir);
+        state.sourcePrd = resolved;
+        state.prdLinkedAt = new Date().toISOString();
+        state.prdContentHash = hash;
+        this.writeState(sessionDir, state);
+      } catch (e: any) {
+        // session may be brand new without state yet; ignore (createSessionForPrd path always has it)
+        console.warn('[session] stampPrdSource state update skipped:', e?.message);
+      }
+    }, 8000);
+
+    // Always materialize sidecar (even without state) for citadel/findPrd + external tools
+    Preflight.writePrdSourceMeta(sessionDir, resolved, hash);
+
+    Activity.sessionLinkedToPrd(path.basename(sessionDir), resolved, new Date().toISOString());
+  }
+
+  /**
+   * Run the full preflight report (delegates to lib).
+   * Call before launching orchestrator/mux on a PRD-linked session.
+   */
+  preflightPipeline(sessionDir: string, prdPath?: string): PreflightReport {
+    return Preflight.runPreflight(sessionDir, prdPath);
+  }
+
+  /**
+   * P0 guard: asserts every ticket listed in state.json has its ticket.md materialized on disk.
+   * Returns actionable error string for operator when failing (exact emit command).
+   * Used by run-pipeline entrypoint and citadel-adjacent paths.
+   */
+  validateTicketArtifacts(sessionDir: string): { valid: boolean; missing: string[]; error?: string } {
+    const mat = Preflight.checkTicketMaterialization(sessionDir);
+    if (!mat.allPresent) {
+      const err = `[validateTicketArtifacts] P0 GUARD TRIGGERED: ${mat.missingTicketIds.length} ticket.md files missing ` +
+        `(${mat.missingTicketIds.join(', ')}). State claims tickets but disk does not. ` +
+        `Recovery (do not skip): (1) re-emit via ticket-emitter.emitRefineCouncilTickets(sessionDir, specsFromRefine) ` +
+        `or (2) rm -rf ${sessionDir} && re-run createSessionForPrd + full refine council. --fresh on pipeline does the latter.`;
+      return { valid: false, missing: mat.missingTicketIds, error: err };
+    }
+    return { valid: true, missing: [] };
   }
 }
 
