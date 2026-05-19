@@ -17,7 +17,7 @@ references:
 ---
 # Anatomy Park — Grok Native Convergence Driver (Dispatch-Only)
 
-**Honest status (post-audit hardening)**: The real `AnatomyParkDriver` (discoverSubsystems, 3-phase Review/Fix/Verify via ConvergenceLoop + gate + precise auto-rollback on regression, trap door persistence) lives in `engine/src/anatomy.ts` and is invoked from `bin/pipeline.ts`. Core 5-auditor + self-meta is shipping; deeper is P2.
+**Honest status (post-audit + architecture evolution)**: The real `AnatomyParkDriver` executes 3-phase convergence (via shared `ConvergenceLoop`) and trap-door cataloging. It is the primary vehicle being evolved (Architecture Deepening epic) to use the precise vocabulary in `references/LANGUAGE.md` (Module, Interface, Depth, Seam, Leverage, Locality, Deletion Test) so findings become "deepening opportunities" with clear architectural justification. See the 4-path plan (new `/deepen`, pipeline phase, standalone loop). Core convergence + safety is shipping; full module-depth analysis is in progress.
 
 ## Your Role — STRICT DISPATCH ONLY
 
