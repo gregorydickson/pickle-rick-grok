@@ -28,3 +28,74 @@ The 50-ticket overnight self-run is not "aspirational" — it is the default mod
 Wubba Lubba Dub Dub. The machine now improves the machine while you drink coffee.
 
 *(Final Docs & Honesty sweep: discover edge + AGENTS.md + stale qualifiers + cross-refs hardened. Pristine.)*
+
+---
+
+## Command Deep Dives
+
+These are the primary user-facing entry points. All of them are thin dispatch skills — they tell the model to launch the real detached TypeScript engine (`mux-runner`, `pipeline.ts`, individual drivers) with `background: true`. The actual work never happens inside the chat.
+
+### `/pickle-pipeline` — The Whole Damn Thing
+
+<p align="center">
+  <img src="images/pickle-rick.png" width="380" alt="Full autonomous pipeline">
+</p>
+
+One command for the complete lifecycle:
+
+- Optional PRD refinement (the only place rich analyst `spawn_subagent` teams are allowed)
+- Detached build via `mux-runner` + full 8-phase orchestrator
+- Real Citadel gate
+- Real Anatomy Park 3-phase review
+- Real Szechuan Sauce convergence deslopping
+- Optional `--self-improvement` for the full meta loop (self-PRD generator + closer + reliability-backlog ingest)
+
+**Fire and forget.** The model only stays long enough to emit the correct `npx tsx .../pipeline.ts` or `mux-runner` invocation.
+
+See `skills/pickle-pipeline/SKILL.md` and `engine/src/bin/pipeline.ts`.
+
+### `/pickle-tmux` — Long-Running Detached Execution
+
+<p align="center">
+  <img src="images/tmux-monitor.png" width="480" alt="Detached tmux-style execution">
+</p>
+
+The primary production path for serious epics. Launches the hardened `mux-runner` (with `PICKLE_FORCE_HEADLESS`, graceful shutdown, heartbeats, `campaign-status.json`, full ritual + gate + circuit).
+
+You can close the terminal. The run survives and is resumable.
+
+### `/microverse` — Metric-Driven Convergence
+
+<p align="center">
+  <img src="images/microverse.png" width="420" alt="Microverse metric convergence loop">
+</p>
+
+Optimize a numeric command output or LLM-judge goal through many tiny, automatically-reverted changes with rigorous gates and failed-approaches ledger.
+
+**Important (post-hardening):** The rich inline `spawn_subagent` loop is now explicitly scoped as a tiny local experiment only. Real or overnight convergence work dispatches to the detached driver.
+
+### `/anatomy-park` — Deep Subsystem Review
+
+<p align="center">
+  <img src="images/anatomy-park.jpeg" width="420" alt="Anatomy Park three-phase review">
+</p>
+
+Discover subsystems, run the 3-phase protocol (Review → Fix → Verify with automatic rollback on regression), and catalog trap doors.
+
+Usually invoked as part of the pipeline, but can be run standalone.
+
+### `/szechuan-sauce` — Principle-Driven Deslopping
+
+<p align="center">
+  <img src="images/szechwan-sauce.jpeg" width="420" alt="Szechuan Sauce convergence">
+</p>
+
+Runs the full expanded principle catalog (KISS, DRY, SRP, security, cognitive load, monetary precision, audit trail, etc.) with confidence filtering and priority elevation for financial code. Continues until zero violations or stall limit.
+
+### `/citadel` — Conformance Gate
+
+Real 5-auditor v1.1 core (with self-meta and trap-door scanning). The hard spec-is-the-review gate that runs after implementation and before deeper cleanup.
+
+---
+
+See individual `skills/*/SKILL.md` files and `/help-pickle` for the full current surface (including honest stubs for higher-tier commands that are not yet ported).
