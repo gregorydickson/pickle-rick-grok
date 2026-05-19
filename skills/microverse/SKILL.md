@@ -44,15 +44,23 @@ When the user invokes the skill or says "run microverse", "converge on X", "opti
    ```
    Capture the `SESSION_ROOT=...` printed.
 
-2. **Emit the launch of the real engine using the installed path + background:true** (this is the production dispatch; the driver internally wires MicroverseDriver, ConvergenceLoop, WorkerSpawner for microverse-changer persona for tiny targeted changes, measure, and always calls ManagerRitual for post-apply gate/rollback/circuit):
+2. **Launch the full autonomous runner (the real "iterate until optimization" experience)**:
+
+   After init, directly launch the autonomous engine:
 
    ```bash
-   npx tsx ~/.grok/pickle-rick-grok/engine/src/bin/microverse.ts init "$SESSION_ROOT" '{"type":"command","description":"...","validation":"npm run coverage:score","direction":"higher","stallLimit":5}'
+   npx tsx ~/.grok/pickle-rick-grok/engine/src/bin/microverse.ts run "$SESSION_ROOT" --max-iterations 100
    ```
 
-   For the actual loop execution, background a tsx invocation (or dedicated runner) that constructs the MicroverseDriver and calls its runLoop(...) supplying apply/measure/rollback that use the real headless workers. Always pass `background: true` on the run_terminal_command tool call.
+   Run this with `background: true`. The `run` command will:
+   - Repeatedly spawn `microverse-changer` workers (via WorkerSpawner + the dedicated prompt)
+   - Let each worker propose + make one tiny targeted change
+   - Measure the metric
+   - Accept the change on improvement, rollback + record failure otherwise
+   - Track the failedApproaches ledger so it never repeats bad ideas
+   - Stop cleanly on stall limit or max iterations
 
-   The bin currently exposes `init` and `run-metric` helpers; the full driver lives at `engine/src/microverse.ts` + `iteration.ts`. Higher-level orchestration (mux/pipeline) can also invoke microverse-style convergence.
+   This is the full port of the original behavior — it runs detached and keeps iterating until the metric is optimized (or it legitimately stalls).
 
 3. **Never** implement or simulate the loop yourself with spawn_subagent pairs. The engine owns the iterations, failed_approaches ledger, stall detection, and convergence declaration.
 
