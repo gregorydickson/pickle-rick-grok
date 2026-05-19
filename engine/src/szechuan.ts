@@ -104,8 +104,7 @@ const RULES: PrincipleRule[] = [
       const jsBare = c.match(/catch\s*\(\s*\w*\s*\)\s*\{[\s\n]*\}/g);
       const pyBare = c.match(/except\s*:\s*pass/g);
       if (jsBare) hits.push({ message: 'Bare catch swallows errors — add explicit handling, rethrow, or trap door', line: 0, autoFixable: true, confidence: 90 });
-      if (pyBare) hits.push({ message: 'Bare except Exception as e:  # trap door: Bare except/pass — swallows errors. Explicit handling or trap door required.
-    pass — explicit or let it bubble', line: 0, autoFixable: true, confidence: 90 });
+      if (pyBare) hits.push({ message: 'Bare except/pass — swallows errors. Explicit handling or trap door required.', line: 0, autoFixable: true, confidence: 90 });
       return hits;
     },
     autoFixable: true,

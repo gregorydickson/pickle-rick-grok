@@ -109,7 +109,7 @@ export class WorkerSpawner {
       // We now materialize the prompt to a file under the session (for forensics) and invoke via
       // `--prompt-file`. No shell escaping of the content is ever required.
 
-      let flags = `--max-turns ${maxTurns} --always-approve --no-subagents`;
+      let flags = `--max-turns ${maxTurns} --always-approve`;
       if (opts.isolation === 'worktree') {
         flags += ` --worktree "worker-${opts.ticketId || 'anon'}-${opts.phase || 'phase'}"`;
       }
@@ -150,11 +150,16 @@ export class WorkerSpawner {
         maxBuffer: 10 * 1024 * 1024,
       });
 
-      // Robust promise token + artifact discovery
-      const lowerOutput = output.toLowerCase();
-      const hasPromise = output.includes('<promise>I AM DONE</promise>') ||
+      // Robust promise token + artifact discovery (handles --output-format json envelopes + partial transcripts)
+      let textForCheck = output;
+      try {
+        const j = JSON.parse(output);
+        textForCheck = j.text || j.response || j.output || j.message || j.final || JSON.stringify(j);
+      } catch {}
+      const lowerOutput = textForCheck.toLowerCase();
+      const hasPromise = textForCheck.includes('<promise>I AM DONE</promise>') ||
                          lowerOutput.includes('i am done') ||
-                         lowerOutput.includes('promise') && lowerOutput.includes('done');
+                         (lowerOutput.includes('promise') && lowerOutput.includes('done'));
 
       const artifactsWritten: string[] = [];
       if (opts.ticketId && opts.sessionDir) {

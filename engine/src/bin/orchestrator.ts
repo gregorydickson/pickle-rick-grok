@@ -367,15 +367,23 @@ function buildPhasePrompt(ticket: any, phase: string, sessionDir: string, state:
   }
   const ticketContent = fs.readFileSync(ticketPath, 'utf8');
 
+  const ticketDir = sm.getTicketDir(sessionDir, ticket.id);
+  const expectedArtifact = getExpectedArtifactName(phase, ticket.id);
+  const artifactPath = path.join(ticketDir, expectedArtifact);
+
   return [
     base,
     '## Immutable Worker Contract',
     sendToMorty,
     `## Current Ticket (${ticket.id})`,
     ticketContent,
+    '## Worker State & Artifact Locations (explicit — required by clean-context contract)',
+    `TICKET_DIR (read prior artifacts here with your tools): ${ticketDir}`,
+    `WRITE THIS PHASE'S ARTIFACT EXACTLY TO THIS ABSOLUTE PATH (use your file-write / search_replace / cat tool): ${artifactPath}`,
+    'Do not rely on relative paths for pipeline artifacts; the ritual scanner will only look under the TICKET_DIR above.',
     '## Git Boundary Rules (strictly enforce)',
     'You must never run prohibited git commands. Only scoped changes inside this ticket.',
-    'When finished write the required artifact and output exactly: <promise>I AM DONE</promise>',
+    'When finished write the required artifact at the exact path above and output exactly: <promise>I AM DONE</promise>',
   ].join('\n\n');
 }
 

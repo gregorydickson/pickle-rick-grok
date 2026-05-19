@@ -14,6 +14,18 @@ You are inside **pickle-rick-grok** — the production-hardened, Grok-native aut
   - Higher-tier (P2/P3): **honest deprecation stubs only** — council-of-ricks, portal-gun, plumbus. Meeseeks has been **fully removed** (replaced by Szechuan Sauce + Anatomy Park relentless deslopping + review). The others 404 or show "NOT PORTED" + redirect to real equivalents (`/help-pickle`, standup+metrics, pipeline+anatomy+szechuan). Full power lives in `pickle-rick-claude` variant. Do not rely on stubs for real work or self-mod.
   - All P3 stubs explicitly noted in: `SKILL_MANIFEST.md`, `skills/help-pickle/SKILL.md`, individual stub `SKILL.md`s, `GROK_ARCHITECTURE.md`, `README.md`.
 
+- **Pipeline Never Modifies Deployed pickle-rick-grok Code — Absolute, Non-Negotiable Invariant**
+  - **Running any pipeline is FORBIDDEN from touching the deployed / installed pickle-rick-grok tree.**
+    The "deployed" tree is whatever `install.sh` copied into the user's global Grok environment: `~/.grok/pickle-rick-grok/`, `~/.grok/skills/pickle-rick-grok/`, `~/.grok/pickle-rick-grok/references/`, `~/.grok/commands/`, `~/.grok/bin/`, etc. This is the live runtime that the `grok` CLI actually loads for skills, Morty workers, personas, and `/help-pickle`.
+  - **All pipeline execution — `run-pipeline.ts`, `mux-runner`, `orchestrator`, `WorkerSpawner`, every Morty phase (`morty-phase-*`), `ConvergenceLoop`, `AnatomyParkDriver`, `SzechuanDriver`, `Citadel`, self-prd-generator, loop-closer, deepen, microverse, etc. — operates exclusively on the *source checkout*.**
+    The source checkout is the directory containing `engine/src/bin/pipeline.ts`, `install.sh`, `AGENTS.md`, `prds/`, `skills/`, `engine/src/`, and `references/`. It is discovered at runtime (see `self-prd-generator.ts:discoverGrokRoot`, `SessionManager`, `--target` propagation) and must be the *only* tree that ever receives writes, patches, git operations, or file mutations from autonomous work.
+  - The *only* supported way the deployed tree is ever updated is an explicit, separate human (or CI) step: `bash install.sh` (or equivalent) **after** the source tree has been modified, the pipeline has completed with full Citadel + Anatomy + Szechuan gates, tests are green, and the changes have been reviewed/committed in the source repo.
+  - Any code path, prompt, driver, ritual step, or worker that performs (or attempts) a write, `exec` patch, `fs.writeFile*`, `git commit`/`apply`, or any mutation outside the discovered source root is a **P0 safety violation**. It must be rejected by `ConvergenceGate`, `CircuitBreaker`, `ResourceGuard`, and `ManagerRitual`. The session must abort. This triggers an immediate emergency P0 ticket and blocks further self-improvement until the guard is proven solid.
+  - Enforcement lives in: `git_safety.ts`, `resource-guard.ts`, `session.ts` (workingDirSafe), `workers.ts` (workingDir passed to exec), `orchestrator.ts`, `ritual.ts`, and every `writeJsonAtomic` / file-write site. All of them are required to resolve and stay inside the source root.
+  - Rationale: A self-modifying autonomous system that can reach out and overwrite the user's globally-installed `grok` runtime is an instant recipe for bricked installs, lost skills, persona corruption, and unrecoverable user environments. The source tree is the single source of truth. The installed copy is a *derived, replaceable artifact* that is only ever refreshed by running install after the machine has done its work safely inside the checkout.
+
+  This rule is more important than any individual ticket, PRD, or convergence loop. Violating it ends the experiment.
+
 - **Self-loop is closed and canonical**:
   - `reliability-backlog.md` always lives at the *discovered grokRoot* (the ancestor containing `engine/src/bin/pipeline.ts` — robustly resolved, no more parent-hijack).
   - Generator → auto-decompose R-META tickets (justif + machine AC+Verify) → pipeline/self → closer ingests delta + Activity → next PRD has fewer gaps. Victory at P0=0.
@@ -26,6 +38,7 @@ You are inside **pickle-rick-grok** — the production-hardened, Grok-native aut
 
 - **Trap Doors (per persona contract — document here for future surgeons)**:
   - Root discovery edge (monorepo sibling launch) — **FIXED** in final sweep (see self-prd-generator.ts:discoverGrokRoot). Self now always edits the right tree.
+  - **Source vs Deployed leakage** — the absolute prohibition on any pipeline / worker / driver ever mutating the installed `~/.grok/pickle-rick-grok/` tree (see the new "Pipeline Never Modifies Deployed..." rule above). Any future drift here is a P0.
   - WorkingDir / targetRoot propagation in orchestrator/workers/ritual/git_safety — hardened, self-dogfood from any cwd safe.
   - Citadel self-meta cross-refs (AGENTS/CLAUDE/HARDENING mentions of ritual/persist/self-prd must be audited or flagged as divergence).
   - Type debt in aux bins (exactOptional etc) — pre-existing, targetable as P3 by self-PRD (not regressed).
@@ -82,7 +95,7 @@ The strict Morty-phase-* workers and ticket requirements exist to protect reliab
 - When spawning Morties for pipeline work: use `fork_context: false` + worktree isolation where mutating.
 - Post-return: **always** delegate to `ManagerRitual` (single source, no dupe logic).
 - Every self-change goes through citadel gate in the loop.
-- Edit only under the discovered target root.
+- **Edit ONLY under the discovered source root** (see the "Pipeline Never Modifies Deployed pickle-rick-grok Code" rule above). Never write to `~/.grok/pickle-rick-grok/`, `~/.grok/skills/`, or any installed copy. The deployed tree is refreshed only by a deliberate `bash install.sh` after the pipeline has succeeded on the source checkout.
 - Update this AGENTS.md + relevant SKILL.md + reports on any new trap or honesty delta.
 - For global persona: `bash install.sh` (rewrites paths, runs smoke, optionally appends to `~/.grok/AGENTS.md`).
 
@@ -111,3 +124,4 @@ The machine improves the machine. P0s die. Wubba lubba dub dub.
 
 ## Trap Doors (Anatomy Park)
 - [2026-05-19] engine/src/szechuan.ts: Bare except/pass — swallows errors. Explicit handling or trap door required.
+- [2026-05-19] **Source/Deployed separation** — added hard contractual prohibition (AGENTS.md) that no pipeline run, worker, driver, or self-mod phase may ever mutate the installed `~/.grok/pickle-rick-grok/` tree. Only the discovered source checkout may be edited; deployed copy is refreshed only via explicit `install.sh`. This rule is now the highest-priority safety invariant for autonomous execution.
