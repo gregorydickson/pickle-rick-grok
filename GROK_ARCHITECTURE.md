@@ -1,5 +1,7 @@
 # Pickle Rick Grok — Architecture & Grok Integration
 
+**POST-REMOVAL NOTE (2026-05)**: The interactive LLM-as-manager path was deliberately removed. Current charter and execution model are in AGENTS.md "Core Execution Principle" (headless grok -p / orchestrator for all ticket execution, convergence, and 50-ticket self-runs; spawn_subagent rich teams ONLY inside /pickle-refine-prd for analysts). Any diagrams, P0 plans, or language in this historical document that appear to endorse or recommend an "Interactive Path (recommended)" or persistent Manager Rick loop are archival only and do not describe the production system.
+
 This document explains how the autonomous engineering system is implemented natively for **Grok Build**, and how it differs from (and improves upon) the Claude Code version.
 
 ## Core Philosophy (Grok Native)
@@ -26,13 +28,10 @@ User types /pickle-rick "build X"
           ▼
 Grok Skill (thin orchestrator + Rick voice)
           │
-          ├── Interactive Path (recommended)
-          │     └── Main agent stays alive as "Manager Rick"
-          │         └── spawns Morty subagents (fork_context:false)
-          │             └── each phase gets its own clean context + persona
-          │                 └── post-return ritual (ManagerRitual in engine) validates + gates + logs
+          ├── Interactive Path (REMOVED — historical only; see POST-REMOVAL NOTE)
+          │     (The persistent "Manager Rick" LLM loop was deliberately deleted per AGENTS.md)
           │
-          └── Detached / Pipeline Path
+          └── Detached / Pipeline Path  (PRODUCTION — the only supported path)
                 └── /pickle-pipeline or /pickle-tmux
                     └── engine/src/bin/pipeline.ts (orchestrator)
                         └── real workers + citadel + anatomy + szechuan drivers

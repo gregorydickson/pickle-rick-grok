@@ -1,3 +1,20 @@
+# Pickle Rick Grok — Architecture (Target State) — HISTORICAL / PORT PLAN
+
+**WARNING (Final Gaps Sweeper)**: This document describes the *desired* Grok-native target architecture from the porting evaluation phase. 
+The actual implemented and hardened production system is described in:
+- GROK_ARCHITECTURE.md (current)
+- COMPLETION_STATUS.md (Final Gaps Closed)
+- SKILL_MANIFEST.md
+- engine/src/ (the real TS engine with ritual, real Citadel/Anatomy/Szechuan, mux-runner, self-PRD loop)
+
+Higher-tier stubs are explicit. 50-ticket overnight self-run is production viable (modulo identified source hygiene items).
+
+The port succeeded. This file is kept for design rationale only.
+
+---
+
+**POST-REMOVAL NOTE (2026-05)**: The interactive LLM-as-manager path was deliberately removed. Current charter and execution model are in AGENTS.md "Core Execution Principle" (headless grok -p / orchestrator for all ticket execution, convergence, and 50-ticket self-runs; spawn_subagent rich teams ONLY inside /pickle-refine-prd for analysts). Any diagrams, P0 plans, or language in this historical document that appear to endorse or recommend an "Interactive Path (recommended)" or persistent Manager Rick loop are archival only and do not describe the production system.
+
 # Pickle Rick Grok — Architecture (Target State)
 
 This is the *desired* architecture for the Grok-native port. It deliberately diverges from the Claude hook-heavy design where Grok primitives provide a better path.
@@ -193,3 +210,7 @@ because the heavy lifting is in the engine scripts or in subagent personas)
 ---
 
 *This is the target. The PORTING_EVALUATION.md contains the "how we get there from the current claude + partial skills state" plan.*
+
+
+---
+**Final Docs & Honesty (2026-05-18)**: AGENTS.md created at grok root (closing proposed structure gap); all historical docs cross-referenced to current truth (COMPLETION, SKILL_MANIFEST, AGENTS, 50-tix report). P3 stubs + self-loop viability language kept brutally accurate across the tree. No remaining doc drift.

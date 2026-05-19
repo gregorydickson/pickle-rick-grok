@@ -7,6 +7,8 @@
 
 ---
 
+**POST-REMOVAL NOTE (2026-05)**: The interactive LLM-as-manager path was deliberately removed. Current charter and execution model are in AGENTS.md "Core Execution Principle" (headless grok -p / orchestrator for all ticket execution, convergence, and 50-ticket self-runs; spawn_subagent rich teams ONLY inside /pickle-refine-prd for analysts). Any diagrams, P0 plans, or language in this historical document that appear to endorse or recommend an "Interactive Path (recommended)" or persistent Manager Rick loop are archival only and do not describe the production system.
+
 ## Executive Summary
 
 **Feasibility**: High. The core engineering methodology (PRD-driven, 8-phase Ralph/Wiggum lifecycle, context-clearing workers, circuit breakers, artifact gates) is **backend-agnostic**. The Claude-specific "Stop hook + `claude -p` subprocess + settings.json injection" delivery mechanism is the main thing that must be replaced.
@@ -238,3 +240,7 @@ The existence of `pickle-rick-skills` as a CLI-agnostic attempt means we are not
 ---
 
 *This evaluation was produced by reading (never modifying) files under `pickle-rick-claude/`, cross-referencing the Grok user guides and the partial skills port, and mapping the Ralph/Wiggum methodology onto Grok's native agent primitives.*
+
+
+---
+**Final Docs & Honesty (2026-05-18)**: AGENTS.md created at grok root (closing proposed structure gap); all historical docs cross-referenced to current truth (COMPLETION, SKILL_MANIFEST, AGENTS, 50-tix report). P3 stubs + self-loop viability language kept brutally accurate across the tree. No remaining doc drift.

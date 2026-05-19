@@ -16,65 +16,94 @@ references:
 ---
 # Pickle Pipeline — The Whole Damn Thing (Grok Edition) — REAL
 
-**Honest status (P3 polish)**: Everything is real and wired in `engine/src/bin/pipeline.ts` + drivers:
-- Refine (via setup) + build (orchestrator + workers + ritual + events)
-- **Real Citadel** (current 5-auditor v1.1 core + trap/self-meta scan; deeper 11-auditor v1.3 is P2)
-- **Real AnatomyParkDriver** (discover + full 3-phase cycles + trap doors)
-- **Real SzechuanDriver** (principle scan + convergence)
-- High-signal events (refinement_completed etc.) emitted.
+**Honest status (P3 polish)**: Everything is real and wired in the engine:
+- Refine (large analyst team via `/pickle-refine-prd` only)
+- Build via `mux-runner.ts` + full `orchestrator` / `WorkerSpawner` / `ritual` / `gate` / `circuit`
+- **Real Citadel** (5-auditor v1.1 + trap/self-meta; 11-auditor deeper is tracked P2)
+- **Real AnatomyParkDriver** + **Real SzechuanDriver** (full principle set)
+- Self-improvement meta loop (generator + closer + reliability-backlog ingestion)
 
-You are the meta-orchestrator. User hands you a goal (or an existing PRD), you decide whether refinement is needed, then you drive the complete Rick lifecycle without the user having to remember the order.
+## Your Role — STRICT DISPATCH ONLY
 
-## Phases (in order) — current reality (all functional)
+You are **not** the meta-orchestrator that executes phases.
 
-1. **Refine** (conditional)
-   - Auto-triggered when the request smells like "refine then build", or explicit `--refine`.
-   - Runs the large native agent team refinement (/pickle-refine-prd): Requirements + Codebase + Risk analysts with multi-cycle cross-critique via spawn_subagent (the ONLY step in the whole system that uses rich parallel teams instead of headless grok -p workers).
-   - Produces `prd_refined.md` + atomic tickets + hardening tickets.
-   - Logs `refinement_completed` + `hardening_tickets_triggered` events.
-   - Pinned to Grok (or the strongest model) regardless of `--backend`.
+When the user invokes `/pickle-pipeline`, says "run the full pipeline", "build then review then deslop", "ship it clean", or similar, your **only** job is to get the real detached engine running and stay out of the execution path.
 
-2. **Build** (the main autonomous ticket loop)
-   - Equivalent of old `/pickle-tmux`.
-   - For every ticket, every phase (research → plan → implement → verify → review → simplify):
-     - Clean-context subagent (`fork_context:false`, optional worktree).
-     - Writes the required artifact.
-     - Enforces git boundary rules.
-   - After implementation tickets, the hardening tickets (szechuan + anatomy on the diff) run automatically.
-   - Fully real via `engine/src/bin/orchestrator.ts` + `WorkerSpawner` + `ConvergenceGate` + `CircuitBreaker` + `Activity` logging + `ManagerRitual`.
+**Hard Rules (these are non-negotiable):**
 
-3. **Citadel** (real)
-   - Real Citadel gate (current 5-auditor v1.1 core + trap/self-meta scan; full 11-auditor v1.3 with deeper self-meta/ritual coverage is P2 future work) — hardened for 50-ticket self-mod.
-   - Runs in-process via TS `runCitadel()`.
-   - Produces `citadel_report.json` + schema. High-severity findings are real and visible.
+- **Never** perform research/plan/implement/review/verify/simplify work yourself with `spawn_subagent`.
+- The **only** step in the entire system allowed to use rich native `spawn_subagent` large teams is `/pickle-refine-prd` (the Requirements + Codebase + Risk analyst council). This is the deliberate architectural split.
+- All ticket execution, hardening, Citadel, Anatomy Park, Szechuan, and self-improvement campaigns **must** run through the headless detached path (`grok -p` workers under `mux-runner` / `orchestrator` + ritual + gates). This is the Core Execution Principle documented in AGENTS.md.
+- `/pickle-rick` (the old interactive manager loop) is deprecated and removed for exactly this reason.
 
-4. **Anatomy Park** (real driver)
-   - The full 3-phase deep review on the modified subsystems (or whole target).
-   - Uses `AnatomyParkDriver` from engine (discoverSubsystems, executeThreePhaseCycle, gate, rollback).
-   - Trap doors cataloged.
+Violating these rules turns reliable 50-ticket autonomous runs into fragile chat sessions.
 
-5. **Szechuan Sauce** (real driver)
-   - Principle-driven deslop on the final diff (KISS, DRY, security, cognitive load...).
-   - `SzechuanDriver.runConvergence()`.
-   - Stops only when zero violations remain or stall limit hit.
+## Correct Sequence When Invoked
 
-## Why this is better on Grok (now complete for the core loop)
-- The entire chain can run as one long interactive manager session using `spawn_subagent` for every creative step.
-- Or as a single background TypeScript orchestrator (`engine/src/bin/pipeline.ts`) that the user can detach from (via tmux or background task).
-- No more "I have to remember to run anatomy after the build".
-- Full observability via activity events (PRD, refine, workers, convergence, gates).
+1. **Optional Refine (the one allowed rich-team step)**
+   - If the user has a raw goal or `prd.md` and no tickets yet, or explicitly wants `--refine`, invoke `/pickle-refine-prd`.
+   - This is the *only* time you may use parallel `spawn_subagent` calls with the analyst personas.
+   - After it finishes you will have `prd_refined.md` + `tickets/` + optional hardening tickets.
+   - It emits the proper `refinement_completed` Activity events.
 
-## Flags that matter
+2. **Create Session (if needed)**
+   ```bash
+   npx tsx ~/.grok/pickle-rick-grok/engine/src/bin/setup.ts \
+     --task "description of the campaign" \
+     --runtime grok --backend grok
+   ```
+   Capture the `SESSION_ROOT=...` it prints. Pass `--max-iterations=N` if the user supplied one.
 
-`--refine` / `--no-refine` (explicit control over Step 0)
-`--backend codex`
-`--max-iterations` (per phase)
-`--target src/services` (scope the review phases)
-`--dry-run` (plan only)
-`--self-improvement` / `--meta` — first-class meta phase: runs self-prd-generator (backlog-aware targeting ritual/persist/citadel) pre-build, loop-closer + post-campaign ingest post (writes reliability-backlog.md, feeds next PRD automatically). Enables full autonomous dogfood.
+3. **Launch the Real Detached Build**
+   ```bash
+   npx tsx ~/.grok/pickle-rick-grok/engine/src/runners/mux-runner.ts <SESSION_ROOT>
+   ```
+   Run this with your terminal tool's `background: true` flag. This is the production entry point (`PICKLE_FORCE_HEADLESS=1`, lock handling, graceful shutdown, heartbeats, `campaign-status.json`, full ritual per phase).
 
-When the last phase emits its convergence, you print the final summary + "Ship it, Morty." and the `<promise>TASK_COMPLETED</promise>` token.
+4. **Post-Build Phases (Citadel + Anatomy + Szechuan)**
+   After the build converges, run the post-processing pipeline:
+   ```bash
+   npx tsx ~/.grok/pickle-rick-grok/engine/src/bin/pipeline.ts <SESSION_ROOT> \
+     --no-refine --target <grok-root-or-cwd> [--self-improvement]
+   ```
+   The `--self-improvement` flag additionally runs the self-PRD generator (pre) + loop closer + post-campaign ingest (writes `reliability-backlog.md`, feeds the next meta iteration).
 
-**This is the "fire and forget and still get something worth shipping" button.** The core autonomous self-development loop + self-meta dogfood (generator/closer) is production complete. Fire `pipeline --self-improvement --target .` or the npm self-improve for the pickle to improve the pickle.
+5. **Self-Improvement Mode**
+   For dogfooding the machine on itself, the user (or you) can use:
+   ```bash
+   /pickle-pipeline --self-improvement --target .
+   ```
+   This wires the full generator → pipeline → closer → metrics/standup feedback loop.
 
-See also `/help-pickle` for the current real command surface (higher-tier items remain stubs).
+## Monitoring & Observability (tell the user)
+
+```bash
+# Live view of the detached run
+tail -f <SESSION_ROOT>/logs/*.log
+cat <SESSION_ROOT>/campaign-status.json
+
+# After it finishes
+/pickle-metrics --days 7
+/pickle-standup --days 7
+cat reliability-backlog.md          # after a self-improvement run
+```
+
+## Flags You Should Surface
+
+- `--refine` / `--no-refine`
+- `--self-improvement` (full meta dogfood)
+- `--target /path` (important for self-dogfood so it edits the correct tree)
+- `--max-iterations N`
+- `--backend codex` (if the user wants Codex workers for the headless phases)
+
+## What Success Looks Like
+
+The model only stays in the conversation long enough to:
+- Call `/pickle-refine-prd` when appropriate (rich team OK here)
+- Fire the `setup.ts` + `mux-runner.ts` (and later `pipeline.ts`) commands with `background: true`
+
+Then the real engine takes over. The user can walk away. The run is resumable, auditable via Citadel, deslopped via Szechuan + Anatomy, and the self-loop feeds the next PRD automatically.
+
+**This is the "fire and forget and still get something worth shipping" button.**
+
+See `/help-pickle` for the current command surface. Higher-tier stubs (`meeseeks`, `council`, etc.) correctly 404 or redirect.

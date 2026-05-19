@@ -1,11 +1,10 @@
 /**
  * WorkerSpawner — Grok-native worker abstraction
  *
- * Supports two modes:
- *   1. Native subagents (preferred when running inside a Grok session)
- *   2. Headless `grok -p` (for detached runners and --backend codex/hermes)
+ * Production path: ALWAYS headless `grok -p` (or codex/hermes) via the detached orchestrator.
+ * Per AGENTS.md Core Execution Principle, rich `spawn_subagent` is permitted ONLY inside /pickle-refine-prd (analyst teams).
+ * This class is the fallback/CLI executor for all ticket work, convergence drivers, and 50-ticket self-runs.
  *
- * This is the key architectural difference from the Claude version.
  * NOW: Activity.worker* events wired for first-class observability in metrics/standup (worker_outcome for forensics).
  *
  * ULTIMATE FINAL GAPS: workingDir honored from SpawnOptions (passed by orchestrator from session workingDirSafe or --target-root).
@@ -59,16 +58,10 @@ export interface WorkerResult {
 /**
  * WorkerSpawner — Grok-native worker abstraction
  *
- * Preferred path (interactive skills):
- *   The skill directly calls `spawn_subagent({
- *     subagent_type: 'general-purpose' or custom,
- *     persona: role,
- *     fork_context: false,
- *     isolation: 'worktree',
- *     prompt: buildPrompt(role, ticket, artifacts)
- *   })`
+ * Headless grok -p is the production path per AGENTS.md. spawn_subagent only inside /pickle-refine-prd for analysts.
+ * This class is exclusively the headless/CLI executor (never the interactive manager).
  *
- * Detached / CLI path:
+ * Detached / CLI path (the only one used for execution):
  *   This class shells `grok -p "..."` or `codex exec` / `hermes ...`
  */
 export class WorkerSpawner {
@@ -78,9 +71,8 @@ export class WorkerSpawner {
     const backend = opts.backend || this.defaultBackend;
 
     if (backend === 'grok' && !process.env.PICKLE_FORCE_HEADLESS) {
-      // Interactive skills should call spawn_subagent directly.
-      // This is only a fallback for pure CLI use.
-      console.warn('[workers] Interactive mode recommended — use spawn_subagent from the skill');
+      // Headless grok -p is the production path per AGENTS.md. spawn_subagent only inside /pickle-refine-prd for analysts.
+      // This class is fallback/CLI only; interactive manager model was removed.
     }
 
     return this.spawnViaHeadless(backend, role, opts);

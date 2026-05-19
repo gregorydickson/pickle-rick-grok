@@ -78,8 +78,8 @@ Call out anything that could derail the work.
 ## Using It With Pickle Rick on Grok
 
 1. Use natural language or `/pickle-prd` to draft.
-2. Use `/pickle-refine-prd` to have three AI analysts (requirements, codebase integration, risk) tear it apart and improve it.
-3. The refined PRD + generated atomic tickets become the input to `/pickle-rick` or `/pickle-pipeline`.
+2. Use `/pickle-refine-prd` — the **only** step that runs a large native agent team (Requirements + Codebase + Risk analysts via parallel `spawn_subagent` + cross-critique cycles). Everything else in the system uses reliable headless `grok -p` workers for detachability.
+3. The refined PRD + generated atomic tickets become the input to `/pickle-tmux`, `/pickle-pipeline`, or direct `mux-runner` / `orchestrator` (the only supported execution paths). The old interactive `/pickle-rick` manager loop has been removed.
 
 The better the PRD, the better the autonomous implementation.
 
