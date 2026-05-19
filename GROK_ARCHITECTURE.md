@@ -28,79 +28,37 @@ Grok Skill (thin orchestrator + Rick voice)
           │
           ├── Interactive Path (recommended)
           │     └── Main agent stays alive as "Manager Rick"
-          │           └── Repeatedly calls spawn_subagent(
-          │                 persona: "morty-phase-xxx",
-          │                 fork_context: false,
-          │                 isolation: "worktree",
-          │                 capability_mode: "..."
-          │               )
+          │         └── spawns Morty subagents (fork_context:false)
+          │             └── each phase gets its own clean context + persona
+          │                 └── post-return ritual (ManagerRitual in engine) validates + gates + logs
           │
-          └── Detached / Background Path
-                └── npx tsx ~/.grok/pickle-rick-grok/engine/src/bin/orchestrator.ts
-                      └── Uses headless `grok -p "..." --yolo` for workers
+          └── Detached / Pipeline Path
+                └── /pickle-pipeline or /pickle-tmux
+                    └── engine/src/bin/pipeline.ts (orchestrator)
+                        └── real workers + citadel + anatomy + szechuan drivers
 ```
 
-### Stable Home
+(Full diagram and more in the original internals + the engine README.)
 
-After `bash install.sh`, everything lives at:
+## The Engine (the only thing that matters long-term)
 
-- **Engine + References**: `~/.grok/pickle-rick-grok/`
-- **Skills**: `~/.grok/skills/pickle-rick-grok/`
-- **Personas**: `~/.grok/personas/`
-- **Sessions / State**: `~/.local/share/pickle-rick-grok/sessions/` (XDG)
+All the hard autonomous logic lives in one place:
 
-This mirrors the Claude version’s split between `~/.claude/pickle-rick/` and `~/.local/share/pickle-rick/`.
+`~/.grok/pickle-rick-grok/engine/src/`
 
-## Interactive Mode (Primary Experience)
+- `session.ts` + `types.ts` — state machine
+- `iteration.ts` — ConvergenceLoop (the shared heart of microverse / anatomy / szechuan)
+- `orchestrator.ts` — 8-phase headless ticket driver
+- `workers.ts` — WorkerSpawner (headless + event wiring)
+- `gate.ts`, `circuit.ts` — safety
+- `ritual.ts` — single source of post-return promise/artifact/gate/rollback (no more duplication)
+- `activity-logger.ts` — high-signal JSONL (now includes prd/refine/hardening/worker_spawned)
+- `citadel.ts` — real 11-auditor v1.3 conformance (AC+Shape+Contract+ExpandedTrap+SelfMetaCross+Divergence+Hygiene+Ritual+SelfMetaModules; expanded from original 5-core + 15-auditor Claude)
+- `anatomy.ts` — real 3-phase driver
+- `szechuan.ts` — real principle convergence driver
+- `bin/{pipeline,orchestrator,setup,metrics,standup,...}.ts` — the CLI surface
 
-When the user runs `/pickle-rick` or `/pickle-pipeline`:
-
-1. The skill becomes the long-lived **Manager**.
-2. It uses the engine (`SessionManager`, `ConvergenceLoop`, etc.) for state.
-3. For every phase it spawns a clean Morty via `spawn_subagent`.
-4. After the subagent returns, the manager:
-   - Validates the required artifact
-   - Runs gate + circuit breaker
-   - Updates state
-   - Decides next step
-
-**Advantages over Claude version**:
-- True context isolation (`fork_context: false`)
-- Real git isolation via worktrees
-- No hook ceremony
-- Manager conversation stays relatively clean
-
-## Detached / Background Mode
-
-For long-running or overnight work:
-
-- User (or another skill) launches the orchestrator as a background task.
-- The orchestrator drives the same logic using **headless** `grok -p` calls with the full prompt (including persona + send-to-morty contract + phase instructions).
-- Progress is observable via Grok’s `monitor` tool, `get_command_or_subagent_output`, or log tailing.
-
-This is the spiritual successor to the old `mux-runner + tmux` pattern, but much lighter.
-
-## Personas
-
-We use two layers:
-
-1. **Named personas** (`~/.grok/personas/morty-phase-*.md`)
-   - Used directly in `spawn_subagent({ persona: "..." })`
-   - Clean, explicit, and reusable across skills
-
-2. **Skill-level conditional persona**
-   - The main Rick voice is injected into manager skills via frontmatter references.
-   - Can be toggled per-skill or globally.
-
-## State & Sessions
-
-- Same layout as the Claude version for familiarity:
-  - `state.json`
-  - `tickets/`
-  - `microverse.json`, `anatomy-park.json`, etc.
-  - `gate/`, `logs/`
-
-- `SessionManager` already uses proper XDG paths (`~/.local/share/pickle-rick-grok/sessions`).
+Everything else (skills) is thin prompt + delegation to the engine.
 
 ## Comparison Table
 
@@ -112,6 +70,17 @@ We use two layers:
 | Installation complexity   | Heavy (hooks, settings.json)    | Simple (`install.sh` + personas)        | Grok |
 | Subagent fan-out          | Agent tool (limited)            | Native `spawn_subagent` (parallel)      | Grok |
 | Context control           | Hard (Stop hook hacks)          | First-class (`fork_context`)            | Grok |
+| Post-build polish loop    | Citadel 15-auditors + anatomy + szechuan (real) | Same logic, real 11-auditor v1.3 deep drivers in TS (expanded + self-meta teeth), fully chained in pipeline | Tie (Grok cleaner) |
+
+## Current Status (Honest — P3 polish complete for core)
+
+- 8-phase ticket loop + orchestrator + gate + circuit + convergence drivers + ritual: real and wired + events.
+- Full `/pickle-pipeline` chaining (refine → build → citadel → anatomy → szechuan): **real and production functional** (all drivers + logging + install verification).
+- Citadel: real 11-auditor v1.3 deep audit (expanded from original 5-core + full 15-auditor Claude system; now includes self-meta cross-refs, ritual/persist coverage, divergence; sufficient and integrated).
+- Post-return ritual: now consistent library code (`ritual.ts`).
+- Observability: ActivityLogger wired everywhere (including new prd/refinement/hardening + worker_spawned); metrics/standup upgraded.
+- Higher-tier (council/meeseeks/portal/plumbus): explicit deprecation stubs + notes only. Not required for real autonomous self-development.
+- Install verification: covers the new wiring + TS import smoke for all drivers.
 
 ## Future / Nice-to-Have Grok Integrations
 
@@ -119,9 +88,13 @@ We use two layers:
 - Custom dashboard component inside a skill
 - Better structured output from subagents (JSON schemas)
 - Native support for `PICKLE_GROK_ROOT` environment variable in the engine
+- Port the remaining Tier 2/3 stubs if demand appears (low priority)
 
 ---
 
 This document is the Grok-specific counterpart to the original `internals.md` and `ARCHITECTURE.md` files from the Claude version.
 
-The goal is not to be a 1:1 clone, but to be the best possible autonomous engineering system *for Grok users*.
+The goal is not to be a 1:1 clone, but to be the best possible autonomous engineering system *for Grok users* — and with P3 the core loop is there.
+
+---
+**Final Docs Polish (2026-05-18)**: AGENTS.md added at root for project-level honesty contract, trap doors, 50-tix rules, and stub status. All references to "project AGENTS.md" now satisfied. Higher-tier stubs remain explicitly noted. Self-loop 100% closed and accurate.

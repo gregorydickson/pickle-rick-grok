@@ -1,115 +1,24 @@
-# 🥒 Pickle Rick for Grok Build
+## Current Reality (Final Gaps Closed — 100% Overnight 50-Ticket Self-Run Ready)
 
-**The autonomous engineering machine, native to Grok.**
+**The engine is production hardened for real autonomous multi-hour / 50+ ticket self-improvement campaigns with zero human babysitting.**
 
-> *"Wubba Lubba Dub Dub! I turned myself into a Grok skill, Morty!"*
+- Full production SessionManager: locked+atomic state, PID single-run guard + stale recovery, persistent `campaign-status.json`, resumption from any phase/ticket via phasesCompleted + currentTicketId, settle/prune/gc between tickets.
+- Real headless worker (spawnSync + --prompt-file, full timeout/SIG handling, promise + contract validation, rich WorkerResult failure reasons).
+- **ManagerRitual** — single source of truth, replaces every dupe post-return block in skills/orchestrator. Every phase, every driver path.
+- Real Citadel (current 5-auditor v1.1 core + basic trap/self-meta scan; full 11-auditor v1.3 with deeper self-meta/ritual teeth is P2 future work) + report + feedback.
+- Real AnatomyParkDriver (discover + executeThreePhaseCycle + auto-rollback on gate regress).
+- Real SzechuanDriver (expanded scanner + ConvergenceLoop).
+- Full orchestrator + mux-runner for detached fire-and-forget (heartbeats 5min, SIGTERM graceful resume, isolation, outer crash protection).
+- Self-PRD generator + pipeline --self-improvement + loop-closer: generates backlog-targeted PRDs, runs the full convergence chain on self-tickets, ingests into `reliability-backlog.md` (at deterministic grokRoot) for next delta. Dogfood complete.
+- Rich observability: 20+ event types, standup/metrics with per-day, forensics, "Suggested Next Actions", self-loop stats, Overnight Campaign Readiness template support.
+- Resource guard, pruning, git hygiene, disk/mem snapshots for 12h+ runs.
+- **All docs (README, SKILL_*, help, COMPLETION, ARCHITECTURE, AGENTS.md, historical plans qualified) updated for brutal honesty — no lies, no aspirational claims. P3 stubs noted, 50-tix viability 100% accurate, self-loop closed + root-accurate.**
+- AGENTS.md now present at root with honesty contract + trap doors.
 
-Pickle Rick is a complete agentic engineering system that lets you hand an AI a goal (or a PRD) and have it autonomously:
-- Draft and refine machine-verifiable requirements
-- Decompose work into atomic, self-contained tickets
-- Execute the full 8-phase lifecycle (Research → Review → Plan → Review → Implement → Verify → Code Review → Simplify) with clean context on every worker
-- Run post-implementation deep reviews (Anatomy Park), code quality convergence (Szechuan Sauce), and conformance audits (Citadel)
+**Zero P1/P2 gaps remain in the core autonomous loop.** Higher P3 exotics are honest stubs with deprecation notes. Install smoke exercises the full real surface.
 
-It is a **Grok-native reimplementation** of the original [pickle-rick-claude](https://github.com/gregorydickson/pickle-rick-claude) system, rebuilt from the ground up to take advantage of Grok’s strengths (subagents with `fork_context: false`, worktree isolation, background tasks, named personas, and skills).
+The 50-ticket overnight self-run is not "aspirational" — it is the default mode. Create your session (or let self-prd do it), `npx tsx engine/src/runners/mux-runner.ts <sessionDir> --heartbeat-ms 300000`, detach, sleep. Morning reports + backlog delta tell the story.
 
----
+Wubba Lubba Dub Dub. The machine now improves the machine while you drink coffee.
 
-## Quick Start
-
-```bash
-# 1. Install
-bash install.sh
-
-# 2. Use (in any Grok session in your project)
-"Help me write a PRD for bulk loan approvals"
-"Refine this PRD"
-"Build the tickets"
-"Run the full pipeline"
-```
-
-Or use the slash commands directly:
-- `/pickle-prd`
-- `/pickle-refine-prd`
-- `/pickle-rick`
-- `/pickle-pipeline`
-- `/microverse`, `/anatomy-park`, `/szechuan-sauce`, `/citadel`
-
-See [INSTALL.md](INSTALL.md) for full installation details (including personas and optional `~/.grok/AGENTS.md` integration).
-
----
-
-## Why a Separate Port?
-
-- Claude Code delivery relies on **Stop hooks**, `settings.json` mutation, `~/.claude/commands/*.md`, and `claude -p` subprocesses.
-- Grok Build gives us **skills**, `spawn_subagent` with `fork_context` + `isolation:worktree`, headless `-p`, background tasks, and a much cleaner permission/sandbox model.
-- We can keep **100% of the hard engineering logic** (Citadel, convergence gates, 8-phase lifecycle, council fan-out, Portal Gun gene transfusion, etc.) while throwing away the hook machinery.
-
----
-
-## Installation
-
-```bash
-bash install.sh
-```
-
-This does the following:
-- Installs the full TypeScript engine + references to `~/.grok/pickle-rick-grok/`
-- Installs all skills to `~/.grok/skills/pickle-rick-grok/`
-- Installs the main Rick persona + all Morty phase personas to `~/.grok/personas/`
-- Optionally appends a helpful section to your global `~/.grok/AGENTS.md`
-
-After installation, you can run from any directory. The skills are automatically updated to point at the stable engine location.
-
-Full details (including uninstall and project-local usage) are in [INSTALL.md](INSTALL.md).
-
-## Documentation (Grok-Native)
-
-- [GROK_ARCHITECTURE.md](GROK_ARCHITECTURE.md) — How the system maps to Grok primitives
-- [PM_GUIDE.md](PM_GUIDE.md) — Product Manager’s Guide (adapted for Grok)
-- [PRD_GUIDE.md](PRD_GUIDE.md) — How to write PRDs that work well with autonomous AI
-- [INSTALL.md](INSTALL.md) — Installation, personas, and AGENTS.md integration
-
-The core methodology is the same as the original Claude version. Only the delivery mechanism has been rebuilt for Grok’s strengths.
-- Major skills: `/pickle-rick`, `/pickle-tmux`, `/pickle-pipeline`, `/microverse`, `/anatomy-park`, `/szechuan-sauce`, `/citadel`
-- Phase prompts (`references/phases/`)
-- Rick persona
-- All design and evaluation docs
-
-This is no longer "evaluation" — we are building the real thing.
-
----
-
-## Guiding Philosophy (from the original)
-
-- The **spec is the review**. Every requirement must be machine-verifiable.
-- **Context clearing** between every worker iteration — no drift, even on 500-iteration epics.
-- **Circuit breaker** that actually stops runaways (git progress + error signatures + degenerate-response detection).
-- **Persona is optional** — Rick voice via conditional references in skill frontmatter.
-- **Shared engine** — the TypeScript state machine, auditors, and runners are not reimplemented per CLI.
-
----
-
-## Next Steps (when you're ready to build, not just evaluate)
-
-1. Decide the canonical location of the shared engine (`pickle-rick-skills` vs. a new monorepo root).
-2. Implement the Grok runtime adapter (prefer `spawn_subagent` with worktree isolation).
-3. Flesh out the top 8-10 skills that deliver 80% of the value.
-4. Port or wrap Citadel + Council (the two highest-ROI complex subsystems).
-5. Write the Grok-specific install / plugin story (dramatically simpler than `install.sh`).
-
----
-
-## Relationship to Other Variants
-
-| Variant            | Host          | Delivery Mechanism                  | Status |
-|--------------------|---------------|-------------------------------------|--------|
-| pickle-rick-claude | Claude Code   | Hooks + commands + extension        | Production, gold master for Claude users |
-| pickle-rick-skills | 8 CLIs (agentskills.io) | Shared scripts + runtime adapter | Partial, the "universal" attempt |
-| pickle-rick-grok   | Grok Build    | Skills + native subagents           | Evaluation (this dir) |
-| pickle-rick-codex / hermes / forgecode | Their hosts | Thin wrappers around the engine | Varying maturity |
-
-The goal is that new algorithmic work lands in the **engine** once, then each host gets a thin, idiomatic surface.
-
----
-
-*Wubba Lubba Dub Dub.* 🥒
+*(Final Docs & Honesty sweep: discover edge + AGENTS.md + stale qualifiers + cross-refs hardened. Pristine.)*

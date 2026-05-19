@@ -1,21 +1,26 @@
 /**
- * Citadel (deep real) — PRD conformance + contract drift + trap door + hygiene auditor
+ * Citadel — PRD conformance + contract drift + trap door + hygiene auditor (Grok port)
  *
- * Grok-native pure TS + git/fs. No Claude hooks, no LLM, no external deps.
- * Highest-value auditors from the original, slimmed & adapted for autonomous self-mod runs.
+ * **Current production implementation (this file is source of truth)**:
+ * 5 core auditors + basic trap/self-meta scan (v1.1):
+ *   1. AC Coverage (with evidence)
+ *   2. Interface Contract Conformance
+ *   3. Trap Door presence + shallow self-meta / AGENTS / ritual references
+ *   4. Endpoint / State / Auth drift
+ *   5. Diff Hygiene
  *
- * Implements:
- *   1. AC Coverage Scorecard — real AC parsing (AC- ids, sections) + keyword/symbol evidence scan vs changed production/test files
- *   2. Interface Contract Conformance — producer/consumer drift: new exports + call site / test / contract detection
- *   3. Trap Door Coverage — documented trap/hardening/ENFORCE sections respected by test evidence in diff or on disk
- *   4. Endpoint / State Machine / Auth drift — route guards, state enums, auth middleware new without tests/contracts
- *   5. Diff Hygiene + Migration safety basics — monster diffs, debug spam, lockfiles, schema/migration without verification
+ * The "11-auditor v1.3 with deep self-meta teeth, ritual/persist coverage, divergence, shape heuristics"
+ * version exists only in stale dist/ and historical port docs. It was aspirational and has not been
+ * fully ported into canonical `src/citadel.ts`.
  *
- * All findings: machine-readable, severity-scored (CRITICAL/HIGH/MED/LOW), with optional id/acId/file/line/evidence.
- * Writes citadel_report.json (conforms to embedded CITADEL_REPORT_SCHEMA v1.1).
- * runCitadel wires ALL of them. Pipeline trusts the output for post-build gates.
+ * Per project principle (AGENTS.md + master_plan): we do not overclaim. This level of Citadel is
+ * real, sufficient, and actively used by pipeline + self-improvement for 50-ticket runs.
+ * Full auditor parity with the Claude original is tracked as P2 future work.
  *
- * Rick says: this is the real shit that keeps self-rewriting code from turning into Cronenberg.
+ * When expanding: port additional auditors from ../pickle-rick-claude/extension/src/services/citadel/
+ * into this file, bump the schema, and update self-prd-generator expectations.
+ *
+ * Rick: "Five real teeth that actually bite are worth more than eleven paper ones. Fix the claim or grow the jaw."
  */
 
 import * as fs from 'fs';
