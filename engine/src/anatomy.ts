@@ -30,6 +30,7 @@ import { ConvergenceLoop, BaseConvergenceState } from './iteration.js';
 import { ConvergenceGate } from './gate.js';
 import { Activity } from './activity-logger.js';
 import { getGitHead as safeGetGitHead, safeRollback } from './git_safety.js';
+import { ArchitectureDeepener, DeepeningOpportunity } from './arch-deepener.js';
 
 interface Finding {
   id: string;
@@ -144,6 +145,17 @@ export class AnatomyParkDriver {
     state.trapDoorsAdded.push(entry);
     this.writeState(state);
     this.persistTrapDoorToRules(subsystem, file, note);
+  }
+
+  /**
+   * Path #2 integration — Anatomy Park now speaks the architecture vocabulary.
+   * Delegates to the shared ArchitectureDeepener scanner so findings become
+   * first-class DeepeningOpportunity objects (Leverage, Locality, Deletion Test).
+   */
+  discoverDeepeningOpportunities(subsystem: string): DeepeningOpportunity[] {
+    const deepener = new ArchitectureDeepener(this.sessionDir);
+    const target = path.join(this.workingDir, subsystem);
+    return deepener.discoverOpportunities([target]);
   }
 
   private persistTrapDoorToRules(subsystem: string, targetFile: string, note: string): void {
