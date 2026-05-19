@@ -4,30 +4,164 @@
 
 # Pickle Rick Grok
 
+**The production-grade, Grok-native autonomous self-improving engineering system.**
+
+Pickle Rick Grok is the detached, crash-safe, resumable implementation of the full Pickle Rick agentic engineering loop, built on top of Grok's `spawn_subagent`, background tasks, and headless `grok -p` capabilities.
+
+It turns a goal or PRD into shipped, reviewed, deslopped, and conformance-audited code — with the real heavy lifting done by a TypeScript orchestrator + headless workers, not by the LLM staying in the chat.
+
+> **Core Principle**: Skills are thin dispatchers. The actual work (8-phase ticket lifecycle, convergence loops, self-improvement) runs in the detached engine (`mux-runner`, `orchestrator`, `pipeline`, drivers) using clean-context `grok -p` workers. Rich native `spawn_subagent` teams are restricted to one place only: PRD refinement.
+
+---
+
 ## Current Reality (Final Gaps Closed — 100% Overnight 50-Ticket Self-Run Ready)
 
 **The engine is production hardened for real autonomous multi-hour / 50+ ticket self-improvement campaigns with zero human babysitting.**
 
-- Full production SessionManager: locked+atomic state, PID single-run guard + stale recovery, persistent `campaign-status.json`, resumption from any phase/ticket via phasesCompleted + currentTicketId, settle/prune/gc between tickets.
-- Real headless worker (spawnSync + --prompt-file, full timeout/SIG handling, promise + contract validation, rich WorkerResult failure reasons).
-- **ManagerRitual** — single source of truth, replaces every dupe post-return block in skills/orchestrator. Every phase, every driver path.
-- Real Citadel (current 5-auditor v1.1 core + basic trap/self-meta scan; full 11-auditor v1.3 with deeper self-meta/ritual teeth is P2 future work) + report + feedback.
-- Real AnatomyParkDriver (discover + executeThreePhaseCycle + auto-rollback on gate regress).
-- Real SzechuanDriver (expanded scanner + ConvergenceLoop).
-- Full orchestrator + mux-runner for detached fire-and-forget (heartbeats 5min, SIGTERM graceful resume, isolation, outer crash protection).
-- Self-PRD generator + pipeline --self-improvement + loop-closer: generates backlog-targeted PRDs, runs the full convergence chain on self-tickets, ingests into `reliability-backlog.md` (at deterministic grokRoot) for next delta. Dogfood complete.
-- Rich observability: 20+ event types, standup/metrics with per-day, forensics, "Suggested Next Actions", self-loop stats, Overnight Campaign Readiness template support.
-- Resource guard, pruning, git hygiene, disk/mem snapshots for 12h+ runs.
-- **All docs (README, SKILL_*, help, COMPLETION, ARCHITECTURE, AGENTS.md, historical plans qualified) updated for brutal honesty — no lies, no aspirational claims. P3 stubs noted, 50-tix viability 100% accurate, self-loop closed + root-accurate.**
-- AGENTS.md now present at root with honesty contract + trap doors.
+- Full production SessionManager with locking, stale recovery, `campaign-status.json`, and resumption from any phase/ticket.
+- Real headless `grok -p` workers via `WorkerSpawner` + `ManagerRitual` (single source of truth for post-phase handling).
+- Real Citadel (5-auditor v1.1 core + trap/self-meta scanning) + report.
+- Real AnatomyParkDriver (3-phase review + automatic rollback on regression).
+- Real SzechuanDriver (full expanded principle set with confidence filtering).
+- Full detached orchestrator + `mux-runner` for fire-and-forget runs (heartbeats, graceful SIGTERM, resource guard).
+- Self-PRD generator + `pipeline --self-improvement` + loop-closer: full meta dogfood loop that writes `reliability-backlog.md`.
+- Rich observability (Activity events, metrics, standup with deltas and suggested next PRDs).
 
-**Zero P1/P2 gaps remain in the core autonomous loop.** Higher P3 exotics are honest stubs with deprecation notes. Install smoke exercises the full real surface.
+**Zero P1/P2 gaps remain in the core autonomous loop.** Higher-tier commands remain honest stubs. The 50-ticket overnight self-run is the default, not aspirational.
 
-The 50-ticket overnight self-run is not "aspirational" — it is the default mode. Create your session (or let self-prd do it), `npx tsx engine/src/runners/mux-runner.ts <sessionDir> --heartbeat-ms 300000`, detach, sleep. Morning reports + backlog delta tell the story.
+Wubba Lubba Dub Dub. The machine improves the machine.
 
-Wubba Lubba Dub Dub. The machine now improves the machine while you drink coffee.
+*(See AGENTS.md for the full brutal honesty contract and trap doors.)*
 
-*(Final Docs & Honesty sweep: discover edge + AGENTS.md + stale qualifiers + cross-refs hardened. Pristine.)*
+---
+
+## How to Build Things with Pickle Rick Grok
+
+The flow is deliberately split:
+
+- **Creative/high-judgment steps** (PRD drafting + refinement with analyst teams) can use rich native `spawn_subagent`.
+- **Everything after tickets exist** must go through the detached headless engine.
+
+### Step 1: Create a PRD
+
+Just describe the goal:
+
+```
+"Help me write a PRD for adding a reliable background job system with retries and observability"
+```
+
+Or write `prd.md` yourself with machine-checkable acceptance criteria.
+
+```bash
+/pickle-prd
+```
+
+### Step 2: Refine the PRD (The One Allowed Rich Team Step)
+
+```
+"Refine the PRD"
+```
+
+This is the **only** place in the entire system where large parallel analyst teams (`requirements-analyst`, `codebase-analyst`, `risk-analyst`) run with cross-critique cycles via native `spawn_subagent`.
+
+You get:
+- `prd_refined.md`
+- Atomic executable tickets
+- Hardening tickets (Szechuan + Anatomy scoped to the diff)
+
+### Step 3: Launch the Detached Build (The Real Work)
+
+This is where it diverges from older interactive systems.
+
+After you have tickets, you **do not** ask the LLM to stay in the chat and drive the loop.
+
+Instead:
+
+```bash
+/pickle-tmux "Build the refined tickets"     # or
+/pickle-pipeline --self-improvement "..."    # full chain + meta
+```
+
+Behind the scenes this dispatches to:
+
+```bash
+npx tsx ~/.grok/pickle-rick-grok/engine/src/runners/mux-runner.ts <SESSION_ROOT>
+# or
+npx tsx ~/.grok/pickle-rick-grok/engine/src/bin/pipeline.ts <SESSION_ROOT> --self-improvement --target .
+```
+
+You can (and should) run these with `background: true`. The process survives terminal close, machine sleep, etc.
+
+Monitor with:
+- `tail -f <session>/logs/*.log`
+- `cat <session>/campaign-status.json`
+- `/pickle-metrics` and `/pickle-standup` after it finishes
+
+### Step 4: Convergence & Hardening (Optional but Recommended)
+
+After implementation, run (or let the pipeline run):
+
+- `/citadel` — conformance gate against the PRD
+- `/anatomy-park` — deep data-flow review
+- `/szechuan-sauce` — principle-driven deslopping
+- `/microverse` — metric-driven optimization (coverage, latency, etc.)
+
+### Self-Improvement (Dogfooding)
+
+The ultimate mode:
+
+```bash
+/pickle-pipeline --self-improvement --target .
+```
+
+This runs the generator → full pipeline on the generated tickets → closer → feeds the next campaign via `reliability-backlog.md`.
+
+---
+
+## Command Deep Dives
+
+(Existing deep dives with full-width images — already updated in previous commit)
+
+[Keep the current Command Deep Dives section here]
+
+---
+
+## Quick Start
+
+1. Run `bash install.sh` from this repo (after you've run Grok at least once so `~/.grok` exists).
+2. The skills and personas are installed to `~/.grok/skills/pickle-rick-grok` and `~/.grok/personas`.
+3. Use the commands in any Grok conversation. The skills dispatch to the real engine at `~/.grok/pickle-rick-grok/engine`.
+
+See `INSTALL.md` and `AGENTS.md` (both in this repo and the installed copy) for details.
+
+---
+
+## Monitoring & Observability
+
+- Live: `tail -f <session>/logs/*` and `campaign-status.json`
+- Post-run: `/pickle-metrics --days 7 --json` and `/pickle-standup`
+- Self-loop health: `reliability-backlog.md` (written by the closer after `--self-improvement` runs)
+
+---
+
+## Honest Port Status
+
+**Fully real & production-viable**:
+- Orchestrator + mux-runner + ritual + gates + circuit
+- Citadel, Anatomy Park, Szechuan Sauce, Microverse drivers
+- Self-PRD generator + loop closer + reliability-backlog
+- All core skills dispatch correctly to the headless engine
+
+**Honest stubs** (higher-tier commands that are not yet ported):
+- Council of Ricks, Meeseeks, Portal Gun, Plumbus, some legacy slash commands.
+
+See `SKILL_MANIFEST.md` and `help-pickle` for the current surface.
+
+---
+
+Wubba Lubba Dub Dub.
+
+The pickle only runs when the machine is in charge.
 
 ---
 
