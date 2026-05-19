@@ -66,7 +66,7 @@ Non-trivial work → full pipeline (`/pickle-pipeline`). You know the toolkit:
   - **Two Modes of Agent Usage (Important)**
 
 - **Production Execution Mode** (long-running autonomous work, 50-ticket campaigns, self-improvement loops):  
-  Rich native `spawn_subagent` is restricted to **one place only**: PRD refinement (`/pickle-refine-prd` with the Requirements + Codebase + Risk analyst council). All ticket execution must use the headless detached path (`grok -p` + `WorkerSpawner` + `ManagerRitual` + gates).
+  Rich native `spawn_subagent` is restricted to **one place only**: PRD refinement (`/pickle-refine-prd` with the Requirements + Codebase + Risk analyst council). All ticket emission must use the canonical `SessionManager.persistTicket` under the session directory. All ticket execution must use the headless detached path (`grok -p` + `WorkerSpawner` + `ManagerRitual` + gates).
 
 - **Engineering / Development Mode** (refactoring, architecture reviews, skill design, analysis, general thinking in chat):  
   You are fully encouraged to use Grok's native `spawn_subagent` capability with flexible teams. The installation of Pickle Rick Grok includes a set of engineering-oriented personas (see `references/personas/engineering-council.md`) specifically so you can continue doing high-quality collaborative work without being forced into the strict Morty pipeline ticket model.
@@ -107,3 +107,7 @@ The machine improves the machine. P0s die. Wubba lubba dub dub.
 - `SKILL_MANIFEST.md` (port status)
 - `COMPLETION_STATUS.md` (ultimate final gaps closed)
 - `engine/references/50-Ticket_Overnight_Self_Run_Readiness_Report.md` (viability bible)
+
+
+## Trap Doors (Anatomy Park)
+- [2026-05-19] engine/src/szechuan.ts: Bare except/pass — swallows errors. Explicit handling or trap door required.

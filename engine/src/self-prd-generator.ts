@@ -360,7 +360,7 @@ ${reqRows}
 - generateSelfPrd(target, opts) → focuses on !closedCategories from backlog; if opts.sessionDirToPopulate (or --full CLI), auto-creates session + writes real executable tickets/ with ACs/justif/verify
 - performPostCampaignIngest + closer always append + Activity.postCampaignIngest
 - pipeline --self-improvement passes explicit --target root to meta calls
-- autoDecompose produces tickets that satisfy the exact 8-phase ritual contract (promise tokens, artifact validation, scope). No /pickle-refine-prd ever required for meta.
+- autoDecompose produces tickets that satisfy the exact 8-phase ritual contract (promise token, artifact validation, scope). No /pickle-refine-prd ever required for meta.
 
 ## Victory Condition
 ${isVictory ? 'VICTORY LAP — 0 new P0. Backlog has closed ritual/persistence/citadel-depth. System eats its own dogfood at scale. Belch.' : 'Re-run after campaign. PRD will contain strictly fewer P0s or victory declaration.'}
@@ -503,12 +503,12 @@ Wubba lubba dub dub. Close the loop.
 `;
 }
 
-export function autoDecomposeIntoTickets(
+export async function autoDecomposeIntoTickets(
   sessionDir: string,
   seeds: SelfTicketSeed[],
   grokRoot: string,
   opts: { updateState?: boolean } = { updateState: true }
-): Ticket[] {
+): Promise<Ticket[]> {
   const sm = new SessionManager();
   let state: SessionState | null = null;
   const stateFile = path.join(sessionDir, 'state.json');
@@ -555,9 +555,14 @@ export function autoDecomposeIntoTickets(
 
   const created: Ticket[] = [];
   for (const seed of seeds) {
-    const tdir = sm.ensureTicketDir(sessionDir, seed.id); // guarantees tickets/<id>/
     const md = generateRichTicketMarkdown(seed, grokRoot);
-    fs.writeFileSync(path.join(tdir, 'ticket.md'), md, 'utf8');
+    await sm.persistTicket(sessionDir, seed.id, md, {
+      title: seed.title,
+      status: 'pending',
+      phasesCompleted: [],
+      isSelfMeta: true,
+      meta: true,
+    });
 
     const t: Ticket = {
       id: seed.id,
@@ -589,7 +594,7 @@ export function autoDecomposeIntoTickets(
   return created;
 }
 
-export function generateSelfPrd(targetDir: string, opts: { full?: boolean; dry?: boolean; sessionDirToPopulate?: string } = {}): SelfPrdOutput {
+export async function generateSelfPrd(targetDir: string, opts: { full?: boolean; dry?: boolean; sessionDirToPopulate?: string } = {}): Promise<SelfPrdOutput> {
   const root = discoverGrokRoot(targetDir);
   const bl = loadBacklogState(root);
   const findings = scanForGaps(root, bl);
@@ -600,7 +605,7 @@ export function generateSelfPrd(targetDir: string, opts: { full?: boolean; dry?:
   let ticketsPopulated = 0;
   if (opts.sessionDirToPopulate && !opts.dry) {
     try {
-      const written = autoDecomposeIntoTickets(opts.sessionDirToPopulate, seeds, root, { updateState: true });
+      const written = await autoDecomposeIntoTickets(opts.sessionDirToPopulate, seeds, root, { updateState: true });
       ticketsPopulated = written.length;
       console.log(`[self-prd] AUTO-DECOMPOSED ${ticketsPopulated} executable R-META tickets into ${opts.sessionDirToPopulate}/tickets/`);
     } catch (e: any) {
@@ -684,7 +689,7 @@ export function performPostCampaignIngest(targetDir: string, campaignSessionDir?
 }
 
 // CLI
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const target = args.find(a => !a.startsWith('--')) || process.cwd();
   const full = args.includes('--full');
@@ -719,7 +724,7 @@ function main() {
     console.log(`[self-prd] AUTONOMOUS SESSION CREATED for full decomposition: ${sessionToPopulate}`);
   }
 
-  const out = generateSelfPrd(target, { full, dry, sessionDirToPopulate: sessionToPopulate });
+  const out = await generateSelfPrd(target, { full, dry, sessionDirToPopulate: sessionToPopulate });
   const outPath = args.find(a => a.endsWith('.md')) ||
     path.join(target, 'prds', `self-meta-epic-${new Date().toISOString().slice(0,10)}.md`);
 
@@ -748,5 +753,8 @@ function main() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}` || (process.argv[1] && process.argv[1].includes('self-prd-generator'))) {
-  main();
+  main().catch((e) => {
+    console.error('[self-prd] fatal:', e);
+    process.exit(1);
+  });
 }

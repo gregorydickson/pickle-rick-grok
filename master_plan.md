@@ -130,7 +130,7 @@ These are the items the next self-PRD campaigns should target (reliability-backl
 6. **One big "eat a real external repo" validation campaign** (prove the 50-ticket claim outside self-dogfood).
 7. **Higher skill surface** (council/meeseeks etc.) only after the above are eating their own tail reliably.
 
-Use `/pickle-refine-prd` + the generator + pipeline on `reliability-backlog.md` + recent standup to produce the actual ticket list each time.
+Use `/pickle-refine-prd` (or the generator) + `persistTicket` into a fresh session + pipeline on `reliability-backlog.md` + recent standup to produce the actual ticket list each time.
 
 ---
 

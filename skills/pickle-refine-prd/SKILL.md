@@ -40,7 +40,7 @@ npx tsx /Users/gregorydickson/.grok/pickle-rick-grok/engine/src/bin/setup.ts \
 Capture the `SESSION_ROOT=...` it prints. From this point on, `sessionDir` owns `tickets/`.
 
 `workingDir` (from session state) = the target tree being edited.  
-`sessionDir/tickets/<id>/ticket.md` = where every physical ticket definition lives (via `SessionManager.ensureTicketDir`).
+`sessionDir/tickets/<id>/ticket.md` = where every physical ticket definition lives (via `SessionManager` + `persistTicket`).
 
 Never create a top-level `tickets/` at cwd root. This is the only layout the orchestrator, ritual, mux-runner, and self-improvement loop consume.
 
@@ -94,21 +94,20 @@ After the analysts are quiet:
 ## Step 4: Atomic Ticket Decomposition
 **All tickets must be written under the session directory** (never at cwd root).
 
-For every distinct, verifiable chunk:
+For every distinct, verifiable chunk use the canonical helper:
 
 ```ts
 const sm = new SessionManager();
-const tdir = sm.ensureTicketDir(sessionDir, ticketId);
-fs.writeFileSync(path.join(tdir, 'ticket.md'), ticketMarkdownFromTemplate);
-await sm.addTicket(sessionDir, {
-  id: ticketId,
+const md = ticketMarkdownFromTemplate; // exact from ticket-template + this chunk's data
+await sm.persistTicket(sessionDir, ticketId, md, {
   title: "...",
-  path: `tickets/${ticketId}/ticket.md`,
   status: 'pending',
   phasesCompleted: [],
-  // isSelfMeta, meta, etc. as appropriate
+  // isSelfMeta, meta, or any other Ticket fields — persistTicket does the spread + registration
 });
 ```
+
+`persistTicket` is now THE ONLY pattern for emitting tickets from refine (or self-prd, or future tools). It handles dir, md write, Ticket construction, and locked add under one roof.
 
 Use the exact shape from `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/ticket-template.md`.
 
@@ -127,7 +126,7 @@ Example ticket id pattern: `001-add-foo-bar`, `H-010-anatomy-ritual-after-x`
 
 ## Step 5: Persist + Emit Events (Critical for Metrics & Pipeline Handoff)
 
-After writing every `ticket.md` via `ensureTicketDir` + `addTicket` (never at cwd root):
+After writing every `ticket.md` via `persistTicket` (never manual ensureTicketDir + writeFileSync + addTicket, never at cwd root):
 
 ```ts
 import { Activity } from "./engine/src/activity-logger.js";
@@ -136,7 +135,7 @@ import { SessionManager } from "./engine/src/session.js";
 const sm = new SessionManager();
 const sessionDir = "..."; // from Step 0
 
-// Tickets already written + registered via ensureTicketDir + addTicket above
+// Tickets already written + registered via persistTicket above
 
 const state = sm.loadState(sessionDir);
 state.step = "implementing";
