@@ -36,7 +36,6 @@ triggers:
 
 **Higher-tier / P2-P3 skills — honest deprecation stubs (NOT PORTED to Grok engine yet)**:
 - `/council-of-ricks` — Parallel external-signal reviewer (Graphite + Linear fan-out). Stub only. Real impl in Claude variant. Use `/pickle-standup --external` instead for now.
-- `/meeseeks` — Relentless review-fix-until-clean loop. Stub. Pipeline + szechuan + anatomy cover the spirit.
 - `/portal-gun` — Gene/codebase transfusion across repos. P3 stub. Not needed for core autonomous self-dev.
 - `/plumbus` — Attractor DAG 6-frame audit. P3 stub. Esoteric, low priority.
 - Also not ported: `/pickle-status`, `/eat-pickle`, `/pickle-retry`, `/cronenberg`, `/project-mayhem`, zellij variants, etc.

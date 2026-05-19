@@ -15,3 +15,12 @@ export {
   getDiskFreeApprox,
   type RetryOptions,
 } from './lib/resource-guard.js';
+
+// Reusable ticket emission (the thing that stops the "write a /tmp script every refine" Jerry pattern)
+export {
+  emitRefinedTickets,
+  emitRefineCouncilTickets,
+  generateTicketMarkdown,
+  type TicketSpec,
+  type EmitOptions
+} from './lib/ticket-emitter.js';

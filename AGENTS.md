@@ -11,7 +11,7 @@ You are inside **pickle-rick-grok** — the production-hardened, Grok-native aut
 - **No overclaims. Ever.** 
   - Core (orchestrator, ritual, workers, session, gate, circuit, activity, **citadel (5-auditor v1.1 + trap/self-meta scan; deeper 11-auditor v1.3 is P2 future)**, anatomy-park driver, szechuan-sauce driver, pipeline, self-prd-generator + loop-closer, mux-runner, metrics/standup): **100% real & production-viable**.
   - 50-ticket overnight self-run + full meta self-PRD loop: **GO**. Fire detached (`mux-runner` or `pipeline --self-improvement --target . --no-refine`), walk away, check delta in morning. Resumable, atomic, resource-bounded, citadel-gated, backlog-shrinking. Discover root is now deterministic (always lands on the `pickle-rick-grok/` tree even from monorepo parent).
-  - Higher-tier (P2/P3): **honest deprecation stubs only** — council-of-ricks, meeseeks, portal-gun, plumbus. They 404 or show "NOT PORTED" + redirect to real equivalents (`/help-pickle`, standup+metrics, pipeline+anatomy+szechuan). Full power lives in `pickle-rick-claude` variant. Do not rely on stubs for real work or self-mod.
+  - Higher-tier (P2/P3): **honest deprecation stubs only** — council-of-ricks, portal-gun, plumbus. Meeseeks has been **fully removed** (replaced by Szechuan Sauce + Anatomy Park relentless deslopping + review). The others 404 or show "NOT PORTED" + redirect to real equivalents (`/help-pickle`, standup+metrics, pipeline+anatomy+szechuan). Full power lives in `pickle-rick-claude` variant. Do not rely on stubs for real work or self-mod.
   - All P3 stubs explicitly noted in: `SKILL_MANIFEST.md`, `skills/help-pickle/SKILL.md`, individual stub `SKILL.md`s, `GROK_ARCHITECTURE.md`, `README.md`.
 
 - **Self-loop is closed and canonical**:

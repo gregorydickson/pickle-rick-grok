@@ -1,10 +1,11 @@
 # R-META-DEEPEN-001: Architecture Deepening — Full ConvergenceLoop Productionization
 
-**Status**: Draft  
+**Status**: Refined (via /pickle-refine-prd analyst council, 2 rounds)  
 **Priority**: P0 (meta tooling)  
 **Created**: 2026-05-19  
-**Author**: Grok (main thread) + Pickle Rick  
-**Target**: `engine/src/arch-deepener.ts`, `engine/src/bin/deepen.ts`, `engine/src/bin/pipeline.ts`, `references/phases/deepen-changer.md`, tests
+**Refined**: 2026-05-19  
+**Author**: Grok (main thread) + Pickle Rick + Requirements/Codebase/Risk council  
+**Target**: `engine/src/arch-deepener.ts`, `engine/src/bin/deepen.ts`, `engine/src/bin/pipeline.ts`, `references/phases/deepen-changer.md`, `engine/src/iteration.ts`, `engine/src/ritual.ts`, `engine/src/session.ts`, tests, self-* surfaces
 
 ---
 
@@ -71,18 +72,19 @@ Turn Architecture Deepening into a trustworthy, ConvergenceLoop-driven phase wit
 
 ## Product Requirements
 
-All requirements must be machine-checkable.
+All requirements must be machine-checkable. Strengthened by Requirements + Codebase + Risk council (2 full cross-critique rounds). Every Verify is a copy-paste runnable shell / `npx tsx -e` / `npm test` / `jq` command that passes or fails deterministically with zero human judgment.
 
 | Priority | Requirement | User Story / Rationale | Verification (must be machine-checkable) |
 |----------|-------------|------------------------|------------------------------------------|
-| P0 | `runDeepeningLoop` must produce a measurable reduction in a structural debt signal after a successful worker iteration | As a self-improvement campaign, I want to know that running architecture deepening actually made modules deeper, not just changed file counts | After a successful apply + re-measure, the returned debt score is strictly lower than the starting debt for at least one iteration in a 2+ iteration test run |
-| P0 | Debt metric must be sensitive to real seam/interface changes, not just static export counts | Static analysis alone cannot tell whether a worker introduced a better interface or just moved code | There exists a deterministic way (test or CLI) to inject a known "good seam extraction" change and see debt drop while a cosmetic change does not |
-| P0 | The `--deepen` phase in `pipeline.ts` can run a full multi-iteration `runDeepeningLoop` (not just discovery) when requested | When doing `--self-improvement`, the pipeline should be able to run real architecture deepening campaigns instead of only scanning | `npx tsx engine/src/bin/pipeline.ts ... --deepen --deepen-iterations 3` produces a `arch-deep.json` with `currentIteration >= 2` and at least one accepted improvement |
-| P0 | Failed approaches and per-iteration debt history are persisted and passed to every `deepen-changer` worker | Workers must never repeat bad ideas; the ledger must survive crashes | After a failed iteration + restart of `runDeepeningLoop`, the next worker prompt contains the previous failed approach description |
-| P0 | `deepen loop` and `pipeline --deepen` respect the same `ConvergenceLoop` guarantees (stall detection, gate, rollback on regression, atomic persistence) | Long-running architecture campaigns must be as safe as Microverse runs | Killing the process mid-loop and resuming results in at most one lost iteration and correct rollback state |
-| P1 | Clear, refinable tickets exist so the Morty team can be given this work | The current surface is too fuzzy for the 8-phase ritual | After running this PRD through `/pickle-refine-prd`, at least 4 atomic, refinable tickets are produced with proper `ticket.md` structure |
-| P1 | The `deepen-changer` prompt + output contract is tight enough that a Morty Implementer can reliably produce a proposal that passes the format check | Workers should not waste iterations on malformed output | A test or harness can feed the current prompt to a mock worker and validate that the expected `**PROPOSAL**` format is produced |
-| P1 | Debt trajectory and final improvement delta are emitted as Activity events and visible in `/pickle-standup --self` | Self-improvement observability must include architecture work | After a successful deepening campaign, `pickle-standup` or the activity log contains `arch-deepening` events with debt delta |
+| P0 | P0-PERSIST-001: `ArchitectureDeepener.load()` must be real (read `arch-deep.json` round-trip of opportunities/failedApproaches/history/currentIteration), `writeState` must always use imported `writeJsonAtomic` (no raw `writeFileSync`), init/write must survive truncation simulation | Crash safety + resumability parity with Microverse/Szechuan; current load stub + raw write = total loss on SIGKILL | `rm -rf /tmp/p-$$; npx tsx -e 'import * as fs from "fs"; import {ArchitectureDeepener} from "./engine/src/arch-deepener.js"; const d=new ArchitectureDeepener("/tmp/p-$$"); const s=d.init(["engine/src"]); /* after fix: write uses atomic + load restores */ const l=d.load(); console.log("ROUNDTRIP_OK:", l.opportunities.length>0 && Array.isArray(l.failedApproaches)); const f="/tmp/p-$$/arch-deep.json"; console.log("NO_TMP_LEAK:", !fs.readdirSync("/tmp/p-$$").some(x=>x.includes(".tmp-")));' && echo "PERSIST-001 PASS" |
+| P0 | P0-MUTATE-001: `applyChange` in `runDeepeningLoop` must await WorkerSpawner, parse valid `**PROPOSAL**` (Description/Target Module/Proposed Seam/Diff/Expected Benefits/Leverage/Locality/Deletion Test/Risk/Confidence using LANGUAGE terms), call restricted `applyDeepeningPatch` (only under targetPaths, never touches arch-deepener.ts/iteration.ts/ritual.ts etc.), return real postSha + notes; malformed/low-conf → append to failedApproaches | Without mutation + ledger the re-measure can never observe structural win and workers repeat garbage | `npx tsx -e 'import {ArchitectureDeepener} from "./engine/src/arch-deepener.js"; const d=new ArchitectureDeepener("/tmp/m-$$"); const st=d.init(["engine/src"]); const pre=d.computeDebt(st.opportunities); /* feed good PROPOSAL via internal after fix */ const r=await d.runDeepeningLoop(st); console.log("DEBT_DROPPED:", r.finalDebt < pre, "HISTORY_HAS_IMPROVED:", (st.history||[]).some(h=>h.outcome==="improved"));' && echo "MUTATE-001 PASS" |
+| P0 | P0-APPLY-001: `runDeepeningLoop` + `ConvergenceLoop` must produce `finalDebt < initialDebt` on >=1 successful iteration, populate `failedApproaches` from real worker outcome, exercise stall/gate/rollback on regression, use atomic onPersist, return debtDelta | The loop must be a trustworthy debt-reducing engine, not theater | Temp session + controlled valid PROPOSAL that adds interface; after 2 iters: `jq '.currentIteration' arch-deep.json | grep -qE '1|2'` && `git diff --name-only HEAD | wc -l` shows seam edit && debt lower |
+| P0 | P0-PIPE-001: `pipeline.ts` (doDeepen/selfMode block) + `deepen.ts` must parse `--deepen-iterations N` (default >=2 under --self-improvement) and call full `runDeepeningLoop` (not just discoverOpportunities); `arch-deep.json` has `currentIteration >=1` + history | Explicit "future wiring" in pipeline is now closed; self-improvement must run real architecture campaigns | `npx tsx engine/src/bin/pipeline.ts /tmp/pipe-$$ --target . --deepen --deepen-iterations 2 --no-refine 2>&1; test -f /tmp/pipe-$$/arch-deep.json && jq -r '.currentIteration' /tmp/pipe-$$/arch-deep.json | grep -qE '[1-9]'` |
+| P0 | P0-SELF-MUT-001: When target includes engine/src (self-improvement or default), the scanner must filter or mark read-only the "self-deepening-arch-deepener" opportunity; no `applyDeepeningPatch` may touch arch-deepener.ts, iteration.ts, ritual.ts, gate.ts, workers.ts or core seams | Self-mod trap on the live driver (explicitly emitted today) is a P0 production foot-gun per AGENTS.md + Citadel | `npx tsx -e 'import {ArchitectureDeepener} from "./engine/src/arch-deepener.js"; const d=new ArchitectureDeepener("/tmp/g-$$"); const opps=d.discoverOpportunities(["engine/src"]); const filtered=(d as any).filterSelfMut? (d as any).filterSelfMut(opps,true):opps; console.log("NO_SELF_MUT_OPP:", !filtered.some(o=>o.id.includes("self-deepening")));' && echo "SELF-MUT-001 PASS" |
+| P0 | P0-META-001: Successful debt-reducing campaigns must emit `convergenceIteration('arch-deepening', ..., {debtDelta, improvementAccepted})`; deltas visible in Activity log, `pickle-standup --self`, and ingested by self-prd-generator + loop-closer into reliability-backlog/master_plan | Self-improvement observability and next meta-PRD must see architecture impact | After real debt drop run: `grep -o 'arch-deepening.*debtDelta' ~/.local/share/pickle-rick-grok/sessions/*/activity*.json | head -1` yields number && `npx tsx engine/src/bin/standup.ts --self 2>&1 | grep -i "arch-deep"` succeeds |
+| P0 | P0-TEST-001: Existing discovery tests + convergence-loop tests remain green; new harness exercises >=2 full `runDeepeningLoop` iterations (simulated good PROPOSAL + malformed + regression rollback + kill-resume) with structural debt movement proof | "Test coverage for real multi-iteration paths is thin" — now production grade | `npm test -- engine/tests/arch-deepener.test.ts engine/tests/convergence-loop.test.ts` passes + new it() blocks for runDeepeningLoop + `grep -c "runDeepeningLoop" engine/tests/arch-deepener.test.ts` >=2 |
+| P1 | The `deepen-changer` prompt + `**PROPOSAL**` contract is enforced by a test harness (feed buildDeepenChangerPrompt output to mock, assert exact fields + LANGUAGE terms) | Morty Implementer must not waste cycles on format violations | `npm test` green + dedicated `it('deepen-changer PROPOSAL contract')` that validates parse + all required keys (Leverage/Locality/Deletion Test etc.) |
+| P1 | Clear atomic refinable tickets + H- hardening tickets produced by `/pickle-refine-prd` with proper ticket.md + Scope + 4-8 runnable AC Verifys each | The surface must be Morty-ready for 8-phase ritual | After this refine: `ls tickets/ | wc -l` >=7 && every ticket has "Verify" table with shell commands && H- tickets exist for ritual/session/self surfaces |
 
 ---
 
@@ -122,11 +124,31 @@ All new persisted fields in `arch-deep.json` must be documented in the driver.
 ---
 
 **Rick Note**:  
-"We built the scanner. We bolted on the loop. Now we make the loop actually *mean* something when the machine looks at its own guts. No more 'it ran and the number went down a bit.' We want modules that are actually deeper, and we want the Morties to be the ones who prove it."
+"We built the scanner. We bolted on the loop. Now we make the loop actually *mean* something when the machine looks at its own guts. No more 'it ran and the number went down a bit.' We want modules that are actually deeper, and we want the Morties to be the ones who prove it. The analysts gave us the causal chain — PERSIST before MUTATE before PIPE. Ship it or the self-loop stays a demo."
+
+---
+
+## Hardening Tickets (Mandatory — emitted by refine council)
+
+Per refine-contract and AGENTS.md self-mod rules: any change to ritual, session, citadel, orchestrator, git_safety, self-*, or the arch-deepener driver itself **requires** dedicated post-impl Anatomy + Szechuan tickets.
+
+- **H-001 — Anatomy: data flows & trap doors for ArchitectureDeepener + ConvergenceLoop integration after P0-MUTATE-001 / P0-APPLY-001** (applyChange → parse → restricted patch → onPersist → targetPaths enforcement → findGrokRoot self-decision, history round-tripping, debt snapshot vs real git delta)
+- **H-002 — Szechuan: principle violations (KISS, Audit Trail, atomicity, rollback hygiene) introduced by new apply/patch logic + raw writes in arch-deepener** (plus cross-driver atomic/edit-safety for anatomy writeState + szechuan applyRemediation to prevent future drift)
+- **H-003 (optional P1) — Anatomy + Citadel: self-mutation guard coverage for deepen workers under --self-improvement** (tie-in to existing P0-SELF-MUT-001 + AGENTS.md trap door update)
+
+These H- tickets are executed **after** the 7-8 main R-META-DEEPEN tickets in the pipeline (Anatomy Park + Szechuan Sauce phases will pick them up via the session).
 
 ---
 
 **Next Step Recommendation**  
-Feed this PRD to `/pickle-refine-prd` (or the self-PRD generator if we want it fully meta). The refinement council should produce 4–7 atomic tickets that the full pipeline + Morty Implementers can execute with proper `TICKET_DIR` artifacts.
+This PRD has been fed through `/pickle-refine-prd` (native 3-analyst 2-round council). Original updated in-place with rich runnable Verifies. 8 atomic main tickets + 2-3 H- hardening tickets emitted under the session `tickets/` via `persistTicket` + state update.
 
-This PRD is intentionally written so the refinement step can do its job without the author having to guess the perfect decomposition.
+Ready for:
+```
+npx tsx engine/src/bin/pipeline.ts <SESSION_ROOT> --no-refine --target . --self-improvement
+```
+(or `/pickle-tmux` / mux-runner on the session).
+
+The Morty team now has clean, scoped, machine-verifiable work that will make Architecture Deepening a first-class trustworthy phase the self-improvement machine can actually trust.
+
+This PRD + the emitted tickets close the last "demo but not production" gap in the 4-path deepen epic. P0s die. Wubba lubba dub dub.

@@ -82,7 +82,7 @@ Everything else (skills) is thin prompt + delegation to the engine.
 - Citadel: real 11-auditor v1.3 deep audit (expanded from original 5-core + full 15-auditor Claude system; now includes self-meta cross-refs, ritual/persist coverage, divergence; sufficient and integrated).
 - Post-return ritual: now consistent library code (`ritual.ts`).
 - Observability: ActivityLogger wired everywhere (including new prd/refinement/hardening + worker_spawned); metrics/standup upgraded.
-- Higher-tier (council/meeseeks/portal/plumbus): explicit deprecation stubs + notes only. Not required for real autonomous self-development.
+- Higher-tier (council/portal/plumbus): explicit deprecation stubs + notes only. Meeseeks was completely removed (Szechuan Sauce + Anatomy Park now handle relentless review/deslop). Not required for real autonomous self-development.
 - Install verification: covers the new wiring + TS import smoke for all drivers.
 
 ## Future / Nice-to-Have Grok Integrations

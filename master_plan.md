@@ -27,7 +27,7 @@ The system can:
 - 70/70 engine tests PASS (including ritual, convergence loop classify/rollback, resource guard, citadel, szechuan full catalog + financial, self-prd-closer roundtrips, 25/50-ticket chaos proxies with SIGTERM isolation)
 - Overnight readiness harness: GO (isolation, resumption, bounded memory/state, gate now zero-cost on self-tree)
 
-**Higher-Tier Features**: Honest P3 stubs only (`council-of-ricks`, `meeseeks`, `portal-gun`, `plumbus`, etc.). They 404 or redirect. Real power is in the engine + core skills. Full equivalents live in the Claude variant.
+**Higher-Tier Features**: Honest P3 stubs only (`council-of-ricks`, `portal-gun`, `plumbus`, etc.). Meeseeks has been fully removed (Szechuan + Anatomy now provide the relentless review/deslop function). The remaining stubs 404 or redirect. Real power is in the engine + core skills. Full equivalents live in the Claude variant.
 
 **Docs & Self-Reference**: Brutally honest (AGENTS.md, GROK_ARCHITECTURE.md, COMPLETION_STATUS.md, 50-Ticket_Overnight_Self_Run_Readiness_Report.md, SKILL_MANIFEST, all SKILL.md). No overclaims. Trap doors documented.
 
@@ -76,6 +76,8 @@ These are the items the next self-PRD campaigns should target (reliability-backl
 
 ### A. Technical Debt (High-Value, Low-Risk Self-Tickets)
 - **TypeScript strict cleanup in aux bins** (`engine/src/bin/{metrics,standup,orchestrator,pipeline,setup}.ts`): `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, undefined handling, etc. ~15-20 errors. Non-blocking today (tsx + dist critical paths clean). Good first P3 campaign.
+- **`npm run build` / `tsc` is currently broken**: pre-existing syntax error in szechuan.ts + accumulated strict errors across bins. tsx runtime path is solid, but the formal build step is dead — blocks any published package or CI that requires `dist/`.
+- **Silent `catch {}` / best-effort swallows** across core drivers (ritual.ts, session.ts, citadel.ts, anatomy.ts, arch-deepener.ts, szechuan.ts, orchestrator). Many are intentional "don't kill the campaign", but the volume makes root-cause analysis during 12h+ self-runs harder than it should be. Consider structured error aggregation or Activity error events.
 - **Loose ends in gate remediator**: deeper auto-fix for more Citadel/Szechuan findings (currently mostly trap + console/TODO/console).
 - **Dist vs src drift risk**: ensure `npm run build` (when added) or post-edit sync is part of ritual for bins.
 - **Error message / UX polish** in CLI entrypoints (minor).
@@ -86,6 +88,7 @@ These are the items the next self-PRD campaigns should target (reliability-backl
 - Turn Citadel into a first-class P0 gate that can block the self-loop itself on CRITICAL.
 
 ### C. Szechuan & Anatomy Polish
+- (2026-05) Major bare-catch swallows in szechuan.ts hardened with explicit logging + comments (main AGENTS trap door closed).
 - Richer auto-remediation for more principles (especially financial + architectural).
 - Better false-positive discipline + confidence tuning based on real self-run data.
 - Anatomy Park deeper data-flow tracing for the Grok engine (new subsystems added during port).
@@ -103,7 +106,7 @@ These are the items the next self-PRD campaigns should target (reliability-backl
 - Versioning strategy for the self-loop (how does a self-PRD declare "this campaign requires engine vX").
 
 ### F. Higher-Tier Skills (P3 — Honest Stubs Today)
-- Port or re-implement `council-of-ricks`, `meeseeks`, `portal-gun`, `plumbus`, `project-mayhem` as thin orchestrators over the real engine (or leave as deliberate "use the Claude variant" redirects).
+- Port or re-implement `council-of-ricks`, `portal-gun`, `plumbus`, `project-mayhem` as thin orchestrators over the real engine (or leave as deliberate "use the Claude variant" redirects). Meeseeks was fully deleted in favor of Szechuan + Anatomy.
 - New high-leverage skills: `pickle-dot` attractor integration, `cronenberg` meta-router, batch `pickle-jar` hardened.
 
 ### G. Self-Evolution & Meta Targets (The Real Next Horizon)
@@ -128,7 +131,7 @@ These are the items the next self-PRD campaigns should target (reliability-backl
 4. **Deeper Szechuan Remediation + Financial Polish** (more automatic deslop during convergence).
 5. **Packaging / npx distribution story** (makes it easier for new users / other repos to adopt the engine).
 6. **One big "eat a real external repo" validation campaign** (prove the 50-ticket claim outside self-dogfood).
-7. **Higher skill surface** (council/meeseeks etc.) only after the above are eating their own tail reliably.
+7. **Higher skill surface** (council-of-ricks, portal-gun, plumbus etc.) only after the above are eating their own tail reliably. (Meeseeks was removed entirely.)
 
 Use `/pickle-refine-prd` (or the generator) + `persistTicket` into a fresh session + pipeline on `reliability-backlog.md` + recent standup to produce the actual ticket list each time.
 

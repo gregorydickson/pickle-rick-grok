@@ -113,4 +113,4 @@ Then the real engine takes over. The user can walk away. The run is resumable, a
 
 **This is the "fire and forget and still get something worth shipping" button.**
 
-See `/help-pickle` for the current command surface. Higher-tier stubs (`meeseeks`, `council`, etc.) correctly 404 or redirect.
+See `/help-pickle` for the current command surface. Higher-tier stubs (`council-of-ricks`, `portal-gun`, etc.) correctly 404 or redirect. Meeseeks has been fully removed (Szechuan + Anatomy cover relentless review/deslop).

@@ -517,7 +517,9 @@ export class SzechuanDriver {
             violations.push(v);
           }
         }
-      } catch {}
+      } catch {
+        // Per-file scan failure must not abort the entire Szechuan pass (best-effort principle scanning)
+      }
     }
 
     // === CONFIDENCE + FALSE POSITIVE FILTER (exact rules from principles doc) ===
@@ -572,7 +574,9 @@ export class SzechuanDriver {
             if (e.isDirectory() && !/node_modules|\.git|dist|coverage|build|__pycache__/.test(e.name)) walk(p);
             else if (exts.test(e.name)) out.push(p);
           }
-        } catch {}
+        } catch {
+          // Ignore permission / transient FS errors during tree walk (best effort full-project scan)
+        }
       };
       walk(abs);
     }
@@ -671,14 +675,20 @@ export class SzechuanDriver {
       };
 
       const rollback = (sha: string) => {
-        safeRollback(sha, undefined, this.workingDir).catch(() => {});
+        safeRollback(sha, undefined, this.workingDir).catch((e) => {
+          console.warn('[Szechuan] rollback failed (non-fatal):', e?.message || e);
+        });
       };
 
       const gateFn = () => {
         try {
           this.gate.runGate('changed').then(g => !g.passed && console.log('[szechuan] gate post-fix warnings'));
           return true;
-        } catch { return true; }
+        } catch (e) {
+          // Gate failures must never kill the convergence loop (same pattern as other drivers)
+          console.warn('[Szechuan] gate threw (ignored, fail-open):', (e as any)?.message || e);
+          return true;
+        }
       };
 
       const config = {
@@ -757,7 +767,10 @@ export class SzechuanDriver {
         (state as any).violationsHistory = (state as any).violationsHistory || [];
         state.currentState = { ...(state.currentState || {}), status: 'stopped', error: 'hard-exception', domain: effectiveDomain };
         this.writeState(state);
-      } catch {}
+      } catch (innerErr) {
+        // Best-effort state write on crash path — log but do not throw (prevents total loss of session)
+        console.warn('[SzechuanDriver] failed to persist stopped state after hard exception:', (innerErr as any)?.message || innerErr);
+      }
       Activity.convergenceIteration('szechuan-sauce', state.sessionId, undefined, 'failed', state.violationsFound || 0, state.currentIteration || 0);
       return { converged: false, iterations: state.currentIteration || 0, finalViolations: (state.violationsFound || 1) + 10 };
     }

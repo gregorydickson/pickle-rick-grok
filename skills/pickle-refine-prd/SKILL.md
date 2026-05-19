@@ -98,20 +98,29 @@ After the analysts are quiet:
 ## Step 4: Atomic Ticket Decomposition
 **All tickets must be written under the session directory** (never at cwd root).
 
-For every distinct, verifiable chunk use the canonical helper:
+For every distinct, verifiable chunk use the **canonical reusable emitter** (no more /tmp scripts, no more hand-rolled markdown in the manager):
 
 ```ts
-const sm = new SessionManager();
-const md = ticketMarkdownFromTemplate; // exact from ticket-template + this chunk's data
-await sm.persistTicket(sessionDir, ticketId, md, {
-  title: "...",
-  status: 'pending',
-  phasesCompleted: [],
-  // isSelfMeta, meta, or any other Ticket fields — persistTicket does the spread + registration
+import { emitRefineCouncilTickets, type TicketSpec } from './engine/src/lib/ticket-emitter.js';   // or from the built dist
+
+const specs: TicketSpec[] = [ /* collected from analyst council outputs */ ];
+
+const result = await emitRefineCouncilTickets(sessionDir, specs, {
+  updateStateToImplementing: true,
+  emitActivity: true,
+  grokRoot: discoveredRoot
 });
+
+console.log(`Emitted ${result.count} tickets (${result.hardeningCount} hardening)`);
 ```
 
-`persistTicket` is now THE ONLY pattern for emitting tickets from refine (or self-prd, or future tools). It handles dir, md write, Ticket construction, and locked add under one roof.
+`emitRefineCouncilTickets` (and the lower-level `emitRefinedTickets` + `generateTicketMarkdown`) is the single source of truth. It:
+- Produces markdown that exactly follows `references/refine/ticket-template.md`
+- Calls `persistTicket` for each
+- Updates state.step + currentTicketId
+- Fires the Activity events the metrics/standup/self-loop depend on
+
+This is the library seam. The chat manager only collects the `TicketSpec` objects from the analysts — the machine owns the emission.
 
 Use the exact shape from `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/ticket-template.md`.
 
@@ -130,24 +139,12 @@ Example ticket id pattern: `001-add-foo-bar`, `H-010-anatomy-ritual-after-x`
 
 ## Step 5: Persist + Emit Events (Critical for Metrics & Pipeline Handoff)
 
-After writing every `ticket.md` via `persistTicket` (never manual ensureTicketDir + writeFileSync + addTicket, never at cwd root):
+The `emitRefineCouncilTickets` call in Step 4 already did the heavy lifting:
+- Every ticket written via the canonical `persistTicket`
+- State updated to `implementing`
+- `refinementCompleted` + `hardeningTicketsTriggered` Activity events fired
 
-```ts
-import { Activity } from "./engine/src/activity-logger.js";
-import { SessionManager } from "./engine/src/session.js";
-
-const sm = new SessionManager();
-const sessionDir = "..."; // from Step 0
-
-// Tickets already written + registered via persistTicket above
-
-const state = sm.loadState(sessionDir);
-state.step = "implementing";
-sm.writeState(sessionDir, state);
-
-Activity.refinementCompleted(state.sessionId, tickets.length, hardeningTickets.length);
-Activity.hardeningTicketsTriggered(state.sessionId, hardeningCount);
-```
+If you emitted manually (legacy path), do the Activity bits yourself. The library path is preferred and already complete.
 
 These events power `/pickle-metrics`, standup, and the self-improvement loop.
 

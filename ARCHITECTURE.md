@@ -84,7 +84,7 @@ We define (or extend) personas under the skill or in `~/.grok/personas/`:
 - `morty-reviewer` — phase 7 (read-only + findings)
 - `morty-simplifier` — phase 8
 - `morty-debater-*` — for council and debate flows
-- `meeseeks` — the relentless reviewer (project-mayhem / meeseeks loops)
+- `meeseeks` — fully removed (replaced by Szechuan + Anatomy relentless deslopping)
 
 Each persona file carries:
 - Tone (Rick-isms allowed but not required)

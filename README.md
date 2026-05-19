@@ -124,7 +124,7 @@ See `INSTALL.md` and `AGENTS.md` (both in this repo and the installed copy) for 
 - All core skills dispatch correctly to the headless engine
 
 **Honest stubs** (higher-tier commands that are not yet ported):
-- Council of Ricks, Meeseeks, Portal Gun, Plumbus, some legacy slash commands.
+- Council of Ricks, Portal Gun, Plumbus, some legacy slash commands. (Meeseeks was fully removed — Szechuan Sauce + Anatomy Park provide equivalent relentless review & deslopping.)
 
 See `SKILL_MANIFEST.md` and `help-pickle` for the current surface.
 
