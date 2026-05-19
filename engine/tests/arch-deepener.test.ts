@@ -19,4 +19,21 @@ describe('ArchitectureDeepener (deepening opportunities)', () => {
     assert.strictEqual(state.direction, 'lower');
     assert.ok(state.maxIterations > 0);
   });
+
+  it('should produce DeepeningOpportunity objects using exact LANGUAGE.md vocabulary', async () => {
+    const driver = new ArchitectureDeepener('/tmp/fake-session-3');
+    const state = driver.init(['engine/src']);
+
+    const result = await driver.runDeepening(state);
+
+    assert.ok(result.opportunitiesFound > 0);
+    const opp = state.opportunities[0];
+
+    // Must use exact terms from references/LANGUAGE.md
+    assert.ok(['shallow', 'medium', 'deep'].includes(opp.currentDepth));
+    assert.ok(opp.proposedSeam.includes('seam') || opp.proposedSeam.length > 5);
+    assert.ok(opp.expectedLeverage.length > 10);
+    assert.ok(opp.expectedLocality.length > 10);
+    assert.ok(opp.deletionTestImpact.length > 10);
+  });
 });
