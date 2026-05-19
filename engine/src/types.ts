@@ -131,3 +131,18 @@ export interface SzechuanRunOptions {
   domain?: 'base' | 'financial';
   principles?: string[];
 }
+
+export interface AnatomyParkState {
+  sessionId: string;
+  subsystems: string[];
+  currentIndex: number;
+  passCounts: Record<string, number>;
+  consecutiveClean: Record<string, number>;
+  stallCounts: Record<string, number>;
+  stallLimit: number;
+  findingsHistory: Record<string, any[]>;
+  trapDoorsAdded: any[];
+  status: string;
+  currentIteration?: number;
+  [key: string]: any;
+}
