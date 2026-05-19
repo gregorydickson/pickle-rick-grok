@@ -15,14 +15,20 @@
  * - Uses shared phase-utils (DRY, no dupe lists/mappings)
  * - workingDir for workers ALWAYS from session state or explicit targetRoot (correct tree for self-dogfood detached runs)
  *
- * This + mux-runner + ritual + session is the surface you trust for 50-tix self-dogfood.
- * R-META self-PRD tickets now get first-class meta treatment automatically via id prefix (no extra flags needed).
+ * PHASE-AWARE TURN BUDGETS (added 2026-05-19):
+ * - Hardcoded maxTurns:60 removed. Now resolves via resolvePhaseTurnBudget() + DEFAULT_PHASE_TURN_BUDGETS
+ *   (single source in lib/phase-utils.ts) with safe high defaults for researcher (180) / planner (150).
+ * - Heavy P0/R-META researcher prompts (~6KB with full ticket + send-to-morty + exhaustive research) no longer
+ *   exhaust after faithful --prompt-file delivery. "Fire 50-ticket overnight self-run and walk away" now works
+ *   for complex meta tickets without manual per-campaign intervention.
+ * - Override via RunOrchestratorOptions.maxTurns (global) or phaseMaxTurns (per WorkerRole). Logged in every
+ *   worker_outcome for self-PRD targeting and activity forensics (promptFile + promptLen + maxTurns).
+ * - Contract preserved: context-cleared headless `grok --prompt-file ... --max-turns N + ritual` on every phase.
  */
 
-
-// === SELF-IMPROVEMENT META LOOP (first-class) ===
-// self-prd-generator + runSelfImprovementLoopCloser wired as meta-phases. Orchestrator handles self-meta tickets (R-META) via ritual + persistence.
-// R-META id prefix (from self-PRD) is the reliable marker + triggers special logging/ritual path. metaMode still supported for explicit.
+ // === SELF-IMPROVEMENT META LOOP (first-class) ===
+ // self-prd-generator + runSelfImprovementLoopCloser wired as meta-phases. Orchestrator handles self-meta tickets (R-META) via ritual + persistence.
+ // R-META id prefix (from self-PRD) is the reliable marker + triggers special logging/ritual path. metaMode still supported for explicit.
 import type * as _SelfPrd from "../self-prd-generator.js";
 import type * as _LoopC from "../self-improvement-loop-closer.js";
 
@@ -33,7 +39,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { SessionManager } from '../session.js';
-import { WorkerSpawner } from '../workers.js';
+import { WorkerSpawner, type WorkerRole } from '../workers.js';
 import { CircuitBreaker } from '../circuit.js';
 import { ConvergenceGate } from '../gate.js';
 import { Activity } from '../activity-logger.js';
@@ -43,6 +49,7 @@ import {
   TICKET_PHASES,
   getPhaseFileName,
   getExpectedArtifactName,
+  resolvePhaseTurnBudget,
 } from '../lib/phase-utils.js';
 import {
   hintGC,
@@ -58,6 +65,18 @@ export interface RunOrchestratorOptions {
   /** first-class meta self-improvement support */
   metaMode?: boolean;
   targetRoot?: string;
+  /**
+   * Global --max-turns override for *all* Morty phases in this campaign.
+   * Use for one-off experiments or emergency. Takes precedence over everything.
+   * For normal 50-tix self-dogfood on R-META, leave unset — the phase table has you covered.
+   */
+  maxTurns?: number;
+  /**
+   * Per-role turn budget map (keys are WorkerRole e.g. 'morty-phase-researcher').
+   * Allows fine-grained overrides without touching source for a specific run.
+   * Example: { 'morty-phase-researcher': 250, 'morty-phase-implementer': 90 }
+   */
+  phaseMaxTurns?: Partial<Record<WorkerRole, number>>;
 }
 
 export async function runOrchestrator(
@@ -168,12 +187,17 @@ export async function runOrchestrator(
       const prompt = buildPhasePrompt(ticket, phase, sessionDir, state);
       const preSha = getGitHead();
 
+      // Phase-aware turn budget — the whole point of this extension.
+      // Heavy phases (researcher/planner on P0 R-META) now get 150-180 turns by default.
+      // Decision lives in phase-utils (table + resolver) so future self-PRDs have a stable target.
+      const maxTurns = resolvePhaseTurnBudget(phase, options);
+
       const result = await spawner.spawn(phase, {
         sessionDir,
         ticketId: ticket.id,
         phase,
         prompt,
-        maxTurns: 60,
+        maxTurns,
         workingDir: options.targetRoot || sm.getWorkingDirSafe(sessionDir), // CRITICAL: always target the session's grok tree (not process cwd) for real 50-tix self-dogfood detached runs
       });
 
@@ -363,7 +387,7 @@ if (
 ) {
   const sessionDir = process.argv[2];
   if (!sessionDir) {
-    console.error('Usage: orchestrator.ts <sessionDir> [--heartbeat-ms 300000] [--target-root /path/to/grok-tree] [--meta]');
+    console.error('Usage: orchestrator.ts <sessionDir> [--heartbeat-ms 300000] [--target-root /path/to/grok-tree] [--meta] [--max-turns 180]');
     process.exit(1);
   }
   const hbIdx = process.argv.indexOf('--heartbeat-ms');
@@ -378,6 +402,15 @@ if (
   }
   if (process.argv.includes('--meta') || process.argv.includes('--self-meta')) {
     hbOpts.metaMode = true;
+  }
+  // Simple global override for the entire run (per-phase requires the TS API or mux options).
+  // Sufficient for ad-hoc "this meta ticket is a beast" or CI experiments. Normal self-runs use the table.
+  const mtIdx = process.argv.indexOf('--max-turns');
+  if (mtIdx !== -1) {
+    const mtRaw = parseInt(process.argv[mtIdx + 1] || '0', 10);
+    if (!Number.isNaN(mtRaw) && mtRaw > 0) {
+      hbOpts.maxTurns = mtRaw;
+    }
   }
   runOrchestrator(sessionDir, hbOpts).catch((err) => {
     console.error('[orchestrator] Fatal error in CLI (top level):', err);

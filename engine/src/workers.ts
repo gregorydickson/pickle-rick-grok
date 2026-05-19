@@ -6,6 +6,8 @@
  * This class is the fallback/CLI executor for all ticket work, convergence drivers, and 50-ticket self-runs.
  *
  * NOW: Activity.worker* events wired for first-class observability in metrics/standup (worker_outcome for forensics).
+ * maxTurns (resolved by orchestrator via phase-utils table for ticket phases, or passed explicitly) is logged
+ * in every worker_outcome so activity logs + self-PRDs can correlate prompt size, phase, budget, and exhaustion.
  *
  * ULTIMATE FINAL GAPS: workingDir honored from SpawnOptions (passed by orchestrator from session workingDirSafe or --target-root).
  * Ensures detached 50-tix self-dogfood ALWAYS edits the correct target tree even if mux-runner launched from arbitrary cwd.
@@ -84,6 +86,7 @@ export class WorkerSpawner {
 
     let cmd = '';
     let promptFile: string | null = null;
+    const maxTurns = opts.maxTurns ?? 80;  // hoisted: phase-aware value from orchestrator (or 80 for side drivers)
 
     if (backend === 'grok') {
       // === ROOT CAUSE (fixed 2026-05-19) ===
@@ -106,7 +109,7 @@ export class WorkerSpawner {
       // We now materialize the prompt to a file under the session (for forensics) and invoke via
       // `--prompt-file`. No shell escaping of the content is ever required.
 
-      let flags = `--max-turns ${opts.maxTurns || 80} --always-approve --no-subagents`;
+      let flags = `--max-turns ${maxTurns} --always-approve --no-subagents`;
       if (opts.isolation === 'worktree') {
         flags += ` --worktree "worker-${opts.ticketId || 'anon'}-${opts.phase || 'phase'}"`;
       }
@@ -135,7 +138,7 @@ export class WorkerSpawner {
       cmd = `codex exec --prompt "${opts.prompt}"`; // placeholder
     } else {
       const sessId = opts.sessionDir ? path.basename(opts.sessionDir) : 'unknown-session';
-      Activity.workerOutcome(sessId, role, false, opts.ticketId, { reason: 'unsupported_backend' });
+      Activity.workerOutcome(sessId, role, false, opts.ticketId, { reason: 'unsupported_backend', maxTurns });
       return { success: false, output: `Unsupported backend ${backend}`, artifactsWritten: [], exitCode: 1 };
     }
 
@@ -166,13 +169,16 @@ export class WorkerSpawner {
 
       const success = hasPromise || artifactsWritten.length > 0;
 
-      // High-signal observability
+      // High-signal observability — now includes the *effective* maxTurns used for this invocation
+      // (sourced from phase-aware table for ticket Morty phases, or explicit override / 80 fallback).
+      // This powers self-improvement targeting of DEFAULT_PHASE_TURN_BUDGETS in phase-utils.
       const sessId = opts.sessionDir ? path.basename(opts.sessionDir) : 'unknown-session';
       Activity.workerCompleted(sessId, role, success, opts.ticketId, {
         exitCode: 0,
         artifactsWritten: artifactsWritten.length,
         hasPromise,
         promptFile,
+        maxTurns,
       });
       Activity.workerOutcome(sessId, role, success, opts.ticketId, {
         exitCode: 0,
@@ -180,6 +186,7 @@ export class WorkerSpawner {
         hasPromise,
         promptLen: opts.prompt.length,
         promptFile,
+        maxTurns,
       });
 
       // Leave the prompt file for post-run forensics (very valuable when debugging why a Morty did something weird).
@@ -195,12 +202,14 @@ export class WorkerSpawner {
         exitCode: 1,
         error: fullError,
         promptFile,
+        maxTurns,
       });
       Activity.workerOutcome(sessId, role, false, opts.ticketId, {
         exitCode: 1,
         error: fullError,
         reason: 'exec_failed',
         promptFile,
+        maxTurns,
       });
 
       return {
