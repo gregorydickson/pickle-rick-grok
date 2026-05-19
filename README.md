@@ -97,14 +97,6 @@ This runs the generator → full pipeline on the generated tickets → closer �
 
 ---
 
-## Command Deep Dives
-
-(Existing deep dives with full-width images — already updated in previous commit)
-
-[Keep the current Command Deep Dives section here]
-
----
-
 ## Quick Start
 
 1. Run `bash install.sh` from this repo (after you've run Grok at least once so `~/.grok` exists).
