@@ -1,0 +1,39 @@
+{
+  "sessionId": "pickle-rick-grok",
+  "schema": "citadel-report",
+  "schemaVersion": "1.1",
+  "overall": "WARN",
+  "findings": [
+    {
+      "severity": "MED",
+      "category": "AC_COVERAGE",
+      "message": "No PRD found — cannot verify AC coverage. Create prd.md or prd_refined.md.",
+      "evidence": "missing-prd"
+    },
+    {
+      "severity": "MED",
+      "category": "DIFF_HYGIENE",
+      "message": "6 debug / console / unowned TODOs in diff. Jerry would ship this. Clean it.",
+      "evidence": "console+debugger"
+    },
+    {
+      "severity": "MED",
+      "category": "DIFF_HYGIENE",
+      "message": "Source changed. No test files in diff. Add or update tests, or this will bite you in the portal.",
+      "evidence": "missing-test-in-diff"
+    }
+  ],
+  "summary": {
+    "acsTotal": 0,
+    "acsCovered": 0,
+    "acsImplemented": 0,
+    "acsTested": 0,
+    "contractsChecked": 0,
+    "trapDoorsFound": 32,
+    "filesTouched": 1,
+    "critical": 0,
+    "high": 0,
+    "med": 3,
+    "low": 0
+  }
+}

@@ -20,23 +20,26 @@ import * as path from 'path';
 import { runCitadel } from '../citadel.js';
 import { AnatomyParkDriver } from '../anatomy.js';
 import { SzechuanDriver } from '../szechuan.js';
+import { ArchitectureDeepener } from '../arch-deepener.js';
 import { Activity } from '../activity-logger.js';
 import { generateSelfPrd as runSelfPrdGenerator, performPostCampaignIngest } from '../self-prd-generator.js';
 import { runSelfImprovementLoopCloser } from '../self-improvement-loop-closer.js';
 
 const sessionDir = process.argv[2];
 if (!sessionDir) {
-  console.error('Usage: pipeline.ts <sessionDir> [--no-refine] [--target <grok-root>] [--self-improvement]');
+  console.error('Usage: pipeline.ts <sessionDir> [--no-refine] [--target <grok-root>] [--self-improvement] [--deepen]');
   process.exit(1);
 }
 
 const args = process.argv.slice(3);
 const noRefine = args.includes('--no-refine');
 const selfMode = args.includes('--self-improvement');
+const explicitDeepen = args.includes('--deepen');
+const doDeepen = explicitDeepen || selfMode; // self-improvement implies architecture deepening
 const explicitTarget = (args.includes('--target') ? args[args.indexOf('--target') + 1] : null) || process.cwd();
 const targetRoot = path.resolve(explicitTarget);
 
-console.log(`[pipeline] Starting for session ${path.basename(sessionDir)} target=${targetRoot} selfMode=${selfMode}`);
+console.log(`[pipeline] Starting for session ${path.basename(sessionDir)} target=${targetRoot} selfMode=${selfMode} deepen=${doDeepen}`);
 
 // PRD / refine phase omitted here for brevity (handled by caller or skill orchestrator)
 
@@ -66,6 +69,23 @@ try {
 const szResult = szech.runConvergence(szState);
 console.log(`[pipeline] Szechuan: ${szResult.converged ? 'CONVERGED' : 'STALLED'} iters=${szResult.iterations} finalViolations=${szResult.finalViolations}`);
 
+// === Architecture Deepening phase (path #3 of the 4-path epic) ===
+// Uses the shared ArchitectureDeepener + LANGUAGE.md scanner.
+// Real opportunities (Leverage / Locality / Deletion Test) are discovered and persisted.
+// Full autonomous worker loop (deepen-changer) is available via `deepen loop` or future iteration wiring here.
+if (doDeepen) {
+  console.log('[pipeline] Architecture Deepening...');
+  const deepener = new ArchitectureDeepener(sessionDir);
+  const deepenState = deepener.init([targetRoot]);
+  const opps = deepener.discoverOpportunities([targetRoot, 'engine/src', 'skills']);
+  console.log(`[pipeline] Deepen: discovered ${opps.length} opportunities (LANGUAGE vocabulary)`);
+  opps.slice(0, 3).forEach((o, i) => {
+    console.log(`  ${i + 1}. [${o.currentDepth}] ${o.module} — ${o.proposedSeam.slice(0, 60)}...`);
+  });
+  // Persist for later loop / resume / metrics consumption (arch-deep.json already written by driver)
+  Activity.convergenceIteration('arch-deepening', path.basename(sessionDir), undefined, 'pipeline-phase', undefined, opps.length);
+}
+
 if (selfMode) {
   Activity.metaPhaseStarted('loop-close', path.basename(sessionDir));
   Activity.metaPhaseStarted('post-campaign', path.basename(sessionDir));
@@ -79,5 +99,5 @@ if (selfMode) {
   }
 }
 
-console.log('[pipeline] Complete. The sauce has been applied. Self-loop deslopped.');
+console.log('[pipeline] Complete. The sauce has been applied. Architecture deepened where it mattered. Self-loop deslopped.');
 process.exit(0);
