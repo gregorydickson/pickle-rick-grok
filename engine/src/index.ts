@@ -1,17 +1,17 @@
-/**
- * Public API for the Pickle Rick Grok engine
- */
+export { runOrchestrator, type RunOrchestratorOptions } from './bin/orchestrator.js';
+export { runDetached, type DetachedOptions } from './runners/mux-runner.js';
+// Self-meta dogfood wiring (now first-class, callable from pipeline/orchestrator)
+// Auto-decompose added: generateSelfPrd(..., {sessionDirToPopulate}) writes real executable R-META tickets/ so 50-tix self-runs need no separate refine.
+export { generateSelfPrd, performPostCampaignIngest, autoDecomposeIntoTickets, type SelfTicketSeed } from './self-prd-generator.js';
+export { runSelfImprovementLoopCloser, runFullSelfLoop } from './self-improvement-loop-closer.js';
 
-export * from './types.js';
-export { SessionManager } from './session.js';
-export { ConvergenceLoop } from './iteration.js';
-export { MicroverseDriver } from './microverse.js';
-export { AnatomyParkDriver } from './anatomy.js';
-export { WorkerSpawner, type WorkerRole } from './workers.js';
-export { ConvergenceGate } from './gate.js';
-export { runCitadel } from './citadel.js';
-export { SzechuanDriver } from './szechuan.js';
-export { CircuitBreaker } from './circuit.js';
-export * as GitSafety from './git_safety.js';
-export { ConvergenceGate } from './gate.js';
-export { SessionManager } from './session.js';  // already there, but explicit
+// Resource & monitoring surface for long autonomous campaigns (50-tix safety)
+export {
+  withRetry,
+  getMemSnapshot,
+  hintGC,
+  pruneDirOlderThan,
+  gentleGitGc,
+  getDiskFreeApprox,
+  type RetryOptions,
+} from './lib/resource-guard.js';

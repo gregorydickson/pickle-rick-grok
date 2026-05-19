@@ -3,8 +3,11 @@
   "version": "2.0.0",
   "type": "module",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Grok-native reimplementation of Pickle Rick autonomous engineering system",
-  "workspaces": ["engine"],
+  "workspaces": [
+    "engine"
+  ],
   "devDependencies": {
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
@@ -12,7 +15,10 @@
   "scripts": {
     "build:engine": "cd engine && npm run build",
     "dev": "npx tsx",
+    "test:engine": "cd engine && npm test",
     "pickle": "npx tsx engine/src/bin/setup.ts",
+    "self-improve": "npx tsx engine/src/bin/self-improvement.ts",
+    "self-prd": "npx tsx engine/src/self-prd-generator.ts",
     "help": "npx tsx -e 'console.log(\"Use the /skills in Grok or read skills/help-pickle/SKILL.md\")'"
   }
 }

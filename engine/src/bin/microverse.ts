@@ -11,6 +11,10 @@ const [cmd, ...args] = process.argv.slice(2);
 
 if (cmd === 'init') {
   const sessionDir = args[0];
+  if (!sessionDir) {
+    console.error('Usage: microverse init <sessionDir> [metricJson]');
+    process.exit(1);
+  }
   const metricJson = args[1] ? JSON.parse(args[1]) : {};
   const driver = new MicroverseDriver(sessionDir);
   const state = driver.init(sessionDir + '/prd.md', metricJson);
@@ -20,6 +24,10 @@ if (cmd === 'init') {
 
 if (cmd === 'run-metric') {
   const sessionDir = args[0];
+  if (!sessionDir) {
+    console.error('Usage: microverse run-metric <sessionDir> <command...>');
+    process.exit(1);
+  }
   const command = args.slice(1).join(' ');
   const driver = new MicroverseDriver(sessionDir);
   const result = driver.runCommandMetric(command);

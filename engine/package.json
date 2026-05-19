@@ -3,13 +3,16 @@
   "version": "2.0.0-grok",
   "type": "module",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Grok-native autonomous engineering engine (reimplementation of the core Pickle Rick loops)",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsx",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "tsx --test tests/**/*.test.ts",
+    "test:watch": "tsx --test --watch tests/**/*.test.ts"
   },
   "dependencies": {},
   "devDependencies": {

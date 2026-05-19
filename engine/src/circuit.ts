@@ -10,6 +10,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { Activity } from './activity-logger.js';
+import { writeJsonAtomic } from './session.js';
 
 export interface CircuitState {
   consecutiveNoProgress: number;
@@ -30,8 +32,16 @@ export class CircuitBreaker {
 
   private load(): CircuitState {
     if (fs.existsSync(this.statePath)) {
-      return JSON.parse(fs.readFileSync(this.statePath, 'utf8'));
+      try {
+        return JSON.parse(fs.readFileSync(this.statePath, 'utf8'));
+      } catch {
+        return this.defaultState();
+      }
     }
+    return this.defaultState();
+  }
+
+  private defaultState(): CircuitState {
     return {
       consecutiveNoProgress: 0,
       lastErrorSignature: '',
@@ -41,7 +51,8 @@ export class CircuitBreaker {
   }
 
   private save() {
-    fs.writeFileSync(this.statePath, JSON.stringify(this.state, null, 2));
+    // Atomic to prevent corrupt circuit.json (which would lose trip state across resume)
+    writeJsonAtomic(this.statePath, this.state);
   }
 
   recordIteration(gitProgress: boolean, errorSignature?: string): boolean {
@@ -67,6 +78,12 @@ export class CircuitBreaker {
     if (shouldTrip && !this.state.tripped) {
       this.state.tripped = true;
       this.state.reason = gitProgress ? 'repeated errors' : 'no git progress';
+      // High-signal event for metrics/standup/forensics (now wired)
+      const sess = path.basename(this.sessionDir);
+      Activity.circuitBreakerTripped(sess, this.state.reason, {
+        consecutiveNoProgress: this.state.consecutiveNoProgress,
+        errorCount: this.state.errorCount,
+      });
     }
 
     this.save();
@@ -78,12 +95,7 @@ export class CircuitBreaker {
   }
 
   reset() {
-    this.state = {
-      consecutiveNoProgress: 0,
-      lastErrorSignature: '',
-      errorCount: 0,
-      tripped: false,
-    };
+    this.state = this.defaultState();
     this.save();
   }
 }

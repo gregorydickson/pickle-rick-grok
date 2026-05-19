@@ -8,14 +8,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { MicroverseState, MetricSnapshot } from './types.js';
-import { SessionManager } from './session.js';
+import { SessionManager, writeJsonAtomic } from './session.js';
 import { ConvergenceLoop } from './iteration.js';
+import { Activity } from './activity-logger.js';
+import { enforceGitBoundaries } from './git_safety.js';
 
 export class MicroverseDriver {
   private statePath: string;
+  private workingDir: string;
 
   constructor(private sessionDir: string) {
     this.statePath = path.join(sessionDir, 'microverse.json');
+    const sm = new SessionManager();
+    this.workingDir = sm.getWorkingDirSafe(sessionDir);
   }
 
   init(
@@ -53,7 +58,8 @@ export class MicroverseDriver {
   }
 
   writeState(state: MicroverseState): void {
-    fs.writeFileSync(this.statePath, JSON.stringify(state, null, 2));
+    // Atomic write prevents truncated microverse.json on crash/power loss during long convergence
+    writeJsonAtomic(this.statePath, state);
   }
 
   /**
@@ -76,17 +82,32 @@ export class MicroverseDriver {
       gateEnabled: true,
     };
 
+    // Wire incremental persistence: every iteration flushes microverse.json so crashes mid-run lose at most 1 iter
+    const persist = (s: MicroverseState) => this.writeState(s);
+
     const loop = new ConvergenceLoop(
       this.sessionDir,
       config,
       measure,
       applyChange,
       rollback,
-      gate
+      gate,
+      persist
     );
 
     const result = loop.run(state);
-    this.writeState(state);
+
+    // Log final convergence outcome for observability
+    Activity.convergenceIteration(
+      'microverse',
+      path.basename(this.sessionDir),
+      undefined,
+      result.converged ? 'converged' : 'stopped',
+      undefined,
+      state.currentIteration
+    );
+
+    this.writeState(state); // ensure final even if no persist hook hit on early return
     return result;
   }
 
@@ -95,9 +116,10 @@ export class MicroverseDriver {
    * Convention: last non-empty line, last token is the numeric score.
    */
   runCommandMetric(cmd: string, timeoutSeconds = 60): MetricSnapshot | null {
+    enforceGitBoundaries(cmd);
     try {
       const result = execSync(cmd, {
-        cwd: path.dirname(this.sessionDir),
+        cwd: this.workingDir,
         encoding: 'utf8',
         timeout: timeoutSeconds * 1000,
         stdio: ['ignore', 'pipe', 'pipe'],

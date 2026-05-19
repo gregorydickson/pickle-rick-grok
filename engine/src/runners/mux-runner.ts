@@ -1,32 +1,145 @@
 #!/usr/bin/env node
 /**
- * mux-runner.ts — Detached long-running orchestrator (Grok native)
+ * mux-runner.ts — Production detached long-running orchestrator wrapper (Grok native)
  *
- * This is the equivalent of the old mux-runner that ran inside tmux.
- * It is meant to be launched via Grok background tasks or as a standalone process.
+ * This is THE entrypoint for real overnight / background / "fire and forget 50+ tickets" work.
+ * It sets the headless flag, wires unbreakable signal handling, heartbeats, and delegates
+ * to the hardened runOrchestrator (which uses WorkerSpawner + ManagerRitual on every phase + resource-guard + campaign-status.json).
  *
- * It uses headless `grok -p` calls for workers when no interactive agent is present.
+ * SIGTERM/SIGINT now mean: "finish the current phase if possible, persist phasesCompleted + currentTicketId,
+ * then exit cleanly so the next `npx tsx .../mux-runner <dir>` or resume picks up exactly where it died."
+ *
+ * No more "oops the whole campaign died because I ctrl-c'd the wrong pane".
+ *
+ * Hardened further: pid guard + stale lock cleanup + persistent campaign-status.json (the single source of truth for monitors)
+ * so machine reboot + resume is reliable and external tools (gt, linear bots, tmux scripts) can see exactly where we are without parsing logs.
  */
-
 import { SessionManager } from '../session.js';
-import { Orchestrator } from '../bin/orchestrator.js'; // would be refactored in real code
+import { runOrchestrator, RunOrchestratorOptions } from '../bin/orchestrator.js';
 
-export async function runDetached(sessionDir: string, options: { monitor?: boolean } = {}) {
-  console.log(`[mux-runner] Starting detached run for ${sessionDir}`);
+export interface DetachedOptions {
+  monitor?: boolean;
+  /** Override heartbeat (pass 0 to disable) */
+  heartbeatIntervalMs?: number;
+}
+
+export async function runDetached(sessionDir: string, options: DetachedOptions = {}) {
+  console.log(`[mux-runner] Starting PRODUCTION detached run for ${sessionDir}`);
+
+  if (!sessionDir) {
+    throw new Error('[mux-runner] sessionDir is required');
+  }
+
+  // Force headless worker path for background/detached (no live spawn_subagent) — non-negotiable for overnight
+  process.env.PICKLE_FORCE_HEADLESS = process.env.PICKLE_FORCE_HEADLESS || '1';
 
   const sm = new SessionManager();
-  const state = sm.loadState(sessionDir);
+  sm.cleanupStaleLock(sessionDir);
 
-  // In real version: set up logging, circuit breaker, rate limit handling,
-  // then drive the orchestrator in a loop with headless workers.
+  const claim = await sm.claimOrchestratorRun(sessionDir);
+  if (!claim.ok) {
+    console.error(`[mux-runner] ${claim.reason}. Existing pid=${claim.existingPid}. Use kill or wait, or rm .orchestrator.pid if you are SURE after a reboot.`);
+    throw new Error('concurrent orchestrator detected for this sessionDir');
+  }
 
-  console.log('[mux-runner] Would now drive the full ticket loop using headless grok -p workers.');
-  console.log('[mux-runner] Background mode active. Use Grok background task monitoring to watch.');
+  let state: any;
+  try {
+    state = sm.loadState(sessionDir);
+  } catch (e) {
+    console.error('[mux-runner] Failed to load state:', e);
+    sm.releaseOrchestratorRun(sessionDir);
+    throw e;
+  }
 
-  // For now this is a stub that can be expanded into the real long-running driver.
+  console.log(`[mux-runner] Session ${state.sessionId}, backend=${state.backend}, tickets=${(state.tickets || []).length}`);
+  // Touch / init the campaign status so monitors see the run starting immediately
+  const initialSnap = sm.countRemainingTickets(sessionDir);
+  sm.updateCampaignStatusSync(sessionDir, {
+    sessionId: state.sessionId,
+    progress: initialSnap,
+    note: 'mux-runner detached start',
+  });
+
+  if (options.monitor) {
+    console.log('[mux-runner] Monitor mode — tail activity + logs in separate pane (future TUI will be glorious). campaign-status.json is your friend for quick glances.');
+  }
+
+  // === GRACEFUL SHUTDOWN STATE (the whole point of this productionization) ===
+  let shuttingDown = false;
+  const shutdownRequested = () => shuttingDown;
+
+  const gracefulHandler = (signal: string) => {
+    if (shuttingDown) {
+      console.error(`[mux-runner] ${signal} received again — forcing immediate exit (state already persisted up to last completed phase).`);
+      sm.releaseOrchestratorRun(sessionDir);
+      process.exit(130);
+    }
+    shuttingDown = true;
+    console.log(`\n[mux-runner] ${signal} received — GRACEFUL SHUTDOWN INITIATED.`);
+    console.log('  • Current worker phase will be allowed to finish (or timeout).');
+    console.log('  • phasesCompleted + currentTicketId will be persisted via locked SessionManager + ritual.');
+    console.log('  • Resume with the exact same sessionDir later — it will skip done phases/tickets.');
+    console.log('  • Heartbeat + activity logs + campaign-status.json contain the exact handoff point.');
+    console.log('  • You have 2 minutes of courtesy before we consider you impatient.\n');
+
+    // Courtesy hard kill only if the *current phase* is a true runaway (worker already has its own staged SIGTERM)
+    setTimeout(() => {
+      if (shuttingDown) {
+        console.error('[mux-runner] Courtesy grace period expired. Forcing exit. Resume will continue from last successful ritual checkpoint.');
+        sm.releaseOrchestratorRun(sessionDir);
+        process.exit(143); // conventional SIGTERM exit code
+      }
+    }, 120000);
+  };
+
+  process.once('SIGTERM', () => gracefulHandler('SIGTERM'));
+  process.once('SIGINT', () => gracefulHandler('SIGINT'));
+
+  // Uncaught top-level safety net (still try to persist what we can)
+  process.once('uncaughtException', (err) => {
+    console.error('[mux-runner] UNCAUGHT EXCEPTION (campaign will attempt resume on next run):', err);
+    shuttingDown = true; // best effort
+    sm.releaseOrchestratorRun(sessionDir);
+    // state mutations that were in flight used locks/atomic writes — should be consistent
+    process.exit(1);
+  });
+
+  const orchOptions: RunOrchestratorOptions = {
+    shutdownRequested,
+    heartbeatIntervalMs: options.heartbeatIntervalMs ?? 300000,
+    onProgress: (info) => {
+      // Status file + activity now authoritative (orchestrator keeps it fresh)
+      if (info.message.includes('HEARTBEAT') || info.message.includes('COMPLETE')) {
+        // already handled richly inside orchestrator + resource-guard
+      }
+    },
+  };
+
+  // Drive the REAL production orchestrator + ritual (no more stub)
+  try {
+    await runOrchestrator(sessionDir, orchOptions);
+    if (shuttingDown) {
+      console.log('[mux-runner] Graceful shutdown completed. Session is resumable. Go forth and conquer, Rick.');
+    } else {
+      console.log('[mux-runner] Detached orchestrator run completed successfully. All tickets processed. <promise>CAMPAIGN_VICTORY</promise>');
+    }
+  } catch (err: any) {
+    console.error('[mux-runner] Orchestrator run failed hard (check activity logs + last phases + campaign-status.json for forensics):', err?.message || err);
+    // State should still be consistent thanks to atomic + ritual checkpoints
+    throw err;
+  } finally {
+    sm.releaseOrchestratorRun(sessionDir);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const sessionDir = process.argv[2];
-  runDetached(sessionDir).catch(console.error);
+  const monitor = process.argv.includes('--monitor');
+  const hbIdx = process.argv.indexOf('--heartbeat-ms');
+  const hb = hbIdx !== -1 ? parseInt(process.argv[hbIdx + 1] || '300000', 10) : undefined;
+
+  const hbOpts: any = { monitor }; if (hb !== undefined) hbOpts.heartbeatIntervalMs = hb; runDetached(sessionDir, hbOpts).catch((e) => {
+    console.error('[mux-runner] Unhandled top-level (resume recommended):', e);
+    process.exitCode = 1;
+  });
 }
