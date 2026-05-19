@@ -273,6 +273,14 @@ export class ArchitectureDeepener {
   }
 
   /**
+   * Public discovery entrypoint used by all 4 paths.
+   * Returns freshly scanned opportunities without mutating a full convergence state.
+   */
+  discoverOpportunities(targetPaths: string[] = ['.']): DeepeningOpportunity[] {
+    return this.scanForOpportunities(targetPaths);
+  }
+
+  /**
    * High-level entry. First pass performs real static discovery using the
    * LANGUAGE vocabulary. Later iterations (when wired to ConvergenceLoop)
    * will spawn deepen-changer workers to actually mutate toward deeper modules.
