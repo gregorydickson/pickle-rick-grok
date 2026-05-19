@@ -14,27 +14,6 @@ It turns a goal or PRD into shipped, reviewed, deslopped, and conformance-audite
 
 ---
 
-## Current Reality (Final Gaps Closed — 100% Overnight 50-Ticket Self-Run Ready)
-
-**The engine is production hardened for real autonomous multi-hour / 50+ ticket self-improvement campaigns with zero human babysitting.**
-
-- Full production SessionManager with locking, stale recovery, `campaign-status.json`, and resumption from any phase/ticket.
-- Real headless `grok -p` workers via `WorkerSpawner` + `ManagerRitual` (single source of truth for post-phase handling).
-- Real Citadel (5-auditor v1.1 core + trap/self-meta scanning) + report.
-- Real AnatomyParkDriver (3-phase review + automatic rollback on regression).
-- Real SzechuanDriver (full expanded principle set with confidence filtering).
-- Full detached orchestrator + `mux-runner` for fire-and-forget runs (heartbeats, graceful SIGTERM, resource guard).
-- Self-PRD generator + `pipeline --self-improvement` + loop-closer: full meta dogfood loop that writes `reliability-backlog.md`.
-- Rich observability (Activity events, metrics, standup with deltas and suggested next PRDs).
-
-**Zero P1/P2 gaps remain in the core autonomous loop.** Higher-tier commands remain honest stubs. The 50-ticket overnight self-run is the default, not aspirational.
-
-Wubba Lubba Dub Dub. The machine improves the machine.
-
-*(See AGENTS.md for the full brutal honesty contract and trap doors.)*
-
----
-
 ## How to Build Things with Pickle Rick Grok
 
 The flow is deliberately split:
