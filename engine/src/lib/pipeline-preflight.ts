@@ -40,6 +40,33 @@ export type { PreflightReport };
 
 const RUNNABLE_VERIFY_RE = /\b(npx |node -e |node --|grep |test -f |ls |find |diff |tsc --noEmit|npm test|npm run |sh -c |python -c |cat |head |tail )\b/i;
 
+/** Detects common "theatrical" / non-deterministic / always-pass patterns inside Verify command strings.
+ *  These are the exact anti-patterns that let R-META-DEEPEN-001 (and self-prd pads) emit tickets
+ *  whose ACs could never be proven by a Verifier Morty on the current tree.
+ */
+const VERIFY_THEATER_RE: RegExp[] = [
+  /\|\|\s*(true|echo\s|cat\s|:\s*;\s*true)/i,
+  /\b(verify|check|ensure|confirm)\s+(manually|by\s*eye|visually|observe|see\s+that|hand|human)/i,
+  /must (pass|exit 0|report success|succeed) (on current|today|before impl|stub|now)/i,
+  /\bTODO\b.*(verify|check|AC)/i,
+  /placeholder|later|NYI.*(verify|AC)/i,
+  /^\s*(ls|cat|find|echo|head|tail)\s+[^\n|;]*$/i, // bare observation, no assertion
+  /grep -qE? ['"].*['"]\s*\|\|\s*true/i,
+  /\/\*\s*(after|post|once|when|feed good)/i, // the exact incident markers
+];
+
+export function detectVerifyTheater(verify: string): { isTheatrical: boolean; reasons: string[]; hits: number } {
+  const reasons: string[] = [];
+  let hits = 0;
+  for (const re of VERIFY_THEATER_RE) {
+    if (re.test(verify)) {
+      hits++;
+      reasons.push(re.source);
+    }
+  }
+  return { isTheatrical: hits > 0, reasons, hits };
+}
+
 function computePrdHash(content: string): string {
   // simple stable hash for change detection (no crypto dep)
   let h = 0;
@@ -100,11 +127,15 @@ export function isPrdSufficientlyRefined(prdContent: string): { sufficient: bool
   }
 
   const runnableMatches = backtickCmds.filter(c => RUNNABLE_VERIFY_RE.test(c));
-  if (runnableMatches.length === 0) {
-    reasons.push('No runnable verification commands found in Verify cells (need npx/node -e/grep/test -f etc.)');
+  const strongMatches = runnableMatches.filter(c => !detectVerifyTheater(c).isTheatrical);
+  if (strongMatches.length === 0) {
+    reasons.push('No runnable, theater-free verification commands found in Verify cells (no "after fix", "|| true", "manually observe", etc.)');
     return { sufficient: false, score, reasons };
   }
-  score += Math.min(50, runnableMatches.length * 8);
+  if (runnableMatches.length > strongMatches.length) {
+    reasons.push(`Filtered ${runnableMatches.length - strongMatches.length} theatrical Verify commands (theater patterns detected)`);
+  }
+  score += Math.min(50, strongMatches.length * 8);
 
   // Bonus for volume of ACs
   const acLike = (prdContent.match(/\bAC[-_ ]?[0-9A-Z-]+\b/gi) || []).length;
@@ -116,7 +147,7 @@ export function isPrdSufficientlyRefined(prdContent: string): { sufficient: bool
     reasons.push(`Sparse ACs (${acLike}); refine for richer machine-checkable Verifies`);
   }
 
-  const sufficient = score >= 65 && runnableMatches.length >= 2;
+  const sufficient = score >= 65 && strongMatches.length >= 2;
   if (sufficient) {
     reasons.push(`PRD sufficiently refined: ${runnableMatches.length} runnable verifies detected`);
   } else if (reasons.length === 0) {
@@ -425,6 +456,13 @@ export function assessMetaReadiness(
     if (scanned.length >= 8) break; // hard cheap cap
   }
 
+  // NEW: direct Verify string theater detection (the birth defect that killed R-META-DEEPEN-001)
+  const theater = detectVerifyTheater(verifyContent || '');
+  if (theater.isTheatrical) {
+    totalHits += theater.hits;
+    signals.push({ file: '<verify-text>', pattern: 'VERIFY_THEATER', hits: theater.hits, example: theater.reasons.slice(0, 2).join(' | ') });
+  }
+
   let status: ReadinessAssessment['status'] = 'green';
   let score = 100;
   if (totalHits >= 6 || signals.length >= 3) {
@@ -439,6 +477,9 @@ export function assessMetaReadiness(
   if (status !== 'green') {
     suggested.push('Address skeletal/stub code in listed target files before meta tickets');
     suggested.push('Run foundation P0 tickets (PERSIST/MUTATE/APPLY order) first');
+  }
+  if (theater.isTheatrical) {
+    suggested.push('Verifies contain theatrical/always-pass constructs (|| true, "after fix", "manually observe", generic "exit 0 on current"); rewrite with explicit BASELINE (runnable today) vs SUCCESS forms');
   }
 
   const summary = `Readiness ${status.toUpperCase()} (score ${score}, ${totalHits} hits on ${scanned.length} files)`;

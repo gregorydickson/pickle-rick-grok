@@ -15,7 +15,7 @@
 import * as path from 'path';
 import { SessionManager } from '../session.js';
 import { Activity } from '../activity-logger.js';
-import { assessMetaReadiness, computeTicketManifestHash, writePrdSourceMeta, getManifestPrdPath } from './pipeline-preflight.js';
+import { assessMetaReadiness, computeTicketManifestHash, writePrdSourceMeta, getManifestPrdPath, detectVerifyTheater } from './pipeline-preflight.js';
 import type { ReadinessAssessment } from '../types.js';
 import * as fs from 'fs';
 
@@ -139,8 +139,23 @@ export async function emitRefinedTickets(
     try {
       const verifyJoined = (spec.acceptanceCriteria || []).map((ac: any) => (ac.verify || ac.criterion || '')).join('\n');
       readiness = assessMetaReadiness(spec.scope || '', verifyJoined, { ...(opts.grokRoot !== undefined ? { grokRoot: opts.grokRoot } : {}) });
+
+      // HARD GATE: theatrical Verifies are poison (the exact R-META-DEEPEN-001 failure mode)
+      const theater = detectVerifyTheater(verifyJoined);
+      const isMetaSelf = (opts.generatedBy || '').toLowerCase().includes('self') ||
+                         (spec as any).isSelfMeta ||
+                         (spec.sourcePrd === 'self-generated');
+      if (theater.isTheatrical || (readiness?.status === 'red' && isMetaSelf)) {
+        const msg = `[ticket-emitter] HARD EMISSION GATE for ${spec.id}: theatrical=${theater.isTheatrical} readiness=${readiness?.status} (meta/self=${isMetaSelf}). Reasons: ${[...(readiness?.signals || []), ...theater.reasons].map(r => (r as any).example || r).join(' | ')}`;
+        if (isMetaSelf) {
+          throw new Error(msg + ' — self/meta paths must never emit theatrical Verifies');
+        } else {
+          console.error(msg + ' (council path — emitting with strong warning; fix in next refine round)');
+        }
+      }
     } catch (e: any) {
-      // probe must never break emission; non-fatal (Jerry-safe)
+      // probe must never break emission; non-fatal (Jerry-safe) — except the new hard gate above
+      if ((e as any)?.message?.includes('HARD EMISSION GATE')) throw e;
       console.warn('[ticket-emitter] readiness probe failed (non-fatal):', e?.message || e);
     }
 

@@ -28,6 +28,7 @@ import { SessionManager } from './session.js';
 import type { Ticket, SessionState, Backend, Runtime } from './types.js';
 import { safeRead } from './lib/phase-utils.js';
 import { emitRefinedTickets, type TicketSpec } from './lib/ticket-emitter.js';
+import { detectVerifyTheater } from './lib/pipeline-preflight.js';
 import { summarizeReadiness } from './lib/pipeline-preflight.js';
 
 const GROK_CRITICAL_FILES = [
@@ -445,6 +446,10 @@ function getScopeForCategory(cat: string): string[] {
 function seedToTicketSpec(seed: SelfTicketSeed, grokRoot: string): TicketSpec {
   const scopes = getScopeForCategory(seed.category);
   const shortVerif = seed.verification.replace(/`/g, '').slice(0, 120);
+  const cleanedVerif = shortVerif.replace(/\s*\|\|\s*true\s*$/i, '').replace(/\s*\(run in working dir; must exit 0 or report success\)/i, '');
+  if (detectVerifyTheater(shortVerif).isTheatrical) {
+    console.warn(`[self-prd-generator] theatrical Verify sanitized for ${seed.id}: ${shortVerif.slice(0,80)}...`);
+  }
   const scopeStr = scopes.map((s) => `- ${s}`).join('\n') + `\n- engine/tests/*${seed.category}*.test.ts (add or update one test if it makes AC-01 pass)\n- No other files. Violate = ritual fails the ticket.`;
 
   return {
@@ -456,7 +461,7 @@ Evidence from scanner: the gap was live in the current tree against reliability-
 
 **Why this matters for 50-ticket autonomy**: Without these, the self-loop cannot run detached overnight. Jerry reboots, signals fly, state must survive. Close it or the pickle starves.`,
     acceptanceCriteria: [
-      { id: 'AC-01', criterion: 'Gap closed per description — the behavior or code now satisfies the original scanner intent', verify: `${shortVerif} (run in working dir; must exit 0 or report success)` },
+      { id: 'AC-01', criterion: 'Gap closed per description — the behavior or code now satisfies the original scanner intent', verify: `${cleanedVerif}` },
       { id: 'AC-02', criterion: `All 8 Morty phases complete for this ticket via canonical ManagerRitual (promise token + artifact) for ${seed.id}`, verify: `state.json shows phasesCompleted includes all 8 roles for ${seed.id}; ritual logs show no bypass` },
       { id: 'AC-03', criterion: 'Scope strictly honored — only files under declared scope mutated (plus minimal tests)', verify: `git diff --name-only HEAD shows paths inside [${scopes.join(', ')}]` },
       { id: 'AC-04', criterion: 'Post-implementation generator run no longer flags this exact category (or verification passes)', verify: `npx tsx engine/src/self-prd-generator.ts --full 2>&1 | grep -i ${seed.category} → suppressed or victory` },
