@@ -210,18 +210,9 @@ export async function runOrchestrator(
         workingDir: options.targetRoot || sm.getWorkingDirSafe(sessionDir), // CRITICAL: always target the session's grok tree (not process cwd) for real 50-tix self-dogfood detached runs
       });
 
-      if (!result.success) {
-        const stallNote = result.timedOut ? ` (stall:${result.stallReason ?? 'unknown'} killed=${!!result.killed})` : '';
-        const reason = (result.failureReason || result.error || 'worker_spawn_failed') + stallNote;
-        console.error(`Phase ${phase} failed for ticket ${ticket.id}: ${reason}`);
-        Activity.phaseFailed(state.sessionId || 'unknown', ticket.id, phase, reason);
-        await sm.updateTicketStatus(sessionDir, ticket.id, 'failed');
-        circuit.recordIteration(false, `phase_failed_${phase}:${reason}`);
-        Activity.ticketFailed(state.sessionId || 'unknown', ticket.id, `phase ${phase} failed: ${reason}`);
-        return;
-      }
-
-      // THE RITUAL — single source, every phase, no dupe logic
+      // Always invoke ritual (now the single post-return choke for success *and* stall cases).
+      // Stalls wire WorkerResult.timedOut/stallReason into per-ticket repeat counter inside ritual.
+      // Early !success no longer short-circuits stalls (allows N-repeat tolerance + transient pending).
       const expected = getExpectedArtifactName(phase, ticket.id);
       const ritual = new ManagerRitual(sessionDir);
       const outcome = await ritual.performPostReturn({
@@ -235,12 +226,31 @@ export async function runOrchestrator(
         autoRollbackOnCircuitTrip: false,
       });
 
+      // Keep stallNote visibility right after spawn for logs (richer RCA now also in campaign-status + ticket fields)
+      if (!result.success) {
+        const stallNote = result.timedOut ? ` (stall:${result.stallReason ?? 'unknown'} killed=${!!result.killed})` : '';
+        const reason = (result.failureReason || result.error || 'worker_spawn_failed') + stallNote;
+        console.error(`Phase ${phase} failed for ticket ${ticket.id}: ${reason}`);
+        // Activity + status decisions for stalls live in ritual (transient sets 'pending' for retry; halt sets 'failed')
+      }
+
+      if (outcome.stallHalted) {
+        // Per-ticket isolation complete: N repeats hit, marked failed inside ritual + Activity + campaign-status.
+        // Other tickets and campaign unaffected.
+        return;
+      }
+
       if (!outcome.valid) {
         const reason = outcome.reason || 'post_return_ritual_failed';
         console.error(`  Post-return ritual failed for ${phase}: ${reason}`);
-        Activity.phaseFailed(state.sessionId || 'unknown', ticket.id, phase, reason);
-        await sm.updateTicketStatus(sessionDir, ticket.id, 'failed');
-        Activity.ticketFailed(state.sessionId || 'unknown', ticket.id, `ritual ${phase}: ${reason}`);
+        // Only terminal-fail + circuit + ticketFailed for non-transient cases.
+        // Transient stalls (count < limit) already set to 'pending' inside ritual; do not nuke or circuit-punish.
+        if (!outcome.isTransientStall) {
+          Activity.phaseFailed(state.sessionId || 'unknown', ticket.id, phase, reason);
+          await sm.updateTicketStatus(sessionDir, ticket.id, 'failed');
+          circuit.recordIteration(false, `phase_failed_${phase}:${reason}`);
+          Activity.ticketFailed(state.sessionId || 'unknown', ticket.id, `ritual ${phase}: ${reason}`);
+        }
         return;
       }
 

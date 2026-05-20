@@ -94,6 +94,24 @@ export function resolvePhaseTurnBudget(
 }
 
 /**
+ * Per-ticket stall/timeout repeat limit for isolation (P1).
+ * Small default (2) allows 1 transient retry on resume (e.g. grok hiccup, wall-hang on heavy phase).
+ * After N repeats on same ticket, ritual marks failed/halted + records in Activity + campaign-status.
+ * Config via env (PICKLE_TICKET_STALL_LIMIT) or here; exposed for orchestrator/ritual/session.
+ * Reuses phasesCompleted-style persistence on tickets (no sidecars).
+ */
+export const DEFAULT_TICKET_STALL_LIMIT = 2;
+
+export function getTicketStallLimit(): number {
+  const envVal = process.env.PICKLE_TICKET_STALL_LIMIT;
+  if (envVal != null) {
+    const n = parseInt(envVal, 10);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return DEFAULT_TICKET_STALL_LIMIT;
+}
+
+/**
  * Map a full WorkerRole (e.g. 'morty-phase-research-reviewer')
  * to the corresponding prompt filename stem (e.g. 'research_review').
  * Keeps the special hyphen->underscore rules in ONE place.

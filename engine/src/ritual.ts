@@ -17,6 +17,7 @@ import { CircuitBreaker } from './circuit.js';
 import { getGitHead, getChangedPaths, safeRollback } from './git_safety.js';
 import { Activity } from './activity-logger.js';
 import type { ReadinessAssessment } from './types.js';
+import { getTicketStallLimit } from './lib/phase-utils.js';
 
 export function hasPromiseToken(output: string): boolean {
   return /<promise>\s*I\s+AM\s+DONE\s*<\/promise>/i.test(output || '');
@@ -141,7 +142,66 @@ export class ManagerRitual {
       artifactOk = res.ok; artifactPath = res.path; artifactError = res.error;
     }
     const valid = hasPromise && artifactOk;
+    const isStall = !!(workerResult?.timedOut || workerResult?.stallReason);
+    const stallReason = workerResult?.stallReason || (workerResult?.timedOut ? 'timed_out' : undefined);
     if (!valid) {
+      if (isStall && ticketId && phase) {
+        // P1: per-ticket stall/timeout-repeat isolation (wired from WorkerResult.timedOut + stallReason)
+        // Increment via locked helper (updates state + campaign-status note). Halt after N; else pending for resume retry.
+        // Non-stall failures and other tickets unaffected; campaign proceeds.
+        const limit = getTicketStallLimit();
+        const reason = stallReason || 'unknown_stall';
+        const sessId = path.basename(this.sessionDir);
+        const count = await this.sm.recordStallForTicket(this.sessionDir, ticketId, reason, phase);
+        const halted = count >= limit;
+        Activity.phaseFailed(sessId, ticketId, phase, `stall repeat #${count}/${limit}: ${reason}`);
+        if (halted) {
+          await this.sm.updateTicketStatus(this.sessionDir, ticketId, 'failed');
+          this.sm.updateCampaignStatusSync(this.sessionDir, {
+            note: `TICKET ${ticketId} HALTED after ${count} stalls (phase ${phase}, reason ${reason}) — isolated, campaign continues (mandatory phase: bestEffort=false; ticket phases gate vs post-campaign polish)`,
+            lastPhaseResult: { ticketId, phase, bestEffort: false, status: 'halted' },
+          } as any);
+          Activity.ticketFailed(sessId, ticketId, `halted after ${count} stall repeats on ${phase}: ${reason}`);
+          return {
+            valid: false,
+            reason: `halted after ${count} stalls`,
+            hasPromise,
+            circuitTripped: false,
+            rolledBack: false,
+            restoredPaths: [],
+            gitProgress,
+            changedPaths: [],
+            currentHead,
+            workingDir,
+            stallHalted: true,
+            stallCount: count,
+            stallReason: reason,
+          };
+        } else {
+          // transient: allow one more attempt on resume (repeat counter prevents infinite)
+          await this.sm.updateTicketStatus(this.sessionDir, ticketId, 'pending');
+          this.sm.updateCampaignStatusSync(this.sessionDir, {
+            note: `transient stall #${count} for ${ticketId} on ${phase} (limit ${limit}; retry on resume) (mandatory phase: bestEffort=false)`,
+            lastPhaseResult: { ticketId, phase, bestEffort: false, status: 'transient-stall' },
+          } as any);
+          return {
+            valid: false,
+            reason: `transient stall #${count}/${limit}`,
+            hasPromise,
+            circuitTripped: false,
+            rolledBack: false,
+            restoredPaths: [],
+            gitProgress,
+            changedPaths: [],
+            currentHead,
+            workingDir,
+            isTransientStall: true,
+            stallCount: count,
+            stallReason: reason,
+          };
+        }
+      }
+      // non-stall failure path (bad promise/artifact)
       const reason = !hasPromise ? 'Missing <promise>I AM DONE</promise> token' : (artifactError || 'Artifact validation failed');
       Activity.convergenceIteration('ritual', path.basename(this.sessionDir), phase, 'failed', undefined, undefined);
       return { valid: false, reason, hasPromise, circuitTripped: false, rolledBack: false, restoredPaths: [], gitProgress, changedPaths: [], currentHead, workingDir };

@@ -68,6 +68,42 @@ export interface CampaignStatus {
   [key: string]: any;
 }
 
+// === POST-CAMPAIGN PHASE CLASSIFICATION (P1: explicit best-effort vs mandatory) ===
+// Post phases (polish/deslop) default best-effort so failures never poison overallSuccess
+// semantics, campaign result, closer release decision, or watchdog "no progress" alarms.
+// Ticket phases (in ritual/orchestrator) are mandatory (bestEffort=false).
+// Wire classification here for easy future extension (add phase to union + map entry).
+// Visible in: campaign-status.json (postCampaign.phases.*.bestEffort), Activity meta_phase_started extras, PhaseResult.
+export type PostCampaignPhase = 'citadel' | 'anatomy-park' | 'szechuan-sauce';
+export type PhaseKind = 'mandatory' | 'best-effort';
+
+export interface PhaseResult {
+  phase: PostCampaignPhase;
+  success: boolean;
+  error?: string;
+  details?: any;
+  /** Explicit: true for polish (failures ignored for gates/closer/watchdog); false for mandatory (block release). */
+  bestEffort: boolean;
+}
+
+export interface PostCampaignResult {
+  phases: Record<PostCampaignPhase, PhaseResult>;
+  overallSuccess: boolean;
+  recoverableFailures: PostCampaignPhase[];
+  shouldReleaseCloser: boolean;
+}
+
+/** Centralized classification. Flip bestEffort for future mandatory post-phases (e.g. hard gate). All current are polish best-effort. */
+export const POST_PHASE_CLASSIFICATION: Record<PostCampaignPhase, { bestEffort: boolean; kind: PhaseKind }> = {
+  citadel: { bestEffort: true, kind: 'best-effort' },
+  'anatomy-park': { bestEffort: true, kind: 'best-effort' },
+  'szechuan-sauce': { bestEffort: true, kind: 'best-effort' },
+};
+
+export function isBestEffortPostPhase(phase: PostCampaignPhase): boolean {
+  return POST_PHASE_CLASSIFICATION[phase]?.bestEffort ?? true;
+}
+
 // === CONVERGENCE TYPES (shared by anatomy, szechuan, microverse, citadel) ===
 export interface Measurement {
   score: number;
@@ -223,6 +259,14 @@ export interface SessionTicket extends Ticket {
   completionCommit?: string;
   completionCommitSource?: 'runtime-orchestrator' | 'worker-direct' | 'inferred' | 'fallback';
   completionCommitAt?: string;
+
+  /** Per-ticket stall/timeout repeat isolation (P1): incremented on WorkerResult.timedOut/stallReason.
+   * After getTicketStallLimit() repeats, ticket is failed/halted (rest of campaign unaffected).
+   * Persisted on state.json tickets (same as phasesCompleted); survives resume/recovery. */
+  stallCount?: number;
+  lastStallReason?: string;
+  lastStallPhase?: string;
+  lastStallAt?: string;
 }
 
 export interface SessionState {

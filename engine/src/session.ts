@@ -236,6 +236,40 @@ export class SessionManager {
   }
 
   /**
+   * Per-ticket stall/timeout-repeat isolation (P1).
+   * Increments stallCount on the ticket (persisted in state.json), records last* RCA fields,
+   * bumps campaign-status note for monitors. Returns the new count.
+   * Called from ritual (post-return) on WorkerResult stall signals.
+   * After N (see getTicketStallLimit), caller will mark failed/halted; <N sets pending for resume retry.
+   * Reuses locked write + campaign-status + no sidecars.
+   */
+  async recordStallForTicket(
+    sessionDir: string,
+    ticketId: string,
+    reason?: string,
+    phase?: string
+  ): Promise<number> {
+    const lockPath = getStateLock(sessionDir);
+    let count = 0;
+    await withFileLock(lockPath, () => {
+      const state = this.loadState(sessionDir);
+      const t = state.tickets.find((x: any) => x.id === ticketId);
+      if (t) {
+        t.stallCount = (typeof t.stallCount === 'number' ? t.stallCount : 0) + 1;
+        count = t.stallCount;
+        if (reason) t.lastStallReason = reason;
+        if (phase) t.lastStallPhase = phase;
+        t.lastStallAt = new Date().toISOString();
+      }
+      this.writeState(sessionDir, state);
+      this.updateCampaignStatusSync(sessionDir, {
+        note: `stall #${count} for ticket ${ticketId}${phase ? ` @${phase}` : ''} (${reason || 'unknown'})`,
+      } as any);
+    });
+    return count;
+  }
+
+  /**
    * Core recovery primitive.
    * Resets a single ticket back to 'pending' so the orchestrator will pick it up again on next run.
    * Clears phasesCompleted (forces fresh start from researcher) and updates campaign status.
