@@ -141,6 +141,57 @@ export class ManagerRitual {
       const res = resolveAndValidateArtifact(artifactDir, expectedArtifact, true);
       artifactOk = res.ok; artifactPath = res.path; artifactError = res.error;
     }
+
+    // === P0 RESEARCH BLOCKED/DEFERRED RESCUE (early + defensive, before any !valid return) ===
+    // For research phases, if the worker reported non-success / exec_failed / missing stdout <promise>
+    // (common when LLM emits the token + ## Readiness Assessment *inside* the research_*.md per the phase contract,
+    // or artifact write races the worker's readdir snapshot, or transcript extraction misses it on --output-format json),
+    // but resolveAndValidateArtifact (enforceContract=true) succeeded (file exists + research sections incl. 'readiness assessment'),
+    // we ALWAYS honor a 'blocked' or 'deferred' RA here:
+    //   - appendPhase (so phasesCompleted records the research)
+    //   - updateTicketReadiness (flips ticket.status to blocked/deferred)
+    //   - updateCampaignStatusSync (clear note for tmux/monitors/closer)
+    //   - Activity log
+    //   - return non-fatal {valid:true, researchBlocked:...} outcome
+    // This bypasses the generic "Missing <promise> token" / artifact-failed return, the !outcome.valid failure path in orchestrator
+    // (no 'failed' status, no phase_failed_* circuit entry), and lets the existing liveStatus===blocked check in orchestrator
+    // cleanly halt remaining phases for the ticket.
+    // This is the P0 resilience rule for honest research: EMISSION_THEATER theater audit, unsatisfiable ACs, etc. must never
+    // produce zombie in_progress tickets or starve the self-PRD/closer loop. The artifact + RA always wins for research.
+    if (ticketId && phase && /research/i.test(phase) && artifactPath && fs.existsSync(artifactPath)) {
+      try {
+        const content = fs.readFileSync(artifactPath, 'utf8');
+        const ra = extractReadinessAssessment(content);
+        if (ra && (ra.status === 'blocked' || ra.status === 'deferred')) {
+          try { await this.sm.appendPhase(this.sessionDir, ticketId, phase, artifactPath); } catch (e) { console.warn('[ritual] append non-fatal'); }
+          await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
+          const sessId = path.basename(this.sessionDir);
+          this.sm.updateCampaignStatusSync(this.sessionDir, {
+            note: `RESEARCH ${ra.status.toUpperCase()}: ${ticketId} @ ${phase} — honest RA: ${ra.reason || 'blocked/deferred per EMISSION_THEATER or similar'} (artifact + phasesCompleted preserved; non-fatal, no planner path; P0 research honesty rule)`,
+            lastPhaseResult: { ticketId, phase, bestEffort: true, status: ra.status },
+          } as any);
+          Activity.convergenceIteration('ritual', sessId, phase, `research_${ra.status}`, undefined, undefined);
+          try { (Activity as any).ticketReadinessBlocked?.(sessId, ticketId, ra.status); } catch {}
+          return {
+            valid: true,
+            hasPromise,
+            researchBlocked: true,
+            blockedStatus: ra.status,
+            circuitTripped: false,
+            rolledBack: false,
+            restoredPaths: [],
+            gitProgress,
+            changedPaths: [],
+            currentHead,
+            workingDir,
+            artifactPath,
+          };
+        }
+      } catch (e: any) {
+        console.warn('[ritual] research blocked/deferred rescue non-fatal:', e?.message || e);
+      }
+    }
+
     const valid = hasPromise && artifactOk;
     const isStall = !!(workerResult?.timedOut || workerResult?.stallReason);
     const stallReason = workerResult?.stallReason || (workerResult?.timedOut ? 'timed_out' : undefined);
