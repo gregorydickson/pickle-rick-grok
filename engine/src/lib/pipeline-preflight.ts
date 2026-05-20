@@ -129,13 +129,9 @@ export function isPrdSufficientlyRefined(prdContent: string): { sufficient: bool
 export function checkTicketMaterialization(sessionDir: string): { countOnDisk: number; missingTicketIds: string[]; allPresent: boolean; ticketIdsInState: string[] } {
   const statePath = path.join(sessionDir, 'state.json');
   let ticketIds: string[] = [];
-  try {
-    if (fs.existsSync(statePath)) {
-      const raw = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-      ticketIds = (raw.tickets || []).map((t: any) => t.id).filter(Boolean);
-    }
-  } catch {
-    /* corrupt handled upstream */
+  if (fs.existsSync(statePath)) {
+    const raw = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    ticketIds = (raw.tickets || []).map((t: any) => t.id).filter(Boolean);
   }
 
   let countOnDisk = 0;
