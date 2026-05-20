@@ -42,15 +42,16 @@ function printHelp() {
   console.log(`run-pipeline.ts — canonical thin PRD→full-pipeline entrypoint (Grok-native)
 
 Usage:
-  npx tsx engine/src/bin/run-pipeline.ts --prd <path/to/prd.md> [--target <dir>] [--no-refine] [--self-improvement] [--background] [--fresh] [--recover-failed] [--resume] [--chain-post]
+  npx tsx engine/src/bin/run-pipeline.ts --prd <path/to/prd.md> [--target <dir>] [--no-refine] [--self-improvement] [--background] [--fresh] [--resume-linked] [--recover-failed] [--resume] [--chain-post]
   npx tsx engine/src/bin/run-pipeline.ts <sessionDir> [--recover-failed ...]   # back-compat for plain or already-linked sessions
 
-  --prd <path>          Absolute or cwd-relative path to the PRD markdown. Triggers find/create + stamp + preflight.
+  --prd <path>          Absolute or cwd-relative path to the PRD markdown. Triggers fresh session + stamp + preflight (fresh is now the default to avoid stale partial runs).
   --target <dir>        workingDir/grok-root passed to createSessionForPrd + used for post-phase drivers (defaults to cwd).
-  --no-refine           Bypass the refine gate — ONLY legal when the resolved session already has real materialized ticket.md files + ticket manifest hash match (post-incident P0 policy: --prd paths default to "always run /pickle-refine-prd" unless you have a vetted ticket set). Illegal bypass now hard-errors.
+  --no-refine           Bypass the refine gate — ONLY legal when the session has real materialized ticket.md files + matching manifest hash (the post-r-meta-deepen P0 safety). Plain --prd paths default to requiring /pickle-refine-prd.
   --self-improvement    Meta mode: after build, run full post phases + loop-closer + post-campaign ingest.
   --background          Fire mux-runner detached (stdio inherit so logs continue in terminal; pair with tmux for real detach).
-  --fresh               Ignore any existing linked session for this PRD; always create brand new (old left for forensics).
+  --fresh               Force a brand new session even if a prior linked one exists (now the default for --prd; explicit for clarity).
+  --resume-linked       Opt into the previous stamped session for this PRD (reverses the fresh default). Bare session dir also works for precise control.
   --recover-failed      Passed to mux-runner: reset any 'failed' tickets → 'pending' before starting (standard after bugfix).
   --resume              Explicit resume marker (mux-runner is inherently resumable via state + ritual; recorded in campaign-status).
   --chain-post          Force execution of Citadel + Anatomy Park + Szechuan (+ closer) after successful build.
@@ -74,10 +75,10 @@ Honors workingDir from --target (new sessions) or baked state.workingDir (resume
 tsc-clean, zero slop, recovery everywhere a Jerry partial-state can appear.
 
 Examples:
-  npx tsx engine/src/bin/run-pipeline.ts --prd prds/feature-x.md --target .
-  npx tsx engine/src/bin/run-pipeline.ts --prd prds/self-meta-2026-05-19.md --self-improvement --no-refine --target . --background
-  npx tsx engine/src/bin/run-pipeline.ts --prd prds/foo.md --recover-failed --fresh
-  npx tsx engine/src/bin/run-pipeline.ts /home/you/.local/share/pickle-rick-grok/sessions/2026-05-19-abc123def --recover-failed
+  npx tsx engine/src/bin/run-pipeline.ts --prd prds/feature-x.md --self-improvement --background     # fresh (default) + will guide through refine
+  npx tsx engine/src/bin/run-pipeline.ts --prd prds/self-meta-....md --self-improvement --no-refine --resume-linked --target . --background
+  npx tsx engine/src/bin/run-pipeline.ts /path/to/fresh-or-resumed-session --self-improvement --background   # recommended after refine
+  npx tsx engine/src/bin/run-pipeline.ts --prd prds/foo.md --recover-failed --fresh   # explicit fresh (same as default)
 
 After "REFINEMENT_COMPLETE" in refine output: re-run same command + --no-refine.
 For overnight 50-ticket self-dogfood: the self-PRD path + --no-refine --self-improvement --background (or use self-improvement-loop-closer).
@@ -119,9 +120,16 @@ async function main() {
   const selfImprovement = args.includes('--self-improvement');
   const recoverFailed = args.includes('--recover-failed') || args.includes('--reset-failed');
   const background = args.includes('--background') || args.includes('--detached') || args.includes('--bg');
-  const fresh = args.includes('--fresh');
+  const explicitFresh = args.includes('--fresh');
+  const explicitResumeLinked = args.includes('--resume-linked') || args.includes('--no-fresh') || args.includes('--continue-linked');
   const resume = args.includes('--resume');
   const chainPost = args.includes('--chain-post');
+
+  // Fresh is now the default for --prd invocations (prevents accidental reuse of stale
+  // in-progress / blocked ticket state from prior partial runs on the same PRD — the exact
+  // foot-gun that caused the r-meta-deepen incident). Use --resume-linked (or bare session dir)
+  // when you explicitly want the previous linked campaign for that PRD.
+  const fresh = explicitFresh || !explicitResumeLinked;
 
   // Bare <sessionDir> positional for back-compat (skip values attached to flags)
   const nonFlagArgs = args.filter((a) => !a.startsWith('--'));
@@ -169,13 +177,14 @@ async function main() {
     }
 
     const linked = fresh ? null : sm.findLinkedSessionForPrd(prdAbs);
-    if (linked) {
+    if (linked && !fresh) {
       sessionDir = linked;
       await sm.stampPrdSource(sessionDir, prdAbs);
-      console.log(`[run-pipeline] Found existing linked session for PRD: ${path.basename(sessionDir)}`);
+      console.log(`[run-pipeline] Reusing linked session for PRD (because --resume-linked): ${path.basename(sessionDir)}`);
     } else {
       const task = getTaskFromPrd(prdAbs);
-      console.log(`[run-pipeline] ${fresh ? '--fresh: ' : ''}Creating new session (task="${task.slice(0, 60)}...") under workingDir=${createWorkingDir}`);
+      const reason = explicitResumeLinked ? '(explicit --resume-linked overruled by --fresh)' : '(fresh is default for --prd to prevent stale ticket reuse)';
+      console.log(`[run-pipeline] Creating new fresh session (task="${task.slice(0, 60)}...") ${reason} under workingDir=${createWorkingDir}`);
       const res = await sm.createSessionForPrd(createWorkingDir, task, prdAbs);
       sessionDir = res.sessionDir;
     }
@@ -213,7 +222,7 @@ async function main() {
   if (isPrdDriven && noRefine) {
     const legal = isLegalToBypassRefine(report, true);
     if (!legal) {
-      const msg = `[run-pipeline] ILLEGAL --no-refine for --prd path: no real materialized tickets (or hash mismatch or zombie). Must run /pickle-refine-prd (or self-PRD emitter) first to produce ticket.md artifacts + stamped manifest hash. Zero-ticket bypass is a P0 safety violation (see the r-meta-deepen incident).`;
+      const msg = `[run-pipeline] ILLEGAL --no-refine for --prd path: no real materialized tickets (or hash mismatch or zombie). Must run /pickle-refine-prd first to produce ticket.md + stamped manifest hash. Fresh is default; use --resume-linked only when you deliberately want a prior campaign's tickets. Zero-ticket bypass is a P0 safety violation (see the r-meta-deepen incident).`;
       console.error(msg);
       Activity.awaitingRefineForPrd(path.basename(sessionDir), prdAbs || report.prdPath || '', report.refinement?.reasons || []);
       process.exit(1);
@@ -223,7 +232,13 @@ async function main() {
   // Policy-aware soft gate (default for --prd is "always refine" unless legal bypass)
   const effectiveNeedsRefine = isPrdDriven ? (!report.hasRealMaterializedTickets || !report.legalForNoRefine) : report.needsRefine;
   if (effectiveNeedsRefine && !noRefine) {
-    const guidance = 'PRD-driven pipeline requires /pickle-refine-prd for safety (never trust a rich Verify table in the .md alone — tickets must be materialized under the stamped session with manifest hash).\n\nRun: /pickle-refine-prd   (it auto-detects the stamp from SESSION_ROOT/campaign-status.json + .prd-source.json sidecar)\n\nAfter you see <promise>REFINEMENT_COMPLETE</promise>, re-invoke the *exact* same command you just ran, plus --no-refine:\n\n    npx tsx engine/src/bin/run-pipeline.ts --prd <the-prd-path> --no-refine [--self-improvement] [--background] [--target ...]\n\nThis is the only way real ticket.md files + executable Verify ACs exist before any bypass. --no-refine on a zero-ticket PRD state is now a hard error.';
+    const guidance = 'PRD-driven pipeline defaults to fresh + requires /pickle-refine-prd (the r-meta-deepen safety).\n\n' +
+      '1. Run: /pickle-refine-prd   (it auto-detects the fresh stamped session from SESSION_ROOT/campaign-status.json + .prd-source.json)\n\n' +
+      '2. After you see <promise>REFINEMENT_COMPLETE</promise>, execute the tickets with the bare session dir (cleanest) or --resume-linked:\n\n' +
+      '    npx tsx engine/src/bin/run-pipeline.ts /path/to/SESSION_ROOT --self-improvement --background [--recover-failed]\n\n' +
+      '    # or (if you prefer the prd form and want the session we just refined):\n' +
+      '    npx tsx engine/src/bin/run-pipeline.ts --prd <the-prd-path> --resume-linked --no-refine [--self-improvement] [--background]\n\n' +
+      'Fresh is the default on every --prd invocation so you never accidentally pick up a half-done prior campaign. Old sessions are left for forensics. --no-refine is only legal after the council has materialized real ticket.md + seal.';
     console.log(guidance);
     console.log(`SESSION_ROOT=${sessionDir}`);
     if (prdAbs) console.log(`PRD_LINKED=${prdAbs}`);
@@ -376,6 +391,6 @@ async function main() {
 
 main().catch((err) => {
   console.error('[run-pipeline] FATAL (most states left resumable via campaign-status + activity + ritual checkpoints):', (err as any)?.message || err);
-  console.error('Recovery: inspect ~/.local/share/pickle-rick-grok/sessions/<last>/campaign-status.json + logs ; use recover.ts --reset-failed or --fresh re-invoke.');
+  console.error('Recovery: inspect ~/.local/share/pickle-rick-grok/sessions/<last>/campaign-status.json + logs ; use bare session dir or --resume-linked + --recover-failed; --fresh is the safe default.');
   process.exit(1);
 });

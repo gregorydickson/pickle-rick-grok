@@ -16,9 +16,11 @@ references:
 ---
 # Pickle Pipeline — The Whole Damn Thing (Grok Edition) — REAL
 
-**Honest status (P0-6/7 dispatch complete)**: The user-facing surface is now a single thin canonical:
-`npx tsx engine/src/bin/run-pipeline.ts --prd <prd.md> --target . [--self-improvement] [--background] [--no-refine]`
-It owns PRD→session linkage (via SessionManager.createSessionForPrd + stampPrdSource + preflight), the needsRefine gate, ticket validation, mux-runner launch, and post-phases (Citadel → Anatomy Park → Szechuan + closer/ingest for self).
+**Honest status (defaults hardened post r-meta-deepen)**: The canonical surface is now:
+`npx tsx engine/src/bin/run-pipeline.ts --prd <prd.md> --target . [--self-improvement] [--background]`
+- `--fresh` is the default (new clean session every time you point at a PRD).
+- Refine gate is the default (you run /pickle-refine-prd on the printed SESSION_ROOT, then execute with the bare session dir or `--resume-linked --no-refine`).
+It owns everything downstream exactly as before.
 
 Everything downstream is real and wired:
 - Refine (large analyst team via `/pickle-refine-prd` only — now bootstraps from the stamped session)
@@ -39,6 +41,7 @@ When the user invokes `/pickle-pipeline`, says "run the full pipeline", "build t
 - The **only** step in the entire system allowed to use rich native `spawn_subagent` large teams is `/pickle-refine-prd` (the Requirements + Codebase + Risk analyst council). This is the deliberate architectural split.
 - All ticket execution, hardening, Citadel, Anatomy Park, Szechuan, and self-improvement campaigns **must** run through the headless detached path (`grok -p` workers under `mux-runner` / `orchestrator` + ritual + gates). This is the Core Execution Principle documented in AGENTS.md.
 - `/pickle-rick` (the old interactive manager loop) is deprecated and removed for exactly this reason.
+- `--fresh` is the default for any `--prd` invocation (old linked sessions are left for forensics). Use `--resume-linked` (or pass the bare session dir) when you want a prior campaign's tickets.
 
 Violating these rules turns reliable 50-ticket autonomous runs into fragile chat sessions.
 
@@ -58,17 +61,19 @@ npx tsx engine/src/bin/run-pipeline.ts --prd <path/to/the-prd.md> --target . [--
 - Launches mux-runner (detached if --background, with PICKLE_FORCE_HEADLESS).
 - If --self-improvement (or meta tickets): after build, runs Citadel (5-auditor) → Anatomy Park (3-phase) → Szechuan (full) → loop-closer + post-campaign ingest.
 
-**When refinement is required (raw PRD or first run):**
-1. Fire the bin with the PRD (no --no-refine). It creates the stamped session for you.
-2. It will tell you the SESSION_ROOT and to invoke `/pickle-refine-prd`.
-3. The refine skill (see its updated Step 0) bootstraps from the *already-stamped* session in campaign-status (machine-owned linkage — no more manual setup.ts + zombie risk).
-4. After the council finishes and you see `<promise>REFINEMENT_COMPLETE</promise>`, **re-invoke the identical run-pipeline command + --no-refine**. The preflight now passes, tickets are materialized, build proceeds, then post phases.
+**When refinement is required (raw PRD or first run — the normal case):**
+1. Fire the bin with the PRD (plain, no --no-refine). It creates a **fresh** stamped session (the default) and prints SESSION_ROOT.
+2. Run `/pickle-refine-prd` — it auto-detects the stamp and emits the real ticket.md files + seal.
+3. After `<promise>REFINEMENT_COMPLETE</promise>`, execute with the bare session dir (cleanest and recommended):
+   `npx tsx engine/src/bin/run-pipeline.ts <SESSION_ROOT> --self-improvement --background`
+   Or use `--resume-linked --no-refine` if you insist on the prd form.
 
 **Self-improvement / meta dogfood (the 50-ticket overnight):**
 ```bash
-npx tsx engine/src/bin/run-pipeline.ts --prd prds/self-meta-epic-YYYY-MM-DD.md --self-improvement --no-refine --target . --background
+npx tsx engine/src/bin/run-pipeline.ts --prd prds/self-meta-....md --self-improvement --background
+# (first run creates fresh + tells you to /pickle-refine-prd; after that use the printed SESSION_ROOT or --resume-linked)
 ```
-(The self-prd-generator now also emits via the ticket-emitter and recommends exactly this command.)
+(The self-prd-generator emits ready-to-run commands; plain invocation is now the norm.)
 
 **When you already have a session or tickets (power user / resume / debug / old sessions):**
 - Bare session still works for back-compat: `npx tsx engine/src/bin/run-pipeline.ts <SESSION_ROOT> --no-refine --recover-failed`
@@ -93,22 +98,19 @@ cat reliability-backlog.md          # after a self-improvement run
 
 ## Flags You Should Surface
 
-- `--prd <path>` (the trigger — this is the new primary)
-- `--no-refine` (required after REFINEMENT_COMPLETE or for self-PRDs that auto-emit tickets)
-- `--self-improvement` (full meta dogfood: generator → tickets via emitter → build → citadel+ap+sz+closer+ingest)
-- `--target /path` (workingDir for new sessions and post-phase drivers)
-- `--background` / `--bg` (fire mux-runner detached; pair with tmux for real fire-and-forget)
-- `--fresh` (new session even if prior link exists)
-- `--recover-failed` (reset failed → pending before start)
-- `--backend codex` (passed through to workers)
+- `--prd <path>` (the trigger — fresh session + refine gate are the defaults)
+- `--resume-linked` (opt into previous stamped session for this PRD instead of fresh)
+- `--no-refine` (only after the council has run and materialized tickets + seal)
+- `--self-improvement` (full meta: build + citadel + anatomy + szechuan + closer/ingest)
+- `--target /path`, `--background`, `--recover-failed`, `--backend codex` (as before)
 
 ## What Success Looks Like
 
 You (the skill) stay in the conversation only long enough to:
-- Emit the single `npx tsx engine/src/bin/run-pipeline.ts --prd ...` command (with the flags the user asked for).
-- If it printed the refine guidance: tell the user to run `/pickle-refine-prd` (the stamped session is already there), then re-paste the exact same run-pipeline command + `--no-refine`.
-- If background: tell them the pid / how to watch campaign-status + tmux attach.
-- Then you are done. The engine owns the rest (preflight, build, gates, post phases, self-loop).
+- Emit `npx tsx engine/src/bin/run-pipeline.ts --prd <prd> [--self-improvement] [--background]` (fresh + refine gate are automatic).
+- If it printed the refine guidance + SESSION_ROOT: tell the user to run `/pickle-refine-prd`, then execute with the bare SESSION_ROOT (or the prd form + --resume-linked --no-refine).
+- If background: tell them how to watch campaign-status + logs.
+- Then you are done. The engine owns the rest.
 
 No manual setup.ts. No hand-rolled mux calls in the happy path. The machine owns the PRD provenance and linkage — zero zombie sessions.
 

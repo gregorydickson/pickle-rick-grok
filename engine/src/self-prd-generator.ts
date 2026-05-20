@@ -369,19 +369,19 @@ ${reqRows}
 
 The generator now emits only high-quality specs carrying the same Verify discipline hardened in /pickle-refine-prd + phases + personas:
 
-**THEATER REJECTION RULE (non-negotiable, FIRST ACTION for researcher)**: Extract every Verify backtick from ticket + parent PRD. Test vs exact forbidden patterns in `references/phases/research.md` (identical to `VERIFY_THEATER_RE` + `detectVerifyTheater` in `engine/src/lib/pipeline-preflight.ts`):
-- `|| true`, `|| echo`, `|| :`, `grep ... || true`
-- "manually observe", "by eye", "human verify", "visually confirm", bare `ls`/`cat`/`echo` without assertion
-- "after good proposal", "after fix", "post-fix", "feed good", `/* after`, TODO/placeholder in Verify context
+**THEATER REJECTION RULE (non-negotiable, FIRST ACTION for researcher)**: Extract every Verify backtick from ticket + parent PRD. Test vs exact forbidden patterns in \`references/phases/research.md\` (identical to \`VERIFY_THEATER_RE\` + \`detectVerifyTheater\` in \`engine/src/lib/pipeline-preflight.ts\`):
+- \`|| true\`, \`|| echo\`, \`|| :\`, \`grep ... || true\`
+- "manually observe", "by eye", "human verify", "visually confirm", bare \`ls\`/\`cat\`/\`echo\` without assertion
+- "after good proposal", "after fix", "post-fix", "feed good", \`/* after\`, TODO/placeholder in Verify context
 - Any "on current|today|before impl" success phrasing, circular ordering, non-runnable BASELINE on *current* tree.
 
 **BASELINE vs SUCCESS (mandatory split)**: For *every* AC Verify:
 - BASELINE: command that *runs today* on the *current* tree and demonstrates the defect/gap (non-zero exit, missing artifact, stub output, theatrical pattern hit).
 - SUCCESS: the form that must pass after the change. Never phrase as "after good proposal" or "post-fix".
 
-**EMISSION_THEATER language (explicit, machine-actionable)**: Any theatrical hit or non-runnable BASELINE → Readiness Assessment **Status: blocked**, **Reason: "EMISSION_THEATER risk — theatrical Verify in ACs (would have killed researcher/planner). Exact hits: ... BASELINE not runnable today."**, Suggested Prereqs: "H-VERIFY hardening + re-refine". Stops planner/implementer. Flags CRITICAL/HIGH in Citadel's `auditTicketVerifyQuality` (TICKET_VERIFY_QUALITY / EMISSION_THEATER category) + triggers auto H-VERIFY side-effect tickets in post-campaign ingest.
+**EMISSION_THEATER language (explicit, machine-actionable)**: Any theatrical hit or non-runnable BASELINE → Readiness Assessment **Status: blocked**, **Reason: "EMISSION_THEATER risk — theatrical Verify in ACs (would have killed researcher/planner). Exact hits: ... BASELINE not runnable today."**, Suggested Prereqs: "H-VERIFY hardening + re-refine". Stops planner/implementer. Flags CRITICAL/HIGH in Citadel's \`auditTicketVerifyQuality\` (TICKET_VERIFY_QUALITY / EMISSION_THEATER category) + triggers auto H-VERIFY side-effect tickets in post-campaign ingest.
 
-**8-Phase Notes reference (updated)**: All generated R-META tickets carry the *full updated 8-Phase Notes* (see `references/phases/research.md`, `references/refine/ticket-template.md`, `references/phases/verify.md` etc. and the injected block in every ticket.md). Researcher does THEATER AUDIT first; Planner/Verifier/Reviewer/Simplifier do mandatory re-audits; Verifier fails hard on theater with "INVALID SPEC — EMISSION_THEATER: <exact>" in conformance before any run. Matches the exact language and contract now enforced on human paths.
+**8-Phase Notes reference (updated)**: All generated R-META tickets carry the *full updated 8-Phase Notes* (see \`references/phases/research.md\`, \`references/refine/ticket-template.md\`, \`references/phases/verify.md\` etc. and the injected block in every ticket.md). Researcher does THEATER AUDIT first; Planner/Verifier/Reviewer/Simplifier do mandatory re-audits; Verifier fails hard on theater with "INVALID SPEC — EMISSION_THEATER: <exact>" in conformance before any run. Matches the exact language and contract now enforced on human paths.
 
 This PRD + its tickets are pre-audited at emission (seedToTicketSpec + emitRefinedTickets detectVerifyTheater gate + assessMetaReadiness). No emission theater survives into the autonomous 50-ticket loop.
 
