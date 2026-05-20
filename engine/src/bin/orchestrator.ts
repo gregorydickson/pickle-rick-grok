@@ -156,6 +156,11 @@ export async function runOrchestrator(
           note: `HEARTBEAT ${currentTicketId || 'idle'}@${currentPhase || 'idle'}`,
           resource: { memRss: mem.rss, rssHuman: mem.rssHuman },
         } as any);
+        // Campaign no-progress watchdog (thin, heartbeat-driven, progress-timestamp based, long window). Reuses getProgressSnapshot cadence.
+        const wd = sm.checkCampaignWatchdog(sessionDir);
+        if (wd.alarmed) {
+          emitProgress(`WATCHDOG ALARM no-progress ${wd.ageHours}h (>${wd.thresholdHours}h)`, currentTicketId || undefined, currentPhase || undefined);
+        }
       } catch {}
     }, hbMs);
   }
@@ -206,7 +211,8 @@ export async function runOrchestrator(
       });
 
       if (!result.success) {
-        const reason = result.failureReason || result.error || 'worker_spawn_failed';
+        const stallNote = result.timedOut ? ` (stall:${result.stallReason ?? 'unknown'} killed=${!!result.killed})` : '';
+        const reason = (result.failureReason || result.error || 'worker_spawn_failed') + stallNote;
         console.error(`Phase ${phase} failed for ticket ${ticket.id}: ${reason}`);
         Activity.phaseFailed(state.sessionId || 'unknown', ticket.id, phase, reason);
         await sm.updateTicketStatus(sessionDir, ticket.id, 'failed');
@@ -256,6 +262,7 @@ export async function runOrchestrator(
         `  ✓ ${phase} complete (ritual: gitProgress=${outcome.gitProgress}, rolledBack=${outcome.rolledBack})`
       );
       emitProgress(`phase ${phase} COMPLETE`, ticket.id, phase);
+      sm.recordProgress(sessionDir, `phase advance ${phase} for ${ticket.id}`);
 
       // META-READINESS (final gate integration): research RA may have flipped to blocked/deferred inside ritual.
       // Halt further phases for *this* ticket (research artifact + phasesCompleted up to research preserved; ticket not failed/done).
@@ -281,6 +288,7 @@ export async function runOrchestrator(
     const ticketDur = Math.floor((Date.now() - ticketStart) / 1000);
     console.log(`=== Ticket ${ticket.id} COMPLETE in ${ticketDur}s ===\n`);
     emitProgress(`ticket ${ticket.id} COMPLETE`, ticket.id);
+    sm.recordProgress(sessionDir, `ticket ${ticket.id} complete`);
 
     // Resource hygiene settle — final gaps sweeper integration (long-run safe)
     try {
@@ -412,9 +420,29 @@ function buildPhasePrompt(ticket: any, phase: string, sessionDir: string, state:
     base = `## ${phaseName} phase\nFollow the standard Morty contract for this phase.`;
   }
 
-  const sendToMorty = fs
-    .readFileSync(path.join(__dirname, '../../../references/send-to-morty.md'), 'utf8')
-    .replace(/```/g, '');
+  // Grok-native: use the clean persona definition for the exact role instead of the
+  // Claude send-to-morty manager script (which tells the worker to exec non-existent
+  // spawn-morty.js / extension bins and causes grok CLI non-zero exits on complex researcher prompts).
+  // This is the root cause of the "phase_failed_morty-phase-researcher:exec_failed" in detached runs.
+  // The incoming `phase` is the full WorkerRole (e.g. 'morty-phase-researcher') — matches the persona filename exactly.
+  const personaFile = `${phase}.md`;
+  const personaPath = path.join(__dirname, '../../../references/personas', personaFile);
+  let roleHeader = '';
+  if (fs.existsSync(personaPath)) {
+    roleHeader = fs.readFileSync(personaPath, 'utf8');
+  } else {
+    const short = phase.replace('morty-phase-', '').replace(/-/g, ' ');
+    roleHeader = `You are Morty the ${short.charAt(0).toUpperCase() + short.slice(1)}.\nYour job is to perform this phase honestly for the ticket.`;
+  }
+
+  // Short Grok-headless contract (no Claude extension assumptions, direct artifact + promise contract)
+  const grokContract = `## Grok Headless Worker Contract (single-turn, clean-context)
+You are running as a dedicated phase specialist via the Grok CLI headless path.
+Read the ticket and any prior phase artifacts from the TICKET_DIR.
+Perform your phase work (theater audit first for research).
+Write **exactly** the expected artifact file for this phase to the absolute path below (use file tools).
+When finished, output exactly: <promise>I AM DONE</promise>
+Enforce the short Git Boundary Rules below. No manager loops, no external node scripts.`;
 
   const sm = new SessionManager();
   const ticketPath = path.join(sm.getTicketDir(sessionDir, ticket.id), 'ticket.md');
@@ -428,9 +456,9 @@ function buildPhasePrompt(ticket: any, phase: string, sessionDir: string, state:
   const artifactPath = path.join(ticketDir, expectedArtifact);
 
   return [
+    roleHeader,
     base,
-    '## Immutable Worker Contract',
-    sendToMorty,
+    grokContract,
     `## Current Ticket (${ticket.id})`,
     ticketContent,
     '## Worker State & Artifact Locations (explicit — required by clean-context contract)',

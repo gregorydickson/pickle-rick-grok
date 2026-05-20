@@ -18,7 +18,9 @@ import { SessionManager } from '../session.js';
 import { runOrchestrator, RunOrchestratorOptions } from '../bin/orchestrator.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { execSync } from 'child_process';
+import { runPostCampaignPhases } from '../lib/post-campaign.js';
 
 export interface DetachedOptions {
   monitor?: boolean;
@@ -35,8 +37,14 @@ export interface DetachedOptions {
   selfImprovement?: boolean;
 }
 
-/** Cheap early env probe for worker spawns (captures PATH/grok visibility for "works in shell, fails in mux" RCA). */
-function runWorkerEnvProbe(sessionDir: string): any {
+/** 
+ * Early grok CLI discovery probe.
+ * Now the bouncer that makes "grok not in PATH or bad binary" FATAL for detached runs.
+ * Supports PICKLE_GROK_BIN override + optional PICKLE_AUTO_INJECT_GROK=1 scan+PATH-mutate.
+ * Always writes worker-env-probe.json + returns rich object with grokOk.
+ * Surface result at every launch path so no more silent exec_failed Jerry parades.
+ */
+export function runWorkerEnvProbe(sessionDir: string): any {
   const p = (process.env.PATH || '').split(path.delimiter).slice(0, 6);
   const probe: any = {
     ts: new Date().toISOString(),
@@ -45,19 +53,95 @@ function runWorkerEnvProbe(sessionDir: string): any {
     pathHead: p,
     cwd: process.cwd(),
     PICKLE_FORCE_HEADLESS: process.env.PICKLE_FORCE_HEADLESS || null,
+    PICKLE_WORKER_OUTPUT_STALL_MS: process.env.PICKLE_WORKER_OUTPUT_STALL_MS || null,
+    PICKLE_WORKER_WALL_HANG_MS: process.env.PICKLE_WORKER_WALL_HANG_MS || null,
+    PICKLE_GROK_BIN: process.env.PICKLE_GROK_BIN || null,
+    PICKLE_AUTO_INJECT_GROK: process.env.PICKLE_AUTO_INJECT_GROK || null,
   };
+
+  // Rick's discovery: explicit env > current which > common bins (macOS/homebrew/userland hell)
+  function discoverGrokBin(): { bin: string | null; source: string } {
+    const envSet = process.env.PICKLE_GROK_BIN;
+    if (envSet && fs.existsSync(envSet)) {
+      return { bin: envSet, source: 'PICKLE_GROK_BIN' };
+    }
+    try {
+      const w = execSync('which grok 2>/dev/null || which grok-cli 2>/dev/null || echo ""', { encoding: 'utf8', timeout: 4000 }).trim();
+      if (w && fs.existsSync(w)) {
+        return { bin: w, source: 'which' };
+      }
+    } catch {}
+    const home = (os && os.homedir ? os.homedir() : (process.env.HOME || process.env.USERPROFILE || ''));
+    const candidates = [
+      path.join(home, '.local', 'bin', 'grok'),
+      path.join(home, 'bin', 'grok'),
+      path.join(home, '.local', 'bin', 'grok-cli'),
+      '/usr/local/bin/grok',
+      '/opt/homebrew/bin/grok',
+      '/usr/bin/grok',
+      '/usr/local/bin/grok-cli',
+    ];
+    for (const c of candidates) {
+      if (c && fs.existsSync(c)) {
+        return { bin: c, source: 'common-location' };
+      }
+    }
+    return { bin: null, source: 'none' };
+  }
+
+  const autoInject = !!process.env.PICKLE_AUTO_INJECT_GROK;
+  let resolvedGrok = 'grok';
+  let grokSource = 'PATH';
+  let autoInjected: string | null = null;
+  const disc = discoverGrokBin();
+  if (disc.bin) {
+    resolvedGrok = disc.bin;
+    grokSource = disc.source;
+    const shouldAutoFix = (disc.source === 'common-location' && autoInject) || disc.source === 'PICKLE_GROK_BIN';
+    if (shouldAutoFix) {
+      if (!process.env.PICKLE_GROK_BIN) {
+        process.env.PICKLE_GROK_BIN = disc.bin;
+        probe.PICKLE_GROK_BIN = disc.bin;
+      }
+      const dir = path.dirname(disc.bin);
+      const curP = process.env.PATH || '';
+      if (dir && !curP.split(path.delimiter).some((d: string) => d === dir)) {
+        process.env.PATH = dir + path.delimiter + curP;
+        autoInjected = disc.bin;
+        probe.pathHead = (process.env.PATH || '').split(path.delimiter).slice(0, 6);
+      }
+    }
+  }
+  probe.resolvedGrok = resolvedGrok;
+  probe.grokSource = grokSource;
+
+  // Post-mutate which test: this is what bare "grok" in worker sh -c will actually see
   try {
     const w = execSync('which grok 2>/dev/null || which grok-cli 2>/dev/null || echo "GROK_NOT_IN_PATH"', { encoding: 'utf8', timeout: 4000 }).trim();
     probe.whichGrok = w;
     probe.grokInPath = !w.includes('NOT_IN_PATH');
   } catch (e: any) {
     probe.whichErr = e?.message || String(e);
+    probe.grokInPath = false;
   }
+
+  // Help probe via best-resolved (full path succeeds even before PATH tweak; proves the binary is real)
   try {
-    probe.grokHelp = execSync('grok --help 2>&1 | head -3', { encoding: 'utf8', timeout: 6000 }).trim().slice(0, 180);
+    const helpCmd = (resolvedGrok.includes(path.sep) || resolvedGrok.includes('\\'))
+      ? `"${resolvedGrok}" --help 2>&1 | head -5`
+      : `${resolvedGrok} --help 2>&1 | head -5`;
+    probe.grokHelp = execSync(helpCmd, { encoding: 'utf8', timeout: 6000 }).trim().slice(0, 200);
   } catch (e: any) {
     probe.helpErr = (e?.status ? `exit=${e.status}` : (e?.message || String(e)));
   }
+
+  // Verdict: will workers using bare `grok` in their env actually succeed?
+  const h = (probe.grokHelp || '') + (probe.helpErr || '');
+  const badHelp = /command not found|not found|No such file|exec format|permission denied/i.test(h);
+  probe.grokOk = !!(probe.grokInPath && probe.grokHelp && probe.grokHelp.length > 5 && !badHelp && !probe.helpErr);
+  if (autoInjected) probe.autoInjected = autoInjected;
+
+  // Persist for forensics (always, even on fatal path)
   try {
     const probeFile = path.join(sessionDir, 'worker-env-probe.json');
     fs.mkdirSync(sessionDir, { recursive: true });
@@ -87,10 +171,38 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
     throw new Error('concurrent orchestrator detected for this sessionDir');
   }
 
-  // Early cheap env probe (before heavy load) — forensics for grok CLI visibility in spawned workers
+  // Grok CLI discovery probe — FATAL EARLY on failure for ALL detached runs (the exec_failed exterminator).
+  // Always surface the result. Optional auto-inject + PICKLE_GROK_BIN honored here so downstream workers see fixed PATH.
   const probe = runWorkerEnvProbe(sessionDir);
-  if (probe.grokInPath === false) {
-    console.warn('[mux-runner] WARNING: grok not found in PATH for this worker env — interactive may work, detached spawns will fail. See worker-env-probe.json');
+  console.log(`[mux-runner] grok CLI probe surfaced: ok=${probe.grokOk} via=${probe.grokSource} resolved=${probe.resolvedGrok} which=${probe.whichGrok} autoInjected=${probe.autoInjected || 'none'} PICKLE_GROK_BIN=${probe.PICKLE_GROK_BIN || 'unset'}`);
+  if (!probe.grokOk) {
+    const rca = `[mux-runner] FATAL: grok CLI not discoverable (grokOk=false). This is THE root cause of the silent mass "exec_failed" worker failures that used to nuke entire overnight detached/self-improvement campaigns with zero early signal.
+
+Probe snapshot: ${JSON.stringify({ which: probe.whichGrok, resolved: probe.resolvedGrok, source: probe.grokSource, helpPreview: (probe.grokHelp || '').slice(0, 80), helpErr: probe.helpErr, pathHead: probe.pathHead, PICKLE_GROK_BIN: probe.PICKLE_GROK_BIN }, null, 2)}
+
+Recovery (one of these before you launch the mux or run-pipeline --background):
+  1. Put grok in a dir that non-interactive shells actually inherit: export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH" (and source your zshenv not just zshrc).
+  2. Explicit override: PICKLE_GROK_BIN=/absolute/path/to/grok-binary   (we prepend its dir to PATH so bare "grok" in workers works).
+  3. Lazy auto: PICKLE_AUTO_INJECT_GROK=1   — we hunt the usual suspects (~/.local/bin/grok, homebrew, /usr/local) and inject if present.
+
+Full details in ${path.join(sessionDir, 'worker-env-probe.json')} and the fatal entry we are writing to campaign-status.json RIGHT NOW.
+This aborts BEFORE any orchestrator/ritual/worker spawn. No more 200-ticket ghost parade of exec_failed.
+
+`;
+    console.error(rca);
+    try {
+      sm.updateCampaignStatusSync(sessionDir, {
+        fatalGrokDiscovery: true,
+        grokProbe: probe,
+        note: 'FATAL: grok CLI discovery failed early — prevents exec_failed mass failure class in detached runs',
+        error: 'grok-not-discoverable-for-detached',
+        lastGrokProbeTs: new Date().toISOString(),
+      });
+    } catch (e: any) {
+      console.warn('[mux-runner] campaign-status fatal grok probe update non-fatal:', e?.message);
+    }
+    sm.releaseOrchestratorRun(sessionDir);
+    throw new Error('grok CLI discovery failed fatally early for detached run (see RCA + recovery in logs above + campaign-status.json)');
   }
 
   // P0 guard: validate full ticket.md artifacts exist vs state (catches partial refine / zombie tickets)
@@ -120,6 +232,12 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
   }
 
   console.log(`[mux-runner] Session ${state.sessionId}, backend=${state.backend}, tickets=${(state.tickets || []).length}`);
+
+  // Surface provenance/seal from single owner (post-hydra collapse)
+  const seal = sm.getManifestSeal(sessionDir);
+  if (seal?.prdPath) {
+    console.log(`[mux-runner] Provenance: prd=${seal.prdPath} seal=${seal.ticketManifestHash ? 'present' : 'none'}`);
+  }
 
   // Surface new readiness statuses (blocked/deferred) for meta PRDs
   const blocked = (state.tickets || []).filter((t: any) => t.status === 'blocked');
@@ -158,6 +276,7 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
     progress: initialSnap,
     note: options.recoverFailed ? 'mux-runner detached start (recovered)' : 'mux-runner detached start',
   });
+  sm.recordProgress(sessionDir, 'mux-runner detached start');
 
   if (options.monitor) {
     console.log('[mux-runner] Monitor mode — tail activity + logs in separate pane (future TUI will be glorious). campaign-status.json is your friend for quick glances.');
@@ -221,35 +340,12 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
       const postTarget = sm.getWorkingDirSafe(sessionDir);
       console.log(`[mux-runner] SUCCESS + chain-post/self-meta: running best-effort post block (citadel+anatomy+szechuan+closer) to ${postTarget} before lock release`);
       try {
-        // Citadel
-        try {
-          const citMod: any = await import('../citadel.js');
-          const c = citMod.runCitadel(sessionDir);
-          console.log(`[mux-runner] Post Citadel: ${c?.findings?.length ?? 0} findings (overall=${c?.overall || 'PASS'})`);
-        } catch (ce: any) { console.error('[mux-runner] post-citadel non-fatal:', ce?.message || ce); }
+        const postReport = await runPostCampaignPhases(sessionDir, postTarget, {
+          log: (m: string) => console.log(m),
+        });
+        console.log(`[mux-runner] Post-campaign centralized: overall=${postReport.overallSuccess} failures=[${postReport.recoverableFailures.join(', ') || 'none'}] shouldReleaseCloser=${postReport.shouldReleaseCloser}`);
 
-        // Anatomy Park
-        try {
-          const anaMod: any = await import('../anatomy.js');
-          const anatomy = new anaMod.AnatomyParkDriver(sessionDir);
-          const apSubs = ['engine/src', 'skills', 'references', 'prds'];
-          let apState: any; try { apState = anatomy.load(); } catch { apState = anatomy.init(apSubs); }
-          for (const sub of apSubs) {
-            const r = anatomy.executeThreePhaseCycle(apState, sub);
-            console.log(`  [anatomy] ${sub}: ${r?.ok ? 'ok' : 'issues'} trap=${!!r?.trapDoorAdded}`);
-          }
-        } catch (ae: any) { console.error('[mux-runner] post-anatomy non-fatal:', ae?.message || ae); }
-
-        // Szechuan
-        try {
-          const szMod: any = await import('../szechuan.js');
-          const szech = new szMod.SzechuanDriver(sessionDir);
-          let szState: any; try { szState = szech.load(); } catch { szState = szech.init([postTarget]); }
-          const szr = szech.runConvergence(szState);
-          console.log(`[mux-runner] Post Szechuan: converged=${!!szr?.converged} iters=${szr?.iterations || 0}`);
-        } catch (se: any) { console.error('[mux-runner] post-szechuan non-fatal:', se?.message || se); }
-
-        // Closer + post-campaign ingest (for self-improvement)
+        // Closer + ingest (for self-improvement / chain-post meta). Ledger decision is advisory.
         try {
           const clMod: any = await import('../self-improvement-loop-closer.js');
           const prdMod: any = await import('../self-prd-generator.js');

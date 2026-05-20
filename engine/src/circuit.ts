@@ -11,7 +11,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Activity } from './activity-logger.js';
-import { writeJsonAtomic } from './session.js';
+import { writeJsonAtomic, SessionManager } from './session.js';
 
 export interface CircuitState {
   consecutiveNoProgress: number;
@@ -60,6 +60,12 @@ export class CircuitBreaker {
       this.state.consecutiveNoProgress++;
     } else {
       this.state.consecutiveNoProgress = 0;
+      // Enrich campaign-level watchdog (timestamp of real progress) from circuit's active git detection.
+      // Cribs Claude detectProgress(git+step+ticket) feeding record — here circuit's gitProgress feeds long-horizon lastMeaningfulProgressTs.
+      try {
+        const sm = new SessionManager();
+        sm.recordProgress(this.sessionDir, 'circuit gitProgress (active delta)');
+      } catch {}
     }
 
     if (errorSignature) {

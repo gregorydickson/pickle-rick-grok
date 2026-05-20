@@ -128,6 +128,8 @@ export class SessionManager {
       progress: { total: 0, done: 0, failed: 0, remaining: 0 },
       note: 'session created',
     });
+    // Seed progress ts immediately (prevents watchdog false-positive on brand new sessions)
+    this.recordProgress(sessionDir, 'session created');
 
     return { sessionId, sessionDir };
   }
@@ -412,6 +414,81 @@ export class SessionManager {
     }
   }
 
+  /** Record a meaningful progress delta (timestamp-based, for long-running campaign watchdog). Safe to call often; updates lastMeaningfulProgressTs + campaign-status. */
+  recordProgress(sessionDir: string, reason = 'meaningful delta'): void {
+    const now = new Date().toISOString();
+    try {
+      this.updateCampaignStatusSync(sessionDir, {
+        lastMeaningfulProgressTs: now,
+        note: `progress: ${reason}`,
+      } as any);
+    } catch (e: any) {
+      // never let progress recording kill a campaign
+      console.warn('[session] recordProgress non-fatal:', e?.message || e);
+    }
+  }
+
+  /** Retrieve last recorded meaningful progress timestamp from campaign-status.json (null if none). */
+  getLastProgressTs(sessionDir: string): string | null {
+    const p = this.getCampaignStatusPath(sessionDir);
+    if (!fs.existsSync(p)) return null;
+    try {
+      const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+      return raw.lastMeaningfulProgressTs || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Thin campaign-level no-progress heartbeat watchdog.
+   * Intended to be called on the existing 5m heartbeat cadence (reuses getProgressSnapshot path in caller).
+   * Tracks via lastMeaningfulProgressTs (updated only on *real* deltas: ticket/phase advance, git changes, non-stall outcomes).
+   * Long window (default 4h, tunable via PICKLE_CAMPAIGN_WATCHDOG_HOURS=3..6), alarms via loud log + campaign-status flag + Activity event.
+   * NEVER auto-kills or stops the campaign — just surfaces for human (or future self-PRD) inspection.
+   * Idempotent: only raises alarm once until a recordProgress clears the flag (or manual).
+   * cribs Claude's detectProgress + record pattern at campaign timescale (timestamp instead of consecutive count).
+   */
+  checkCampaignWatchdog(sessionDir: string): { alarmed: boolean; lastTs: string | null; ageHours: number; thresholdHours: number } {
+    const envH = Number(process.env.PICKLE_CAMPAIGN_WATCHDOG_HOURS);
+    const thresholdHours = Number.isFinite(envH) && envH >= 1 && envH <= 12 ? envH : 4;
+    const lastTs = this.getLastProgressTs(sessionDir);
+    const nowMs = Date.now();
+    let ageHours = 0;
+    if (lastTs) {
+      const then = new Date(lastTs).getTime();
+      if (Number.isFinite(then)) ageHours = (nowMs - then) / (1000 * 3600);
+    } else {
+      // Seed on first sight so fresh campaigns don't false-alarm immediately
+      this.recordProgress(sessionDir, 'watchdog first-seen (seeded)');
+      return { alarmed: false, lastTs: null, ageHours: 0, thresholdHours };
+    }
+
+    // Read current status to avoid repeated alarms
+    const statusPath = this.getCampaignStatusPath(sessionDir);
+    let current: any = {};
+    try { if (fs.existsSync(statusPath)) current = JSON.parse(fs.readFileSync(statusPath, 'utf8')); } catch {}
+    const already = !!current.noProgressAlarm;
+
+    const alarmed = ageHours > thresholdHours && !already;
+    if (alarmed) {
+      const reason = `No meaningful progress for ${ageHours.toFixed(1)}h (threshold ${thresholdHours}h). Last: ${lastTs}. Requires real deltas (ticket/phase, ritual git, worker non-stall).`;
+      console.error(`[campaign-watchdog] 🚨 ALARM: ${reason}`);
+      console.error(`[campaign-watchdog] Long-running campaign still alive (no kill). Inspect activity/ritual/campaign-status.json + git. Record progress or tune PICKLE_CAMPAIGN_WATCHDOG_HOURS to silence.`);
+      this.updateCampaignStatusSync(sessionDir, {
+        noProgressAlarm: true,
+        noProgressAlarmReason: reason,
+        noProgressAlarmAt: new Date().toISOString(),
+        note: `WATCHDOG ALARM @ ${ageHours.toFixed(1)}h`,
+      } as any);
+      try {
+        const sess = path.basename(sessionDir);
+        Activity.campaignWatchdogAlarm(sess, { ageHours: Number(ageHours.toFixed(1)), thresholdHours, lastTs, reason });
+      } catch {}
+    }
+    return { alarmed, lastTs, ageHours: Number(ageHours.toFixed(2)), thresholdHours };
+  }
+
   /**
    * Production: atomically mark a ticket in_progress + set currentTicketId (for resumption + heartbeat visibility).
    * Used by orchestrator at start of every ticket.
@@ -537,10 +614,10 @@ export class SessionManager {
   // === PRD LINKAGE + PREFLIGHT EXTENSIONS (P0-1 / P0-2 / P0-5) ===
 
   /**
-   * Create a fresh session and immediately stamp it with source PRD linkage.
+   * Create a fresh session and immediately stamp it with source PRD provenance.
    * This is the canonical machine entry for "run pipeline on PRD".
    * Fires prdPipelineInitiated + sessionLinkedToPrd.
-   * Async because stamp uses lock.
+   * Async because stamp uses lock. Single owner for linkage + seal.
    */
   async createSessionForPrd(
     workingDir: string,
@@ -551,14 +628,14 @@ export class SessionManager {
     runtime: Runtime = 'grok'
   ): Promise<{ sessionId: string; sessionDir: string }> {
     const res = this.createSession(workingDir, task, maxIterations, backend, runtime);
-    await this.stampPrdSource(res.sessionDir, prdPath);
+    await this.stampPrdProvenance(res.sessionDir, prdPath);
     Activity.prdPipelineInitiated(res.sessionId, prdPath, { via: 'createSessionForPrd' });
     return res;
   }
 
   /**
-   * Find an existing session directory that is already linked (via state.sourcePrd or .prd-source.json)
-   * to the given PRD path. Returns the full sessionDir or null.
+   * Find an existing session directory already linked to the given PRD (via state or legacy sidecar).
+   * Uses getManifestSeal (state-first) to avoid duped sidecar logic.
    * Used by dispatch to avoid zombie reuse of prior partial runs on same PRD.
    */
   findLinkedSessionForPrd(prdPath: string): string | null {
@@ -573,26 +650,9 @@ export class SessionManager {
 
       for (const id of dirs) {
         const sdir = path.join(this.dataRoot, id);
-        // 1. state.json stamp
-        try {
-          const st = this.loadState(sdir);
-          if (st.sourcePrd && path.resolve(st.sourcePrd) === target) {
-            return sdir;
-          }
-        } catch {
-          /* skip corrupt */
-        }
-        // 2. sidecar .prd-source.json (authoritative for linkage even if state pruned)
-        const metaP = path.join(sdir, '.prd-source.json');
-        if (fs.existsSync(metaP)) {
-          try {
-            const m = JSON.parse(fs.readFileSync(metaP, 'utf8'));
-            if (m.prdPath && path.resolve(m.prdPath) === target) {
-              return sdir;
-            }
-          } catch {
-            /* ignore */
-          }
+        const seal = this.getManifestSeal(sdir);
+        if (seal?.prdPath && path.resolve(seal.prdPath) === target) {
+          return sdir;
         }
       }
     } catch {
@@ -602,11 +662,13 @@ export class SessionManager {
   }
 
   /**
-   * Stamp a session with its originating PRD (idempotent, atomic on state + writes .prd-source.json sidecar).
-   * Always uses lock for state mutation. Updates prdLinkedAt + content hash for drift detection.
+   * Single owner for PRD provenance + manifest seal (collapses the hydra).
+   * Idempotent, atomic under state lock. Populates sourcePrd/* + optional ticketManifestHash into state.
+   * NO sidecar write (reduces sidecars; legacy sidecars only read in getManifestSeal for compat).
+   * Always stamps the *real* resolved PRD so downstream (emitter, preflight, re-dispatch) see canonical extra for hash.
    * Emits sessionLinkedToPrd.
    */
-  async stampPrdSource(sessionDir: string, prdPath: string, opts?: { content?: string }): Promise<void> {
+  async stampPrdProvenance(sessionDir: string, prdPath: string, opts: { content?: string; ticketManifestHash?: string } = {}): Promise<void> {
     const resolved = path.resolve(prdPath);
     let hash = '';
     try {
@@ -627,18 +689,81 @@ export class SessionManager {
         const state = this.loadState(sessionDir);
         state.sourcePrd = resolved;
         state.prdLinkedAt = new Date().toISOString();
-        state.prdContentHash = hash;
+        state.prdContentHash = hash || state.prdContentHash || '';
+        if (opts.ticketManifestHash) {
+          state.ticketManifestHash = opts.ticketManifestHash;
+        }
         this.writeState(sessionDir, state);
       } catch (e: any) {
         // session may be brand new without state yet; ignore (createSessionForPrd path always has it)
-        console.warn('[session] stampPrdSource state update skipped:', e?.message);
+        console.warn('[session] stampPrdProvenance state update skipped:', e?.message);
       }
     }, 8000);
 
-    // Always materialize sidecar (even without state) for citadel/findPrd + external tools
-    Preflight.writePrdSourceMeta(sessionDir, resolved, hash);
+    // Reduced sidecars: no write here. Seal + prd now live in authoritative state.json.
+    // getManifestSeal provides legacy sidecar fallback for pre-collapse sessions only.
 
     Activity.sessionLinkedToPrd(path.basename(sessionDir), resolved, new Date().toISOString());
+  }
+
+  /**
+   * Legacy alias (for any stragglers). Delegates to the single stampPrdProvenance.
+   * @deprecated use stampPrdProvenance
+   */
+  async stampPrdSource(sessionDir: string, prdPath: string, opts?: { content?: string }): Promise<void> {
+    return this.stampPrdProvenance(sessionDir, prdPath, opts);
+  }
+
+  /**
+   * Single method: authoritative manifest seal + provenance for a session (state-first).
+   * Returns prdPath (real stamped, never 'self-generated'), ticketManifestHash (P0 seal), etc.
+   * Falls back to legacy .prd-source.json only for very old sessions (simple parse, zero rescue regex).
+   * This + stampPrdProvenance collapses the previous spread across preflight/emitter/run-pipeline.
+   */
+  getManifestSeal(sessionDir: string): { prdPath: string | undefined; ticketManifestHash: string | undefined; contentHash: string | undefined; linkedAt: string | undefined } | null {
+    // 1. state.json — authoritative owner post-collapse (clean atomic writes, no corruption)
+    try {
+      const state = this.loadState(sessionDir);
+      if (state.sourcePrd || state.ticketManifestHash || state.prdLinkedAt) {
+        return {
+          prdPath: state.sourcePrd,
+          ticketManifestHash: state.ticketManifestHash,
+          contentHash: state.prdContentHash,
+          linkedAt: state.prdLinkedAt,
+        };
+      }
+    } catch {
+      /* corrupt or missing; try legacy */
+    }
+
+    // 2. legacy sidecar (compat read-only; never written by new code; no regex rescue)
+    const metaP = path.join(sessionDir, '.prd-source.json');
+    if (fs.existsSync(metaP)) {
+      try {
+        const m = JSON.parse(fs.readFileSync(metaP, 'utf8')) || {};
+        return {
+          prdPath: m.prdPath,
+          ticketManifestHash: m.ticketManifestHash,
+          contentHash: m.contentHash,
+          linkedAt: m.linkedAt,
+        };
+      } catch {
+        /* corrupt legacy — ignore; next stamp/seal will populate state */
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Convenience: canonical resolved PRD path for manifest hashing (prefers state via seal).
+   * Guarantees the *real* PRD (not specs[0]?.sourcePrd markers) so hash extra is deterministic
+   * across re-dispatch, partial-refine emits, and self-generated meta PRDs.
+   */
+  getManifestPrdPath(sessionDir: string, fallback = ''): string {
+    const seal = this.getManifestSeal(sessionDir);
+    const p = seal?.prdPath || fallback;
+    return p ? path.resolve(p) : '';
   }
 
   /**

@@ -88,7 +88,7 @@ export async function runFullSelfLoop(opts: CloserOptions = {}): Promise<void> {
     if (!opts.dry) {
       fs.writeFileSync(prdPath, g.prdMarkdown, 'utf8');
       try {
-        await sm.stampPrdSource(sessionDir, prdPath);
+        await sm.stampPrdProvenance(sessionDir, prdPath);
       } catch (e: any) {
         console.warn('[loop-closer] stamp non-fatal:', e?.message || e);
       }

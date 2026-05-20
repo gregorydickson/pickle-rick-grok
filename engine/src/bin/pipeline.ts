@@ -16,14 +16,12 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { runCitadel } from '../citadel.js';
-import { AnatomyParkDriver } from '../anatomy.js';
-import { SzechuanDriver } from '../szechuan.js';
 import { ArchitectureDeepener } from '../arch-deepener.js';
 import { Activity } from '../activity-logger.js';
 import { generateSelfPrd as runSelfPrdGenerator, performPostCampaignIngest } from '../self-prd-generator.js';
 import { runSelfImprovementLoopCloser } from '../self-improvement-loop-closer.js';
 import { SessionManager } from '../session.js';
+import { runPostCampaignPhases } from '../lib/post-campaign.js';
 
 const sessionDir = process.argv[2];
 if (!sessionDir) {
@@ -69,46 +67,13 @@ try {
 
 // PRD / refine phase omitted here for brevity (handled by caller or skill orchestrator)
 
-console.log('[pipeline] Citadel...');
-let citadelReport: any;
-try {
-  citadelReport = runCitadel(sessionDir, prdOverride);
-  console.log(`[pipeline] Citadel: ${citadelReport.findings?.length ?? 0} findings (overall=${citadelReport.overall})`);
-} catch (cErr: any) {
-  console.error('[pipeline] Citadel error (non-fatal for self-mode):', (cErr as any)?.message || cErr);
-  citadelReport = { findings: [], overall: 'WARN' };
-  console.log(`[pipeline] Citadel: 0 findings (overall=WARN, isolated error)`);
-}
-
-console.log('[pipeline] Anatomy Park...');
-try {
-  const anatomy = new AnatomyParkDriver(sessionDir);
-  const apSubs = ['engine/src', 'skills', 'references', 'prds'];
-  let apState;
-  try { apState = anatomy.load(); } catch { apState = anatomy.init(apSubs); }
-  for (const sub of apSubs) {
-    const result = anatomy.executeThreePhaseCycle(apState, sub);
-    console.log(`  [anatomy] ${sub}: ${result.ok ? 'ok' : 'issues'} trap=${!!result.trapDoorAdded}`);
-  }
-} catch (aErr: any) {
-  console.error('[pipeline] Anatomy Park error (non-fatal for self-mode):', (aErr as any)?.message || aErr);
-}
-
-console.log('[pipeline] Szechuan (FULL EXPANDED — all principles from szechuan-sauce-principles + financial, confidence filtered, full-loop coverage)...');
-let szResult = { converged: false, iterations: 0, finalViolations: 0 };
-try {
-  const szech = new SzechuanDriver(sessionDir);
-  let szState;
-  try {
-    szState = szech.load();
-  } catch {
-    szState = szech.init(explicitTarget ? [explicitTarget] : ['.']);
-  }
-  szResult = szech.runConvergence(szState);
-  console.log(`[pipeline] Szechuan: ${szResult.converged ? 'CONVERGED' : 'STALLED'} iters=${szResult.iterations} finalViolations=${szResult.finalViolations}`);
-} catch (szErr: any) {
-  console.error('[pipeline] Szechuan error (non-fatal for self-mode):', (szErr as any)?.message || szErr);
-}
+// Centralized post-campaign phases (citadel → anatomy-park → szechuan-sauce) with mandatory cleanup + ledger + closer release decision.
+// Replaces the previous three duplicated manual try blocks.
+const postReport = await runPostCampaignPhases(sessionDir, targetRoot, {
+  prdOverride,
+  log: (m: string) => console.log(m),
+});
+console.log(`[pipeline] Post-campaign centralized: overall=${postReport.overallSuccess} failures=[${postReport.recoverableFailures.join(', ') || 'none'}] shouldReleaseCloser=${postReport.shouldReleaseCloser}`);
 
 // === Architecture Deepening phase (path #3 of the 4-path epic) ===
 // Uses the shared ArchitectureDeepener + LANGUAGE.md scanner.

@@ -59,6 +59,12 @@ export interface CampaignStatus {
   lastUpdated?: string;
   progress?: CampaignProgress;
   resource?: Record<string, any>;
+  /** Timestamp of last real meaningful progress delta (ticket/phase advance, git change via ritual, non-stall outcome). Powers campaign-level no-progress watchdog. */
+  lastMeaningfulProgressTs?: string;
+  /** Set true by thin watchdog when long window (default ~4h tunable) exceeded without recordProgress. Never auto-kills. */
+  noProgressAlarm?: boolean;
+  noProgressAlarmReason?: string;
+  noProgressAlarmAt?: string;
   [key: string]: any;
 }
 
@@ -235,6 +241,8 @@ export interface SessionState {
   sourcePrd?: string;
   prdLinkedAt?: string;
   prdContentHash?: string;
+  /** P0 ticket manifest seal (hash of ticket ids + canonical PRD) — single source in state for deterministic re-dispatch, partial refine, and --no-refine gate. */
+  ticketManifestHash?: string;
   [key: string]: any; // graceful evolution + backward compat for old sessions
 }
 

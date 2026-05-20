@@ -4,7 +4,7 @@
  *
  * Single command that wires:
  *   resolve PRD (abs) → SessionManager.findLinked or createSessionForPrd (with stamp + prdPipelineInitiated) →
- *   stampPrdSource (idempotent) → preflightPipeline → (needsRefine gate with exact guidance + Activity.awaitingRefineForPrd) →
+ *   stampPrdProvenance (single owner in session) → preflightPipeline → (needsRefine gate...) →
  *   validateTicketArtifacts (P0 hard guard with recovery text) → updateCampaignStatus →
  *   (bg: child_process spawn npx tsx mux-runner with PICKLE_FORCE_HEADLESS + inherit stdio + unref) OR
  *   (fg: import+await runDetached) →
@@ -26,12 +26,10 @@ import { fileURLToPath } from 'url';
 
 import { SessionManager } from '../session.js';
 import { Activity } from '../activity-logger.js';
-import { runCitadel } from '../citadel.js';
-import { AnatomyParkDriver } from '../anatomy.js';
-import { SzechuanDriver } from '../szechuan.js';
 import { runSelfImprovementLoopCloser } from '../self-improvement-loop-closer.js';
 import { performPostCampaignIngest } from '../self-prd-generator.js';
-import { runDetached } from '../runners/mux-runner.js';
+import { runDetached, runWorkerEnvProbe } from '../runners/mux-runner.js';
+import { runPostCampaignPhases } from '../lib/post-campaign.js';
 import { summarizeReadiness, isLegalToBypassRefine } from '../lib/pipeline-preflight.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -61,7 +59,7 @@ Core flow (P0-1/2/5 seams):
   1. prdPath = resolve(abs)
   2. sm = new SessionManager()
   3. sessionDir = bareArg || sm.findLinkedSessionForPrd(prd) || await sm.createSessionForPrd(workingDirFromTarget, taskFromPrd, prd)
-  4. await sm.stampPrdSource(...)  (idempotent, emits sessionLinkedToPrd)
+  4. await sm.stampPrdProvenance(...)  (single owner, emits sessionLinkedToPrd)
   5. report = sm.preflightPipeline(sessionDir, prd)
   6. if (report.needsRefine && !--no-refine) → print exact guidance, Activity.awaitingRefineForPrd, exit 0
   7. sm.validateTicketArtifacts(...) → hard fail + rich recovery text if any ticket.md missing vs state
@@ -71,6 +69,7 @@ Core flow (P0-1/2/5 seams):
   11. if (--self-improvement || report.isMeta || --chain-post) after success → import+run post drivers + closer/ingest
 
 Always sets PICKLE_FORCE_HEADLESS for any child mux/orchestrator.
+Grok CLI discovery is now FATAL-EARLY (via probe in run-pipeline for --bg/--self + inside mux-runner for all detached): fails hard with RCA, updates campaign-status.json, supports PICKLE_GROK_BIN=/abs/grok + optional PICKLE_AUTO_INJECT_GROK=1 for PATH auto-fix. Surfaces probe always. Kills the silent exec_failed class dead.
 Honors workingDir from --target (new sessions) or baked state.workingDir (resumes/posts).
 tsc-clean, zero slop, recovery everywhere a Jerry partial-state can appear.
 
@@ -179,7 +178,7 @@ async function main() {
     const linked = fresh ? null : sm.findLinkedSessionForPrd(prdAbs);
     if (linked && !fresh) {
       sessionDir = linked;
-      await sm.stampPrdSource(sessionDir, prdAbs);
+      await sm.stampPrdProvenance(sessionDir, prdAbs);
       console.log(`[run-pipeline] Reusing linked session for PRD (because --resume-linked): ${path.basename(sessionDir)}`);
     } else {
       const task = getTaskFromPrd(prdAbs);
@@ -192,9 +191,9 @@ async function main() {
     throw new Error('unreachable: neither prd nor bare session');
   }
 
-  // Ensure stamp (covers bare + prd cases, idempotent)
+  // Ensure stamp via owner (covers bare + prd cases, idempotent)
   if (prdAbs) {
-    await sm.stampPrdSource(sessionDir, prdAbs);
+    await sm.stampPrdProvenance(sessionDir, prdAbs);
   }
 
   const report = sm.preflightPipeline(sessionDir, prdAbs);
@@ -233,7 +232,7 @@ async function main() {
   const effectiveNeedsRefine = isPrdDriven ? (!report.hasRealMaterializedTickets || !report.legalForNoRefine) : report.needsRefine;
   if (effectiveNeedsRefine && !noRefine) {
     const guidance = 'PRD-driven pipeline defaults to fresh + requires /pickle-refine-prd (the r-meta-deepen safety).\n\n' +
-      '1. Run: /pickle-refine-prd   (it auto-detects the fresh stamped session from SESSION_ROOT/campaign-status.json + .prd-source.json)\n\n' +
+      '1. Run: /pickle-refine-prd   (it auto-detects the fresh stamped session from SESSION_ROOT/campaign-status.json + state.sourcePrd via SessionManager)\n\n' +
       '2. After you see <promise>REFINEMENT_COMPLETE</promise>, execute the tickets with the bare session dir (cleanest) or --resume-linked:\n\n' +
       '    npx tsx engine/src/bin/run-pipeline.ts /path/to/SESSION_ROOT --self-improvement --background [--recover-failed]\n\n' +
       '    # or (if you prefer the prd form and want the session we just refined):\n' +
@@ -252,6 +251,43 @@ async function main() {
     console.error(val.error || '[run-pipeline] validateTicketArtifacts P0 GUARD FAILED');
     console.error('Recovery (do not skip): (1) rm -rf ' + sessionDir + ' && re-invoke this command with --prd (or --fresh) then /pickle-refine-prd; (2) or re-emit tickets if you hold the refine council output; (3) npx tsx engine/src/bin/recover.ts ' + sessionDir + ' --reset-failed --force (last resort).');
     process.exit(1);
+  }
+
+  // === FATAL-EARLY grok CLI probe for --background / --self-improvement (and chain) launch paths ===
+  // This is the launcher-level kill shot. Without it, bg spawns would "succeed" (print pid + exit 0) then
+  // the unref'd child would die with 100% exec_failed and only the json probe would tell the tale.
+  // Now run-pipeline itself bails with RCA + recovery + campaign-status entry. Probe also does auto-inject
+  // so the env passed to the child spawn already has the fixed PATH.
+  const isRiskPath = background || selfImprovement || chainPost;
+  if (isRiskPath) {
+    const probe = runWorkerEnvProbe(sessionDir);
+    console.log(`[run-pipeline] Early grok CLI probe (detached-risk path): ok=${probe.grokOk} via=${probe.grokSource} resolved=${probe.resolvedGrok} auto=${probe.autoInjected || 'no'} PICKLE_GROK_BIN=${probe.PICKLE_GROK_BIN || 'unset'}`);
+    if (!probe.grokOk) {
+      const rca = `[run-pipeline] FATAL EARLY: grok CLI not discoverable on --background/--self-improvement launch path.
+
+This used to be the silent killer: launcher said "detached, pid=xxx, use cat campaign-status.json" then vanished, leaving a campaign of pure exec_failed corpses because the worker env (even with stdio inherit) had no grok in its PATH.
+
+Probe: ${JSON.stringify({ok: probe.grokOk, which: probe.whichGrok, resolved: probe.resolvedGrok, source: probe.grokSource, help: (probe.grokHelp||'').slice(0,60), err: probe.helpErr}, null, 2)}
+
+RCA + Recovery:
+  set PICKLE_GROK_BIN=/path/to/grok  OR  PICKLE_AUTO_INJECT_GROK=1  OR  fix PATH for the shell that invokes run-pipeline (zshenv, not zshrc; login vs non-login shells; cron/tmux -d gotchas).
+  Then re-run. Full probe persisted to worker-env-probe.json; status updated.
+
+`;
+      console.error(rca);
+      try {
+        sm.updateCampaignStatusSync(sessionDir, {
+          fatalGrokDiscovery: true,
+          grokProbe: probe,
+          note: 'run-pipeline FATAL early on detached-risk path: grok CLI not discoverable (prevents the old silent exec_failed swarm)',
+          error: 'grok-not-discoverable',
+          lastGrokProbeTs: new Date().toISOString(),
+        });
+      } catch (e: any) {
+        console.warn('[run-pipeline] campaign-status grok fatal update skipped:', e?.message);
+      }
+      process.exit(1);
+    }
   }
 
   // Build phase
@@ -319,53 +355,15 @@ async function main() {
       }
     })();
 
-    console.log('[run-pipeline] Build OK + post requested/meta. Executing Citadel → Anatomy Park (3-phase) → Szechuan + closer/ingest...');
+    console.log('[run-pipeline] Build OK + post requested/meta. Executing centralized post-campaign (citadel → anatomy-park → szechuan-sauce) + closer decision...');
 
-    // Citadel (5-auditor v1.1 + trap/self-meta)
-    try {
-      console.log('[run-pipeline] Citadel...');
-      const citadelReport: any = runCitadel(sessionDir, prdAbs);
-      console.log(`[run-pipeline] Citadel: ${citadelReport.findings?.length ?? 0} findings (overall=${citadelReport.overall || 'PASS'})`);
-    } catch (cErr: any) {
-      console.error('[run-pipeline] Citadel error (non-fatal for self-mode):', (cErr as any)?.message || cErr);
-    }
+    const postReport = await runPostCampaignPhases(sessionDir, postTarget, {
+      prdOverride: prdAbs,
+      log: (m: string) => console.log(m),
+    });
+    console.log(`[run-pipeline] Post-campaign: overallSuccess=${postReport.overallSuccess} failures=[${postReport.recoverableFailures.join(', ') || 'none'}] shouldReleaseCloser=${postReport.shouldReleaseCloser}`);
 
-    // Anatomy Park
-    try {
-      console.log('[run-pipeline] Anatomy Park...');
-      const anatomy = new AnatomyParkDriver(sessionDir);
-      const apSubs = ['engine/src', 'skills', 'references', 'prds'];
-      let apState: any;
-      try {
-        apState = anatomy.load();
-      } catch {
-        apState = anatomy.init(apSubs);
-      }
-      for (const sub of apSubs) {
-        const result = anatomy.executeThreePhaseCycle(apState, sub);
-        console.log(`  [anatomy] ${sub}: ${result.ok ? 'ok' : 'issues'} trap=${!!result.trapDoorAdded}`);
-      }
-    } catch (aErr: any) {
-      console.error('[run-pipeline] Anatomy Park error (non-fatal):', (aErr as any)?.message || aErr);
-    }
-
-    // Szechuan (full expanded)
-    try {
-      console.log('[run-pipeline] Szechuan (FULL EXPANDED)...');
-      const szech = new SzechuanDriver(sessionDir);
-      let szState: any;
-      try {
-        szState = szech.load();
-      } catch {
-        szState = szech.init([postTarget]);
-      }
-      const szResult: any = szech.runConvergence(szState);
-      console.log(`[run-pipeline] Szechuan: ${szResult.converged ? 'CONVERGED' : 'STALLED'} iters=${szResult.iterations || 0} finalViolations=${szResult.finalViolations || 0}`);
-    } catch (szErr: any) {
-      console.error('[run-pipeline] Szechuan error (non-fatal):', (szErr as any)?.message || szErr);
-    }
-
-    // Closer + ingest only on explicit self / meta / chain
+    // Closer + ingest on explicit self/meta/chain (ledger decision advisory for release semantics; ingest runs for data capture on meta)
     if (selfImprovement || hasMetaTickets || chainPost) {
       console.log('[run-pipeline] META-PHASE post: Loop Closer + performPostCampaignIngest (backlog + metrics)');
       try {

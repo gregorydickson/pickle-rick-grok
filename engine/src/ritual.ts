@@ -129,6 +129,9 @@ export class ManagerRitual {
     const workingDir = ctxWorkingDir || this.sm.getWorkingDirSafe(this.sessionDir);
     const currentHead = getGitHead(workingDir) || '';
     const gitProgress = !preSha || preSha !== currentHead || ((workerResult?.artifactsWritten?.length ?? 0) > 0);
+    if (gitProgress) {
+      try { this.sm.recordProgress(this.sessionDir, `ritual git/artifact delta (${phase || 'phase'})`); } catch {}
+    }
     const hasPromise = hasPromiseToken(workerResult?.output || '');
     // Canonical layout via SessionManager (tests/harness that pass artifactDir continue to work; real orch now consistent)
     let artifactDir = ctx.artifactDir || (ticketId ? this.sm.getTicketDir(this.sessionDir, ticketId) : this.sessionDir);

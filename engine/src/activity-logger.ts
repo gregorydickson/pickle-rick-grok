@@ -41,7 +41,8 @@ export type ActivityEventType =
   | 'prdPipelineInitiated'
   | 'sessionLinkedToPrd'
   | 'preflightReport'
-  | 'awaitingRefineForPrd';
+  | 'awaitingRefineForPrd'
+  | 'campaign_watchdog_alarm';
 
 export interface ActivityEvent {
   ts: string;
@@ -459,5 +460,15 @@ export const Activity = {
     };
     if (reason || details) evt.details = { reason, ...(details || {}) };
     logActivity(evt);
+  },
+
+  campaignWatchdogAlarm(sessionId: string, details?: Record<string, any>) {
+    logActivity({
+      ts: new Date().toISOString(),
+      event: 'campaign_watchdog_alarm' as const,
+      source: 'campaign-watchdog',
+      session: sessionId,
+      details: details || {},
+    });
   },
 };

@@ -919,11 +919,11 @@ async function main() {
   if (!dry) {
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, out.prdMarkdown, 'utf8');
-    // Re-stamp now that PRD content exists (idempotent; ensures hash + sidecar for findLinked + preflight)
+    // Re-stamp via owner now that PRD content exists (idempotent; state holds provenance + seal for deterministic re-dispatch)
     if (sessionToPopulate) {
       try {
         const sm2 = new SessionManager();
-        await sm2.stampPrdSource(sessionToPopulate, outPath);
+        await sm2.stampPrdProvenance(sessionToPopulate, outPath);
       } catch (e: any) {
         console.warn('[self-prd] post-write stamp non-fatal:', e?.message || e);
       }

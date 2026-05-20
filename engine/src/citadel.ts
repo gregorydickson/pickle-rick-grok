@@ -117,27 +117,20 @@ function runGit(cmd: string, cwd: string): string {
 }
 
 function findPrd(sessionDir: string, cwd: string): string | null {
-  // P0-5: prefer stamped machine linkage from session (sourcePrd or .prd-source.json) if present & exists
+  // P0-5: use SessionManager single owner (getManifestSeal prefers state, falls to legacy sidecar only)
   try {
     const sm = new SessionManager();
+    const seal = sm.getManifestSeal(sessionDir);
+    if (seal?.prdPath && fs.existsSync(seal.prdPath)) {
+      return seal.prdPath;
+    }
+    // also try direct state for old stamps without seal fields
     const state = sm.loadState(sessionDir);
     if (state.sourcePrd && fs.existsSync(state.sourcePrd)) {
       return state.sourcePrd;
     }
   } catch {
     /* no state or no stamp — fall through to heuristic candidates */
-  }
-  // also check sidecar written by stampPrdSource
-  try {
-    const metaP = path.join(sessionDir, '.prd-source.json');
-    if (fs.existsSync(metaP)) {
-      const meta = JSON.parse(fs.readFileSync(metaP, 'utf8'));
-      if (meta.prdPath && fs.existsSync(meta.prdPath)) {
-        return meta.prdPath;
-      }
-    }
-  } catch {
-    /* ignore */
   }
 
   const candidates = [
