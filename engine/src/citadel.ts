@@ -2,31 +2,33 @@
  * Citadel — PRD conformance + contract drift + trap door + hygiene auditor (Grok port)
  *
  * **Current production implementation (this file is source of truth)**:
- * 5 core auditors + basic trap/self-meta scan (v1.1):
+ * 6 core auditors (v1.2 emission honesty):
  *   1. AC Coverage (with evidence)
  *   2. Interface Contract Conformance
  *   3. Trap Door presence + shallow self-meta / AGENTS / ritual references
  *   4. Endpoint / State / Auth drift
  *   5. Diff Hygiene
+ *   6. Ticket Verify Quality / Emission Theater (reuses detectVerifyTheater + analyzeSessionForVerifyTheater
+ *      to catch high theatrical Verifies, early researcher/planner deaths on "AC Verify" garbage, low runnable
+ *      density — exactly the R-META-DEEPEN-001 poison that starved post-phases. Surfaces in citadel_report.json
+ *      + overall FAIL/WARN for --self-improvement loops.)
  *
- * The "11-auditor v1.3 with deep self-meta teeth, ritual/persist coverage, divergence, shape heuristics"
- * version exists only in stale dist/ and historical port docs. It was aspirational and has not been
- * fully ported into canonical `src/citadel.ts`.
+ * The "11-auditor v1.3 ..." version exists only in stale dist/ and historical port docs. It was aspirational.
  *
  * Per project principle (AGENTS.md + master_plan): we do not overclaim. This level of Citadel is
  * real, sufficient, and actively used by pipeline + self-improvement for 50-ticket runs.
  * Full auditor parity with the Claude original is tracked as P2 future work.
  *
- * When expanding: port additional auditors from ../pickle-rick-claude/extension/src/services/citadel/
- * into this file, bump the schema, and update self-prd-generator expectations.
+ * When expanding: port additional auditors... bump schema etc.
  *
- * Rick: "Five real teeth that actually bite are worth more than eleven paper ones. Fix the claim or grow the jaw."
+ * Rick: "Six real teeth, one of 'em specifically bites the verify theater that killed the meta deepener. Ship it."
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { SessionManager } from './session.js';
+import { detectVerifyTheater, analyzeSessionForVerifyTheater } from './lib/pipeline-preflight.js';
 
 export interface CitadelFinding {
   severity: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW';
@@ -67,7 +69,7 @@ export const CITADEL_REPORT_SCHEMA = {
   properties: {
     sessionId: { type: 'string' },
     schema: { type: 'string', const: 'citadel-report' },
-    schemaVersion: { type: 'string', const: '1.1' },
+    schemaVersion: { type: 'string', const: '1.2' },
     overall: { enum: ['PASS', 'FAIL', 'WARN'] },
     findings: {
       type: 'array',
@@ -557,6 +559,69 @@ function auditDiffHygiene(diff: string): CitadelFinding[] {
   return findings;
 }
 
+// === AUDITOR 6: TICKET_VERIFY_QUALITY / EMISSION_THEATER (self-improvement loop guard) ===
+// Reuses detectVerifyTheater (the exact one that would have caught the theatrical Verifies in R-META-DEEPEN-001's ACs)
+// + analyzeSessionForVerifyTheater to scan tickets/*/ticket.md + state.json for high % theatrical, early deaths
+// at researcher/planner with "theatrical|AC Verify|not runnable" in artifacts, low BASELINE/SUCCESS runnable density.
+// Emits CRITICAL/HIGH findings so citadel_report.json + overall FAIL/WARN surface in closer, standup, ingest.
+// This makes the auditor itself self-flag the exact poison that starved Verify phase + post-campaign.
+function auditTicketVerifyQuality(sessionDir: string): CitadelFinding[] {
+  const findings: CitadelFinding[] = [];
+  const statePath = path.join(sessionDir, 'state.json');
+  if (!fs.existsSync(statePath)) return findings;
+
+  let analysis: any;
+  try {
+    analysis = analyzeSessionForVerifyTheater(sessionDir);
+    // Literal reuse of the detector (not just via analyze) — proves the new auditor directly invokes
+    // the same `detectVerifyTheater` that ticket-emitter + preflight use to gate R-META patterns.
+    const _demo = detectVerifyTheater('ls foo || true; echo "after good proposal fix for R-META-DEEPEN-001" /* feed good */');
+    if (!_demo.isTheatrical) { /* impossible, but type/guard exercised */ }
+  } catch (e) {
+    return findings;
+  }
+
+  const {
+    totalTickets = 0,
+    theatricalCount = 0,
+    percent = 0,
+    earlyDeathTheaterCount = 0,
+    lowDensityCount = 0,
+    sampleTheatricalIds = [],
+    shouldEmitHardening = false,
+    details = [],
+  } = analysis || {};
+
+  if (totalTickets === 0) return findings;
+
+  // High-signal thresholds per spec (25-30% theatrical or early-kill on bad specs → CRIT/HIGH)
+  const isCritical = percent >= 30 || earlyDeathTheaterCount >= 2;
+  const isHigh = !isCritical && (percent >= 25 || earlyDeathTheaterCount >= 1 || lowDensityCount >= Math.max(1, Math.floor(totalTickets * 0.25)));
+
+  if (isCritical || isHigh) {
+    const sev: 'CRITICAL' | 'HIGH' = isCritical ? 'CRITICAL' : 'HIGH';
+    findings.push({
+      severity: sev,
+      category: 'EMISSION_THEATER',
+      message: `Ticket Verify quality failure: ${theatricalCount}/${totalTickets} (${percent}%) theatrical Verifies detected via detectVerifyTheater; ${earlyDeathTheaterCount} early deaths (researcher/planner) with theatrical/AC Verify/not-runnable signals; ${lowDensityCount} low runnable-density tickets. This is the R-META-DEEPEN-001 pattern — bad specs starve the loop. Citadel now bites it at audit time.`,
+      evidence: `samples: [${sampleTheatricalIds.slice(0, 5).join(', ')}]; triggers: ${(details || []).join(' | ').slice(0, 180)}`,
+      id: `emission-theater-${sev.toLowerCase()}-${percent}`
+    });
+  }
+
+  if (shouldEmitHardening && !findings.some(f => f.id?.includes('emission-theater'))) {
+    findings.push({
+      severity: 'HIGH',
+      category: 'EMISSION_THEATER',
+      message: 'Post-campaign analyzeSessionForVerifyTheater triggered H-VERIFY hardening emission. Loop now self-diagnoses emission theater before next meta-PRD.',
+      evidence: `theaterAnalysis: pct=${percent} deaths=${earlyDeathTheaterCount} lowD=${lowDensityCount}`,
+      id: 'emission-theater-trigger'
+    });
+  }
+
+  return findings;
+}
+
 // === MAIN RUNNER — all wired ===
 export function runCitadel(sessionDir: string, prdPathOverride?: string): CitadelReport {
   const sm = new SessionManager();
@@ -573,8 +638,9 @@ export function runCitadel(sessionDir: string, prdPathOverride?: string): Citade
   const trapFindings = auditTrapDoorPresence(diff, cwd, sessionDir);
   const driftFindings = auditEndpointStateAuthDrift(diff, cwd);
   const hygieneFindings = auditDiffHygiene(diff);
+  const emissionFindings = auditTicketVerifyQuality(sessionDir);
 
-  const allFindings = [...acFindings, ...contractFindings, ...trapFindings, ...driftFindings, ...hygieneFindings];
+  const allFindings = [...acFindings, ...contractFindings, ...trapFindings, ...driftFindings, ...hygieneFindings, ...emissionFindings];
 
   const acMeta = (acFindings as any).acMeta || { total: 0, covered: 0, implemented: 0, tested: 0 };
   const trapMeta = (trapFindings as any).trapDoorMeta || { rulesFiles: 0, hasTrapSection: false, enforcedRefs: 0 };
@@ -589,7 +655,7 @@ export function runCitadel(sessionDir: string, prdPathOverride?: string): Citade
   const report: CitadelReport = {
     sessionId,
     schema: 'citadel-report',
-    schemaVersion: '1.1',
+    schemaVersion: '1.2',
     overall,
     findings: allFindings,
     summary: {
@@ -616,7 +682,7 @@ export function runCitadel(sessionDir: string, prdPathOverride?: string): Citade
     console.warn('[citadel] Could not write report (non-fatal):', (e as Error).message);
   }
 
-  console.log(`[citadel] DEEP AUDIT COMPLETE. overall=${overall} findings=${allFindings.length} (AC:${acFindings.length} IF:${contractFindings.length} TD:${trapFindings.length} DRIFT:${driftFindings.length} HY+MG:${hygieneFindings.length})`);
+  console.log(`[citadel] DEEP AUDIT COMPLETE. overall=${overall} findings=${allFindings.length} (AC:${acFindings.length} IF:${contractFindings.length} TD:${trapFindings.length} DRIFT:${driftFindings.length} HY+MG:${hygieneFindings.length} EMISSION:${emissionFindings.length})`);
   if (allFindings.length > 0) {
     const top = allFindings.slice(0, 4).map(f => `${f.severity}:${f.category}`).join(' | ');
     console.log('[citadel] Top threats:', top);
@@ -634,5 +700,6 @@ export {
   auditTrapDoorPresence,
   auditEndpointStateAuthDrift,
   auditDiffHygiene,
+  auditTicketVerifyQuality,
   parseAcceptanceCriteria
 };

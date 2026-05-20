@@ -16,6 +16,7 @@ import {
   auditInterfaceContract,
   auditTrapDoorPresence,
   auditEndpointStateAuthDrift,
+  auditTicketVerifyQuality,
   runCitadel,
   CitadelReport,
 } from '../src/citadel.js';
@@ -78,6 +79,7 @@ test('auditInterfaceContract + auditTrapDoorPresence + auditEndpointStateAuthDri
   assert.ok(Array.isArray(auditInterfaceContract(diff, process.cwd())));
   assert.ok(Array.isArray(auditTrapDoorPresence(diff, process.cwd(), process.cwd())));
   assert.ok(Array.isArray(auditEndpointStateAuthDrift(diff, process.cwd())));
+  assert.ok(Array.isArray(auditTicketVerifyQuality(process.cwd()))); // exercises new auditor (returns [] or findings, never throws)
 });
 
 test('runCitadel — produces correct report shape, summary, writes artifacts', () => {
@@ -88,11 +90,33 @@ test('runCitadel — produces correct report shape, summary, writes artifacts', 
   fs.writeFileSync(path.join(tmp, 'prd.md'), '## Acceptance\nAC-DEEP-1: citadel must be deep');
 
   const report = runCitadel(sessDir);
-  assert.equal(report.schemaVersion, '1.1');
+  assert.equal(report.schemaVersion, '1.2');
   assert.ok(['PASS','WARN','FAIL'].includes(report.overall));
   assert.ok(Array.isArray(report.findings));
   assert.ok(typeof report.summary.critical === 'number');
   assert.ok(fs.existsSync(path.join(sessDir, 'citadel_report.json')));
+
+  // === SELF-VALIDATION: new auditor would have flagged R-META-DEEPEN-001 pattern ===
+  // Simulate session with a ticket whose Verify (backtick) contains theatrical anti-patterns exactly as
+  // R-META-DEEPEN-001's emitted ticket.md did (|| true, "after .*fix", feed good, etc. — see VERIFY_THEATER_RE).
+  // The auditor (via detectVerifyTheater + analyze) MUST emit CRITICAL EMISSION_THEATER finding.
+  const badTicketDir = path.join(sessDir, 'tickets', 'R-META-DEEPEN-001');
+  fs.mkdirSync(badTicketDir, { recursive: true });
+  fs.writeFileSync(path.join(badTicketDir, 'ticket.md'), `# R-META-DEEPEN-001
+## Acceptance Criteria
+| ID | ... | Verify |
+| AC-FAIL | foo | \`ls foo || true; echo "after good proposal fix for R-META-DEEPEN-001" ; /* feed good post */ \`
+`);
+  const badState = {
+    sessionId: 'deep',
+    workingDir: tmp,
+    tickets: [{ id: 'R-META-DEEPEN-001', status: 'failed', phasesCompleted: ['researcher', 'plan'] }]
+  };
+  fs.writeFileSync(path.join(sessDir, 'state.json'), JSON.stringify(badState));
+  const badReport = runCitadel(sessDir);
+  const theaterFinding = badReport.findings.find((f: any) => f.category === 'EMISSION_THEATER' && (f.severity === 'CRITICAL' || f.severity === 'HIGH'));
+  assert.ok(theaterFinding, 'EMISSION_THEATER auditor MUST flag R-META-DEEPEN-001-style theatrical Verify (self-validation)');
+  assert.ok(/R-META-DEEPEN-001|theatrical.*Verifies|detectVerifyTheater/i.test(theaterFinding.message || ''), 'Finding message must reference the detector and the incident pattern');
 
   cleanup(tmp);
 });
