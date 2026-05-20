@@ -27,11 +27,11 @@ This ticket was carved out of the refined PRD by the Requirements + Codebase + R
 {{NON_GOALS}}
 
 ## 8-Phase Notes for the Morty Team
-- **Researcher**: locate the exact functions/files named in Verify + Scope. Document data flows and existing patterns.
-- **Planner**: one crisp plan + minimal diff sketch. Every hunk must be traceable to an AC.
+- **Researcher** (MANDATORY THEATER AUDIT): First action — extract every `Verify` backtick from this ticket + parent PRD. Test each string against the exact forbidden patterns (see full list in research.md + pipeline-preflight.ts:detectVerifyTheater). If ANY theatrical/non-runnable/"after fix"/human-observe/|| true / "feed good" / bare ls / TODO-in-Verify pattern, or if the BASELINE form does not run deterministically on the *current* tree: mark Readiness Assessment **Status: blocked**, Reason: "EMISSION_THEATER risk — theatrical Verify in ACs (would have killed researcher/planner)", Suggested Prerequisites: "H-VERIFY hardening + re-refine". Surface in research artifact for Citadel/ritual. Do not proceed to plan.
+- **Planner**: Refuse any ticket whose research Readiness is blocked on EMISSION_THEATER or whose Verifies fail the theater list. One crisp plan only on clean runnable Verifies.
 - **Implementer**: make the change + write `conformance_{{TICKET_ID}}.md` citing the exact Verify commands and their output.
-- **Verifier**: literally run every Verify command in the table. Fail the ticket if any red.
-- **Reviewer / Simplifier**: shave any accidental bloat. The change should make the *next* self-PRD generator or citadel run happier, not sadder.
+- **Verifier**: literally run every Verify command in the table. Fail the ticket if any red. **Additionally: if any Verify string matches the theatrical patterns list, immediately fail the phase and write "INVALID SPEC — EMISSION_THEATER: <exact match>" in conformance_*.md before running.**
+- **Reviewer / Simplifier + Research/Plan Reviewers**: Explicitly re-audit all Verifies in the ticket + artifacts for theater patterns. Any survivor → demand re-research or blocked status + EMISSION_THEATER signal.
 
 ## Hardening Tickets Attached (if any)
 {{HARDENING_TICKETS}}

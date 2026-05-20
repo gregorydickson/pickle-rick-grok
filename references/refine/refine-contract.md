@@ -65,6 +65,7 @@ These hardening tickets are executed **after** the main implementation tickets i
 
 ## Success Criteria for the Refine Step
 - The original PRD file has been updated in place; every requirement row now has a non-theatrical, runnable Verify cell.
+- Every Verify in the final PRD and every emitted ticket **must** be accompanied by Requirements Analyst round artifacts containing literal execution evidence (BASELINE run output on current tree) proving it was tested and is free of all patterns in the THEATER REJECTION RULE (see requirements-analyst.md). Manager must refuse synthesis if evidence is missing or any theatrical pattern remains.
 - At least 60% of tickets are < 5 files changed (the analysts were good at scoping).
 - Hardening tickets exist for any change that touches ritual, session, citadel, orchestrator, git_safety, or self-* surfaces.
 - Manager emits `<promise>REFINEMENT_COMPLETE</promise>` (or the standard `TASK_COMPLETED` for pipeline handoff).

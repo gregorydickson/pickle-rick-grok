@@ -10,12 +10,13 @@
  * FULLY AUTONOMOUS FOR 50-TIX: --full (default CLI) now:
  *   - creates (or accepts --session) a complete session dir
  *   - autoDecomposeIntoTickets bootstraps state + writes 50 executable tickets/<R-META-xxx>/ticket.md
- *     (rich ## Justification, machine AC|Verify tables with runnable cmds, scope, contracts, 8-phase notes)
+ *     (rich ## Justification, machine AC|Verify tables with runnable cmds, scope, contracts, *updated 8-phase notes with full THEATER REJECTION RULE + BASELINE/SUCCESS + EMISSION_THEATER language*)
  *   - state is orchestrator/mux-runner ready (workingDir=grokRoot, isSelfMeta flags, step=implementing)
  *   - prints the exact detached launch command (run-pipeline.ts --prd <generated-prd> --self-improvement --no-refine [--background] — canonical; mux-runner bare-session alt for power users)
  *
  * ZERO external /pickle-refine-prd, zero pre-createSession, zero human glue.
  * The self-PRD generator *is* the ticket factory for hands-off meta dogfood.
+ * Self-generated PRDs now auto-embed the Product Requirements Verify Discipline section (THEATER REJECTION, EMISSION_THEATER, BASELINE vs SUCCESS) + tickets carry identical high-quality language from the human refine/phase hardening. No emission theater in the autonomous loop.
  * This is the final gap closed. 50-ticket overnight is now literally one command + detach.
  *
  * Callable meta-phase. The dogfood engine. Wubba lubba dub dub.
@@ -363,6 +364,29 @@ ${reqRows}
 | P1 | Citadel deep-audits ritual, persistence, meta changes | citadel_report includes ritual/persist findings on self PRD changes |
 | P2 | Victory lap: 0 P0 remaining after N iterations | re-run generator emits "VICTORY LAP PRD" |
 
+## Product Requirements — Verify Discipline (THEATER REJECTION RULE + BASELINE/SUCCESS + EMISSION_THEATER — self-gen contract, matching human refine path)
+**MANDATORY for this self-generated R-META PRD and EVERY ticket it decomposes** (R-META-*, H-VERIFY-* etc.):
+
+The generator now emits only high-quality specs carrying the same Verify discipline hardened in /pickle-refine-prd + phases + personas:
+
+**THEATER REJECTION RULE (non-negotiable, FIRST ACTION for researcher)**: Extract every Verify backtick from ticket + parent PRD. Test vs exact forbidden patterns in `references/phases/research.md` (identical to `VERIFY_THEATER_RE` + `detectVerifyTheater` in `engine/src/lib/pipeline-preflight.ts`):
+- `|| true`, `|| echo`, `|| :`, `grep ... || true`
+- "manually observe", "by eye", "human verify", "visually confirm", bare `ls`/`cat`/`echo` without assertion
+- "after good proposal", "after fix", "post-fix", "feed good", `/* after`, TODO/placeholder in Verify context
+- Any "on current|today|before impl" success phrasing, circular ordering, non-runnable BASELINE on *current* tree.
+
+**BASELINE vs SUCCESS (mandatory split)**: For *every* AC Verify:
+- BASELINE: command that *runs today* on the *current* tree and demonstrates the defect/gap (non-zero exit, missing artifact, stub output, theatrical pattern hit).
+- SUCCESS: the form that must pass after the change. Never phrase as "after good proposal" or "post-fix".
+
+**EMISSION_THEATER language (explicit, machine-actionable)**: Any theatrical hit or non-runnable BASELINE → Readiness Assessment **Status: blocked**, **Reason: "EMISSION_THEATER risk — theatrical Verify in ACs (would have killed researcher/planner). Exact hits: ... BASELINE not runnable today."**, Suggested Prereqs: "H-VERIFY hardening + re-refine". Stops planner/implementer. Flags CRITICAL/HIGH in Citadel's `auditTicketVerifyQuality` (TICKET_VERIFY_QUALITY / EMISSION_THEATER category) + triggers auto H-VERIFY side-effect tickets in post-campaign ingest.
+
+**8-Phase Notes reference (updated)**: All generated R-META tickets carry the *full updated 8-Phase Notes* (see `references/phases/research.md`, `references/refine/ticket-template.md`, `references/phases/verify.md` etc. and the injected block in every ticket.md). Researcher does THEATER AUDIT first; Planner/Verifier/Reviewer/Simplifier do mandatory re-audits; Verifier fails hard on theater with "INVALID SPEC — EMISSION_THEATER: <exact>" in conformance before any run. Matches the exact language and contract now enforced on human paths.
+
+This PRD + its tickets are pre-audited at emission (seedToTicketSpec + emitRefinedTickets detectVerifyTheater gate + assessMetaReadiness). No emission theater survives into the autonomous 50-ticket loop.
+
+**Rick: "If the self-PRD shits theatrical Verifies, the whole meta starves on its own vomit. We just stapled the rejection rule right into the birth canal. Morty-proofed."**
+
 ## Contracts
 - generateSelfPrd(target, opts) → focuses on !closedCategories from backlog; if opts.sessionDirToPopulate (or --full CLI), auto-creates session + writes real executable tickets/ with ACs/justif/verify
 - performPostCampaignIngest + closer always append + Activity.postCampaignIngest
@@ -463,6 +487,10 @@ function seedToTicketSpec(seed: SelfTicketSeed, grokRoot: string): TicketSpec {
 
 Evidence from scanner: the gap was live in the current tree against reliability-backlog.md. This is one atomic slice of the meta-loop closure. The 8-phase lifecycle (researcher → research-reviewer → planner → plan-reviewer → implementer → verifier → reviewer → simplifier) must research the exact site, plan the minimal patch, implement, verify the command below, and leave the tree cleaner.
 
+**THEATER REJECTION RULE + BASELINE vs SUCCESS + EMISSION_THEATER (self-gen mandate)**: All Verifies in the AC table below (and parent self-PRD) were sanitized at construction via detectVerifyTheater + cleaned of || true etc. BASELINE proves the gap *today on current tree*. SUCCESS is the post-change assertion. Violation would have been EMISSION_THEATER (blocked Readiness, Citadel TICKET_VERIFY_QUALITY CRITICAL, auto H-VERIFY healing). See full patterns + contract in references/phases/research.md (theater audit is researcher's *first* action).
+
+**Updated 8-Phase Notes reference**: This ticket carries the *updated 8-Phase Notes for the Morty Team* (injected by the canonical ticket-emitter from the hardened references/refine/ticket-template.md + phases/*). Researcher: mandatory theater audit + BASELINE execution before anything else. Planner refuses EMISSION_THEATER blocked tickets. Verifier writes "INVALID SPEC — EMISSION_THEATER" and aborts on pattern match. Reviewers/Simplifier re-audit. Exact same discipline as human-refined tickets. No "after fix" poison in the autonomous loop.
+
 **Why this matters for 50-ticket autonomy**: Without these, the self-loop cannot run detached overnight. Jerry reboots, signals fly, state must survive. Close it or the pickle starves.`,
     acceptanceCriteria: [
       { id: 'AC-01', criterion: 'Gap closed per description — the behavior or code now satisfies the original scanner intent', verify: `${cleanedVerif}` },
@@ -472,7 +500,9 @@ Evidence from scanner: the gap was live in the current tree against reliability-
       { id: 'AC-05', criterion: 'Conformance + citadel happy on the delta; no new slop or TODOs introduced in scope', verify: `conformance_${seed.id}.md exists with pass signals; citadel on session reports no CRITICAL on this ticket` },
       { id: 'AC-06', criterion: 'Meta ticket special path exercised (orchestrator logs "META TICKET", Activity.selfMetaTicket emitted)', verify: `grep logs for "META TICKET ${seed.id}" or Activity event` },
     ],
-    contracts: `Smallest change that satisfies the AC table (no Jerry bloat, no 400-line "refactors"). All state writes go through writeJsonAtomic or equivalent tmp+rename. Git ops respect the pinned branch + scoped restore only. If touching ritual/session/orchestrator: ensure ManagerRitual is the single post-return choke point. Emit Activity events for meta observability where the surface already supports it. Rollback on gate/circuit trip must leave tree identical to preSha for this ticket's files.`,
+    contracts: `Smallest change that satisfies the AC table (no Jerry bloat, no 400-line "refactors"). All state writes go through writeJsonAtomic or equivalent tmp+rename. Git ops respect the pinned branch + scoped restore only. If touching ritual/session/orchestrator: ensure ManagerRitual is the single post-return choke point. Emit Activity events for meta observability where the surface already supports it. Rollback on gate/circuit trip must leave tree identical to preSha for this ticket's files.
+
+**Verify Discipline (self-PRD contract)**: AC Verifies here follow THEATER REJECTION RULE, BASELINE/SUCCESS split, and explicit EMISSION_THEATER language (see Product Requirements section of the generating self-PRD and references/phases/research.md). Any future self-gen ticket must pass the same detectVerifyTheater gate at emission or be rejected with blocked status. The updated 8-Phase Notes (full theater audit + re-audits) are part of every emitted ticket.md by design.`,
     scope: scopeStr,
     nonGoals: `Do not touch user-facing skills or claude-side unless the gap explicitly lists them. Do not change defaults for non-self (normal /pickle) runs. Do not add deps or big new abstractions. Victory condition is "gap disappears from next generator scan", not "perfect code".`,
     category: seed.category,
