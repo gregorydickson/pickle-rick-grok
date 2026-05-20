@@ -8,6 +8,9 @@
  */
 
 import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
 export const PROHIBITED_COMMANDS = [
   'git checkout',
@@ -111,5 +114,79 @@ export async function safeRollback(preSha: string, paths?: string[], cwd?: strin
   } catch (err: any) {
     console.error(`[git-safety] safeRollback failed for ${preSha.slice(0, 8)}: ${err.message || err}`);
     return { restored: [], success: false };
+  }
+}
+
+/** Convenience: files differing between preSha tree and current (dirty) working tree.
+ * Captures tracked modifications + new untracked files created during the ticket.
+ * Used by the runtime-owned discrete commit path.
+ */
+export function getChangedSince(preSha: string, cwd?: string): string[] {
+  const c = cwd || process.cwd();
+  try {
+    const tracked = execSync(`git diff --name-only ${preSha}`, withGitTimeout({
+      cwd: c, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    })).toString().trim().split(/\r?\n/).filter(Boolean);
+
+    const untracked = execSync('git ls-files --others --exclude-standard', withGitTimeout({
+      cwd: c, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    })).toString().trim().split(/\r?\n/).filter(Boolean);
+
+    return Array.from(new Set([...tracked, ...untracked]));
+  } catch {
+    return [];
+  }
+}
+
+/** Runtime-owned discrete commit for a successfully completed ticket (post final ritual/gates).
+ * Guarantees exactly one clean, attributable commit per done ticket when there are net changes.
+ * Uses -c identity + --no-verify + temp msg file. Never fails the ticket (non-fatal on error).
+ * Unified path for self-mut (R-META) and normal capability PRDs — deliberate dogfood.
+ */
+export function safeCommitForTicket(
+  changedPaths: string[] | undefined,
+  ticketMeta: { id: string; title?: string },
+  cwd?: string
+): { committed: boolean; sha?: string; message?: string; files?: string[]; error?: string } {
+  const c = cwd || process.cwd();
+  let msgFile = '';
+  try {
+    if (!hasWorkingTreeChanges(c)) {
+      return { committed: false, message: 'no changes since ticketStartSha' };
+    }
+
+    safeGitExec('git add -A', c);
+
+    const staged = execSync('git diff --cached --name-only', withGitTimeout({
+      cwd: c, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    })).toString().trim();
+    if (!staged) return { committed: false };
+
+    const files = staged.split(/\r?\n/).filter(Boolean);
+    const short = `feat(${ticketMeta.id}): ${ticketMeta.title || 'complete ticket'}`;
+    const body = `\n\n[autocommit] Runtime-owned discrete ticket commit.\n` +
+                 `Completed via full 8-phase ritual + ConvergenceGate + CircuitBreaker.\n` +
+                 `Files: ${files.length}. Unified for self-mut and normal PRDs (dogfood).\n` +
+                 `Session: ${path.basename(c)}`;
+    const fullMsg = `${short}${body}`;
+
+    msgFile = path.join(os.tmpdir(), `pickle-ticket-commit-${ticketMeta.id}-${Date.now()}.txt`);
+    fs.writeFileSync(msgFile, fullMsg);
+
+    safeGitExec(
+      `git -c user.name="Pickle Rick (Grok)" -c user.email="grok@pickle.rick" commit --no-verify -F "${msgFile}"`,
+      c
+    );
+
+    const newSha = getGitHead(c);
+    return { committed: true, sha: newSha, message: fullMsg, files };
+  } catch (e: any) {
+    const err = e?.message || String(e);
+    console.warn(`[git-safety] safeCommitForTicket(${ticketMeta.id}) non-fatal: ${err}`);
+    return { committed: false, error: err };
+  } finally {
+    if (msgFile && fs.existsSync(msgFile)) {
+      try { fs.unlinkSync(msgFile); } catch {}
+    }
   }
 }

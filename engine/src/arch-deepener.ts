@@ -40,6 +40,11 @@ export const FORBIDDEN_SELF_MUT: readonly string[] = [
   'engine/src/gate.ts',
   'engine/src/session.ts',
   'engine/src/workers.ts',
+  // Post-incident P0 safeguard surfaces (never self-mutate via R-META or arch-deepener)
+  'engine/src/bin/run-pipeline.ts',
+  'engine/src/lib/pipeline-preflight.ts',
+  'engine/src/lib/ticket-emitter.ts',
+  'engine/src/lib/phase-utils.ts',
 ] as const;
 
 export function isSelfMutationSafe(opp: DeepeningOpportunity): boolean {
@@ -59,6 +64,7 @@ export interface ArchDeepenerState extends BaseConvergenceState {
 export class ArchitectureDeepener {
   private statePath: string;
   private workingDir: string;
+  private state?: ArchDeepenerState;  // populated by loadState / runDeepeningLoop; optional until first persist
 
   constructor(private sessionDir: string) {
     this.statePath = path.join(sessionDir, 'arch-deep.json');
@@ -355,7 +361,7 @@ Make one good, deep, tiny move.`;
    * Discovery-only pass (used by `run`, pipeline discovery phase, Anatomy hook, etc.)
    */
   async runDeepening(state: ArchDeepenerState) {
-    Activity.convergenceIteration('arch-deepening', path.basename(this.sessionDir), undefined, 'discovery', undefined, 0);
+    Activity.convergenceIteration('arch-deepening', path.basename(this.sessionDir), undefined, undefined, undefined, 0); // 'discovery' phase marker; outcome union is for convergence results only
     const discovered = this.scanForOpportunities(state.targetPaths || ['.']);
     state.opportunities = discovered;
     this.writeState(state);
@@ -464,7 +470,7 @@ Make one good, deep, tiny move.`;
       'arch-deepening',
       path.basename(this.sessionDir),
       undefined,
-      result.converged ? 'converged' : 'stopped',
+      result.converged ? 'converged' : undefined, // 'stopped' not in Activity outcome union; 'converged' is the success signal
       finalDebt,
       state.currentIteration || 0
     );

@@ -166,4 +166,60 @@ test('writeJsonAtomic — prevents torn writes', () => {
   cleanup(root);
 });
 
+// ADD: TDD for runtime-owned discrete ticket commit model (set/getTicketCompletionCommit)
+test('SessionManager — setTicketCompletionCommit + getTicketCompletionCommit (locked mutation, campaign-status side effect, roundtrip)', async () => {
+  const root = makeTmpRoot();
+  const sm = new SessionManager(root);
+  const { sessionDir } = sm.createSession('/tmp/wd-commit-test', 'discrete-commit-meta');
+
+  const t = { id: 'T-COMMIT-001', title: 'discrete commit test', path: '', status: 'in_progress' as const, phasesCompleted: [] as string[] };
+  await sm.addTicket(sessionDir, t);
+
+  // pre-set: getter returns object (ticket exists) with undefined fields
+  let info = sm.getTicketCompletionCommit(sessionDir, 'T-COMMIT-001');
+  assert.ok(info, 'getter returns object when ticket exists');
+  assert.equal(info!.sha, undefined);
+  assert.equal(info!.source, undefined);
+
+  const sha = 'def456abc7890123456789012345678901234567';
+  const source: 'runtime-orchestrator' = 'runtime-orchestrator';
+  await sm.setTicketCompletionCommit(sessionDir, 'T-COMMIT-001', sha, source);
+
+  // direct state.json + SessionTicket fields (the new model)
+  const state = sm.loadState(sessionDir);
+  const loadedT = state.tickets.find(x => x.id === 'T-COMMIT-001')!;
+  assert.equal(loadedT.completionCommit, sha);
+  assert.equal(loadedT.completionCommitSource, source);
+  assert.ok(loadedT.completionCommitAt, 'ISO timestamp written');
+  assert.ok(typeof loadedT.completionCommitAt === 'string');
+
+  // getter roundtrip
+  info = sm.getTicketCompletionCommit(sessionDir, 'T-COMMIT-001');
+  assert.equal(info?.sha, sha);
+  assert.equal(info?.source, source);
+  assert.ok(info?.at);
+
+  // campaign-status side effect (exactly as orchestrator does post-commit)
+  const statusPath = path.join(sessionDir, 'campaign-status.json');
+  assert.ok(fs.existsSync(statusPath));
+  const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+  assert.ok(status.note?.includes('completionCommit recorded'));
+  assert.ok(status.note?.includes('T-COMMIT-001'));
+  assert.ok(status.note?.includes(sha.slice(0, 8)));
+  assert.ok(status.lastUpdated);
+
+  // fresh manager + reload roundtrip (resumption safety)
+  const sm2 = new SessionManager(root);
+  const info2 = sm2.getTicketCompletionCommit(sessionDir, 'T-COMMIT-001');
+  assert.equal(info2?.sha, sha);
+  assert.equal(info2?.source, source);
+
+  // also works for other sources (fallback path)
+  await sm.setTicketCompletionCommit(sessionDir, 'T-COMMIT-001', 'feedfacefeedfacefeedfacefeedfacefeedface', 'fallback');
+  const info3 = sm.getTicketCompletionCommit(sessionDir, 'T-COMMIT-001');
+  assert.equal(info3?.source, 'fallback');
+
+  cleanup(root);
+});
+
 console.log('[session-test] All SessionManager production paths covered for 50-tix overnight.');

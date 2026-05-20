@@ -40,6 +40,28 @@ export interface Campaign {
   meta?: Record<string, any>;
 }
 
+// === CAMPAIGN MONITORING (campaign-status.json surface for mux/orchestrator/standup/recovery/self-loop) ===
+export interface CampaignProgress {
+  total: number;
+  done: number;
+  failed: number;
+  remaining: number;
+  blocked?: number;
+  deferred?: number;
+  [key: string]: any;
+}
+
+export interface CampaignStatus {
+  sessionId?: string;
+  status?: string;
+  currentTicketId?: string;
+  note?: string;
+  lastUpdated?: string;
+  progress?: CampaignProgress;
+  resource?: Record<string, any>;
+  [key: string]: any;
+}
+
 // === CONVERGENCE TYPES (shared by anatomy, szechuan, microverse, citadel) ===
 export interface Measurement {
   score: number;
@@ -63,12 +85,45 @@ export interface BaseConvergenceState {
   [key: string]: any;
 }
 
-export interface ConvergenceConfig {
-  stallLimit: number;
-  maxIterations: number;
+// === ITERATION / CONVERGENCE DRIVER STATE (canonical contracts for ConvergenceLoop + drivers) ===
+export interface MetricSnapshot {
+  score: number;
+  raw: string;
+  timestamp: string;
+  [key: string]: any;
+}
+
+export interface IterationOutcome {
+  kind: 'improved' | 'held' | 'regressed' | 'failed';
+  rollback: boolean;
+  exitReason?: string;
+  metric?: MetricSnapshot;
+}
+
+export interface MicroverseState extends BaseConvergenceState {
+  sessionId: string;
+  mode: string;
+  description?: string;
+  validation?: string;
   direction: 'higher' | 'lower';
   tolerance: number;
-  gateEnabled: boolean;
+  stallLimit: number;
+  maxIterations: number;
+  currentIteration: number;
+  status: string;
+  history: any[];
+  failedApproaches: any[];
+  keyMetric?: Record<string, any>;
+  convergenceFile?: string;
+  [key: string]: any;
+}
+
+export interface ConvergenceConfig {
+  stallLimit?: number;
+  maxIterations?: number;
+  direction?: 'higher' | 'lower';
+  tolerance?: number;
+  gateEnabled?: boolean;
   [key: string]: any;
 }
 
@@ -157,6 +212,11 @@ export interface SessionTicket extends Ticket {
   category?: string;
   severity?: string;
   [key: string]: any; // tolerate rich meta from emitter / generators
+
+  /** Populated by runtime-owned discrete ticket commit model (orchestrator post-final-ritual success). */
+  completionCommit?: string;
+  completionCommitSource?: 'runtime-orchestrator' | 'worker-direct' | 'inferred' | 'fallback';
+  completionCommitAt?: string;
 }
 
 export interface SessionState {
@@ -197,6 +257,12 @@ export interface PreflightReport {
   };
   ticketFilesOnDisk?: number; // alias/detail
   isMeta?: boolean; // attached by run-pipeline for post decision (meta R-META tickets)
+
+  // Post-incident P0 policy + provenance (zero-ticket PRD bypass prevention + ticket manifest seal)
+  hasRealMaterializedTickets?: boolean;
+  ticketManifestHash?: string;
+  ticketManifestHashMatch?: boolean;
+  legalForNoRefine?: boolean;
   [key: string]: any;
 }
 
@@ -215,8 +281,9 @@ export interface ReadinessAssessment {
   suggestedPrereqs: string[];
   scannedAt: string;
   summary?: string;
-  /** Research-phase (from ## Readiness Assessment in research_*.md) — machine-actionable for ritual/orchestrator/closer */
-  reason?: string;
-  suggestedPrerequisites?: string[]; // synonym for md section parsing
-  extractedFromResearch?: boolean;
+  /** Research-phase (from ## Readiness Assessment in research_*.md) — machine-actionable for ritual/orchestrator/closer.
+   *  | undefined allowed for exactOptional + tolerant regex extraction of optional sections. */
+  reason?: string | undefined;
+  suggestedPrerequisites?: string[] | undefined; // synonym for md section parsing
+  extractedFromResearch?: boolean | undefined;
 }

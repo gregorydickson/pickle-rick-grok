@@ -32,7 +32,7 @@ import { SzechuanDriver } from '../szechuan.js';
 import { runSelfImprovementLoopCloser } from '../self-improvement-loop-closer.js';
 import { performPostCampaignIngest } from '../self-prd-generator.js';
 import { runDetached } from '../runners/mux-runner.js';
-import { summarizeReadiness } from '../lib/pipeline-preflight.js';
+import { summarizeReadiness, isLegalToBypassRefine } from '../lib/pipeline-preflight.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,7 +47,7 @@ Usage:
 
   --prd <path>          Absolute or cwd-relative path to the PRD markdown. Triggers find/create + stamp + preflight.
   --target <dir>        workingDir/grok-root passed to createSessionForPrd + used for post-phase drivers (defaults to cwd).
-  --no-refine           Bypass the "needsRefine" gate (required after /pickle-refine-prd or for self-PRDs that auto-emit full tickets).
+  --no-refine           Bypass the refine gate — ONLY legal when the resolved session already has real materialized ticket.md files + ticket manifest hash match (post-incident P0 policy: --prd paths default to "always run /pickle-refine-prd" unless you have a vetted ticket set). Illegal bypass now hard-errors.
   --self-improvement    Meta mode: after build, run full post phases + loop-closer + post-campaign ingest.
   --background          Fire mux-runner detached (stdio inherit so logs continue in terminal; pair with tmux for real detach).
   --fresh               Ignore any existing linked session for this PRD; always create brand new (old left for forensics).
@@ -208,16 +208,30 @@ async function main() {
     report.diagnostics.forEach((d: string) => console.log(`  diag: ${d}`));
   }
 
-  // Refine gate (exact per spec)
-  if (report.needsRefine && !noRefine) {
-    const guidance = 'Session linked. Run /pickle-refine-prd (it will auto-detect the stamp). Re-invoke this command with --no-refine after REFINEMENT_COMPLETE.';
+  // === Post-incident P0 policy gate (always refine for --prd unless real materialized tickets + manifest hash + explicit --no-refine) ===
+  const isPrdDriven = !!prdAbs;
+  if (isPrdDriven && noRefine) {
+    const legal = isLegalToBypassRefine(report, true);
+    if (!legal) {
+      const msg = `[run-pipeline] ILLEGAL --no-refine for --prd path: no real materialized tickets (or hash mismatch or zombie). Must run /pickle-refine-prd (or self-PRD emitter) first to produce ticket.md artifacts + stamped manifest hash. Zero-ticket bypass is a P0 safety violation (see the r-meta-deepen incident).`;
+      console.error(msg);
+      Activity.awaitingRefineForPrd(path.basename(sessionDir), prdAbs || report.prdPath || '', report.refinement?.reasons || []);
+      process.exit(1);
+    }
+  }
+
+  // Policy-aware soft gate (default for --prd is "always refine" unless legal bypass)
+  const effectiveNeedsRefine = isPrdDriven ? (!report.hasRealMaterializedTickets || !report.legalForNoRefine) : report.needsRefine;
+  if (effectiveNeedsRefine && !noRefine) {
+    const guidance = 'PRD-driven pipeline requires /pickle-refine-prd for safety (never trust a rich Verify table in the .md alone — tickets must be materialized under the stamped session with manifest hash).\n\nRun: /pickle-refine-prd   (it auto-detects the stamp from SESSION_ROOT/campaign-status.json + .prd-source.json sidecar)\n\nAfter you see <promise>REFINEMENT_COMPLETE</promise>, re-invoke the *exact* same command you just ran, plus --no-refine:\n\n    npx tsx engine/src/bin/run-pipeline.ts --prd <the-prd-path> --no-refine [--self-improvement] [--background] [--target ...]\n\nThis is the only way real ticket.md files + executable Verify ACs exist before any bypass. --no-refine on a zero-ticket PRD state is now a hard error.';
     console.log(guidance);
-    console.log('  Refine will materialize full ticket.md artifacts + machine-checkable Verify ACs. Then re-run to pass preflight + validate.');
+    console.log(`SESSION_ROOT=${sessionDir}`);
+    if (prdAbs) console.log(`PRD_LINKED=${prdAbs}`);
     Activity.awaitingRefineForPrd(path.basename(sessionDir), prdAbs || report.prdPath || '', report.refinement?.reasons || []);
     process.exit(0);
   }
 
-  // P0 ticket materialization guard (hard fail with recovery)
+  // P0 ticket materialization guard (hard fail with recovery) — still the final backstop
   const val = sm.validateTicketArtifacts(sessionDir);
   if (!val.valid) {
     console.error(val.error || '[run-pipeline] validateTicketArtifacts P0 GUARD FAILED');

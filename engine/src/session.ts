@@ -16,7 +16,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
-import { SessionState, Ticket, Step, Backend, Runtime, CampaignStatus, CampaignProgress, ReadinessAssessment } from './types.js';
+import { SessionState, Ticket, Step, Backend, Runtime, CampaignStatus, CampaignProgress, ReadinessAssessment, SessionTicket } from './types.js';
 import { Activity } from './activity-logger.js';
 import * as Preflight from './lib/pipeline-preflight.js';
 import type { PreflightReport } from './types.js';
@@ -250,13 +250,13 @@ export class SessionManager {
       }
       // If this was the current ticket, clear the pointer so the next run starts fresh
       if (state.currentTicketId === ticketId) {
-        state.currentTicketId = undefined;
+        delete state.currentTicketId;  // omit key (exactOptional-safe); matches clearCurrentTicket
       }
       this.writeState(sessionDir, state);
 
       this.updateCampaignStatusSync(sessionDir, {
         note: `ticket ${ticketId} reset to pending (recovery)`,
-        currentTicketId: state.currentTicketId,
+        ...(state.currentTicketId !== undefined ? { currentTicketId: state.currentTicketId } : {}),
       });
     });
   }
@@ -283,7 +283,7 @@ export class SessionManager {
       }
 
       if (reset.length > 0 && reset.includes(state.currentTicketId || '')) {
-        state.currentTicketId = undefined;
+        delete state.currentTicketId;  // omit key (exactOptional-safe)
       }
 
       if (changed) {
@@ -294,7 +294,7 @@ export class SessionManager {
         note: reset.length > 0
           ? `recovered ${reset.length} failed tickets: ${reset.join(', ')}`
           : 'no failed tickets to recover',
-        currentTicketId: state.currentTicketId,
+        ...(state.currentTicketId !== undefined ? { currentTicketId: state.currentTicketId } : {}),
       });
     });
 
@@ -326,13 +326,13 @@ export class SessionManager {
     fs.writeFileSync(ticketPath, mdContent, 'utf8');
 
     const t = {
+      ...meta,
       id,
-      title: meta.title,
       path: path.join('tickets', id, 'ticket.md'),
       status: meta.status || 'pending',
       phasesCompleted: meta.phasesCompleted || [],
-      ...meta,
-    } as Ticket;
+      title: meta.title,  // explicit after spread (avoids duplicate key issues under strict TS)
+    } as SessionTicket;  // richer shape actually stored; still compatible where Ticket expected
 
     await this.addTicket(sessionDir, t);
     return ticketPath;
@@ -352,6 +352,40 @@ export class SessionManager {
       }
       this.writeState(sessionDir, state);
     });
+  }
+
+  /** Locked persistence of runtime-owned discrete ticket completion commit (state + campaign-status surface). */
+  async setTicketCompletionCommit(
+    sessionDir: string,
+    ticketId: string,
+    sha: string,
+    source: 'runtime-orchestrator' | 'worker-direct' | 'inferred' | 'fallback' = 'runtime-orchestrator'
+  ): Promise<void> {
+    const lockPath = getStateLock(sessionDir);
+    await withFileLock(lockPath, () => {
+      const state = this.loadState(sessionDir);
+      const t = state.tickets.find(x => x.id === ticketId);
+      if (t) {
+        t.completionCommit = sha;
+        t.completionCommitSource = source;
+        t.completionCommitAt = new Date().toISOString();
+      }
+      this.writeState(sessionDir, state);
+      this.updateCampaignStatusSync(sessionDir, {
+        note: `ticket ${ticketId} completionCommit recorded ${sha.slice(0, 8)} (source=${source})`,
+      } as any);
+    });
+  }
+
+  getTicketCompletionCommit(sessionDir: string, ticketId: string): { sha?: string; source?: string; at?: string } | null {
+    const state = this.loadState(sessionDir);
+    const t = state.tickets.find(x => x.id === ticketId);
+    if (!t) return null;
+    return {
+      sha: t.completionCommit,
+      source: t.completionCommitSource,
+      at: t.completionCommitAt,
+    };
   }
 
   getTicketProgress(sessionDir: string, ticketId: string) {

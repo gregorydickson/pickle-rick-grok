@@ -15,8 +15,9 @@
 import * as path from 'path';
 import { SessionManager } from '../session.js';
 import { Activity } from '../activity-logger.js';
-import { assessMetaReadiness } from './pipeline-preflight.js';
+import { assessMetaReadiness, computeTicketManifestHash, writePrdSourceMeta } from './pipeline-preflight.js';
 import type { ReadinessAssessment } from '../types.js';
+import * as fs from 'fs';
 
 export interface TicketSpec {
   id: string;
@@ -137,7 +138,7 @@ export async function emitRefinedTickets(
     let readiness: ReadinessAssessment | undefined;
     try {
       const verifyJoined = (spec.acceptanceCriteria || []).map((ac: any) => (ac.verify || ac.criterion || '')).join('\n');
-      readiness = assessMetaReadiness(spec.scope || '', verifyJoined, { grokRoot: opts.grokRoot });
+      readiness = assessMetaReadiness(spec.scope || '', verifyJoined, { ...(opts.grokRoot !== undefined ? { grokRoot: opts.grokRoot } : {}) });
     } catch (e: any) {
       // probe must never break emission; non-fatal (Jerry-safe)
       console.warn('[ticket-emitter] readiness probe failed (non-fatal):', e?.message || e);
@@ -146,7 +147,7 @@ export async function emitRefinedTickets(
     const enrichedSpec = readiness ? ({ ...spec, readiness } as TicketSpec) : spec;
     const md = generateTicketMarkdown(enrichedSpec, {
       generatedBy: opts.generatedBy || 'refine-prd council',
-      grokRoot: opts.grokRoot
+      ...(opts.grokRoot !== undefined ? { grokRoot: opts.grokRoot } : {})
     });
 
     const isHardening = (spec.id || '').toUpperCase().startsWith('H-') ||
@@ -171,12 +172,30 @@ export async function emitRefinedTickets(
     created.push(ticketPath);
   }
 
+  // === Post-incident P0 provenance seal + light Verify smoke (prevents re-use of flawed tickets) ===
+  try {
+    const ids = specs.map((s: any) => s.id).filter(Boolean).sort();
+    const prdForManifest = (specs[0] as any)?.sourcePrd || '';
+    const manifestHash = computeTicketManifestHash(ids, prdForManifest);
+    writePrdSourceMeta(sessionDir, prdForManifest || process.cwd(), '', manifestHash);
+
+    // Light smoke that would have caught the RCA quoting / init+length / non-deterministic Verifys
+    for (const p of created) {
+      const c = fs.readFileSync(p, 'utf8');
+      if (c.length < 280 || !c.includes('| Verify |')) {
+        console.warn(`[ticket-emitter] POST-EMIT SMOKE: ${path.basename(p)} has weak Verify table (possible quoting/init/length bug from refine).`);
+      }
+    }
+  } catch (e: any) {
+    console.warn('[ticket-emitter] manifest/seal smoke non-fatal:', e?.message || e);
+  }
+
   // State update (same pattern the old manager scripts did)
   if (opts.updateStateToImplementing !== false) {
     const state = sm.loadState(sessionDir);
     state.step = 'implementing';
     if (specs.length > 0) {
-      state.currentTicketId = specs[0].id;
+      state.currentTicketId = specs[0]!.id; // safe: length check above
     }
     sm.writeState(sessionDir, state);
   }

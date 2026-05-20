@@ -63,6 +63,12 @@ export const DEFAULT_PHASE_TURN_BUDGETS: Record<WorkerRole, number> = {
   'morty-phase-verifier': 90,
   'morty-phase-reviewer': 80,
   'morty-phase-simplifier': 80,
+  // 5 convergence / side-driver roles (deepen, microverse, anatomy) — 80 fallback per WorkerSpawner
+  'microverse-changer': 80,
+  'deepen-changer': 80,
+  'anatomy-reviewer': 80,
+  'anatomy-fixer': 80,
+  'anatomy-verifier': 80,
 };
 
 export function getDefaultPhaseTurnBudget(phase: WorkerRole): number {
@@ -94,8 +100,18 @@ export function resolvePhaseTurnBudget(
  */
 export function getPhaseFileName(phase: string): string {
   let phaseName = phase.replace('morty-phase-', '');
-  if (phaseName === 'research-reviewer') phaseName = 'research_review';
-  if (phaseName === 'plan-reviewer') phaseName = 'plan_review';
+  const map: Record<string, string> = {
+    researcher: 'research',
+    planner: 'plan',
+    implementer: 'implement',
+    verifier: 'verify',
+    reviewer: 'review',
+    simplifier: 'simplify',
+    'research-reviewer': 'research_review',
+    'plan-reviewer': 'plan_review',
+  };
+  const mapped = map[phaseName];
+  if (mapped) phaseName = mapped;
   return phaseName;
 }
 
@@ -168,7 +184,7 @@ export function detectCycles(tickets: TicketRef[]): string[][] {
 export function topologicalSort(tickets: TicketRef[]): TicketRef[] {
   const cycles = detectCycles(tickets);
   if (cycles.length > 0) {
-    throw new Error(`Cyclic ticket dependencies detected: ${cycles[0].join(' → ')}`);
+    throw new Error(`Cyclic ticket dependencies detected: ${cycles[0]!.join(' → ')}`);  // safe: length > 0 + noUncheckedIndexedAccess
   }
 
   const byId = new Map<string, TicketRef>(tickets.map(t => [t.id, t]));

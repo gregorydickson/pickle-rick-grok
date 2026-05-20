@@ -41,6 +41,16 @@ function computePrdHash(content: string): string {
   return 'h' + (h >>> 0).toString(16);
 }
 
+/** Stable hash for the set of tickets emitted for a PRD (P0 post-incident provenance seal against manual/old-flawed reuse). */
+export function computeTicketManifestHash(ticketIds: string[], extra = ''): string {
+  const canon = [...ticketIds].sort().join('|') + '|' + extra;
+  let h = 0;
+  for (let i = 0; i < canon.length; i++) {
+    h = (h * 31 + canon.charCodeAt(i)) | 0;
+  }
+  return 'tmh' + ((h >>> 0).toString(16));
+}
+
 /** Strict heuristic: requires Verify column + >=2 runnable shell commands in backticks. */
 export function isPrdSufficientlyRefined(prdContent: string): { sufficient: boolean; score: number; reasons: string[] } {
   const reasons: string[] = [];
@@ -59,7 +69,7 @@ export function isPrdSufficientlyRefined(prdContent: string): { sufficient: bool
   const btRe = /`([^`]+)`/g;
   let m: RegExpExecArray | null;
   while ((m = btRe.exec(prdContent)) !== null) {
-    backtickCmds.push(m[1].trim());
+    backtickCmds.push((m[1] || '').trim()); // noUncheckedIndexedAccess on RegExpExecArray
   }
 
   const runnableMatches = backtickCmds.filter(c => RUNNABLE_VERIFY_RE.test(c));
@@ -119,7 +129,7 @@ export function checkTicketMaterialization(sessionDir: string): { countOnDisk: n
   };
 }
 
-export function readPrdSourceMeta(sessionDir: string): { prdPath?: string; linkedAt?: string; contentHash?: string } | null {
+export function readPrdSourceMeta(sessionDir: string): { prdPath?: string; linkedAt?: string; contentHash?: string; ticketManifestHash?: string } | null {
   const p = path.join(sessionDir, '.prd-source.json');
   if (!fs.existsSync(p)) return null;
   try {
@@ -129,13 +139,14 @@ export function readPrdSourceMeta(sessionDir: string): { prdPath?: string; linke
   }
 }
 
-export function writePrdSourceMeta(sessionDir: string, prdPath: string, contentHash = ''): void {
+export function writePrdSourceMeta(sessionDir: string, prdPath: string, contentHash = '', ticketManifestHash = ''): void {
   const resolved = path.resolve(prdPath);
-  const meta = {
+  const meta: any = {
     prdPath: resolved,
     linkedAt: new Date().toISOString(),
     contentHash: contentHash || '',
   };
+  if (ticketManifestHash) meta.ticketManifestHash = ticketManifestHash;
   const p = path.join(sessionDir, '.prd-source.json');
   writeJsonAtomicLocal(p, meta);
 }
@@ -169,7 +180,7 @@ export function runPreflight(sessionDir: string, prdPath?: string): PreflightRep
       missingTicketIds: [],
       sourcePrdMatch: false,
       diagnostics,
-      prdPath,
+      ...(prdPath !== undefined ? { prdPath } : {}),
     };
     Activity.preflightReport(sessionId, { ok: false, isZombie: true, reason: 'no-state' });
     return report;
@@ -207,6 +218,13 @@ export function runPreflight(sessionDir: string, prdPath?: string): PreflightRep
     sourcePrdMatch = false;
     diagnostics.push('.prd-source.json provenance disagrees with effective PRD path.');
   }
+
+  // === Post-incident P0 policy fields (zero-ticket PRD bypass + manifest seal) ===
+  const currentManifestHash = computeTicketManifestHash(mat.ticketIdsInState, effectivePrd || '');
+  const ticketManifestHash = meta?.ticketManifestHash || '';
+  const ticketManifestHashMatch = !!ticketManifestHash && ticketManifestHash === currentManifestHash;
+  const hasRealMaterializedTickets = mat.allPresent && mat.countOnDisk > 0 && !isZombie;
+  const legalForNoRefine = hasRealMaterializedTickets && ticketManifestHashMatch && !isZombie && sourcePrdMatch;
 
   let refinement: PreflightReport['refinement'] | undefined;
   let needsRefine = false;
@@ -246,10 +264,16 @@ export function runPreflight(sessionDir: string, prdPath?: string): PreflightRep
     missingTicketIds: mat.missingTicketIds,
     sourcePrdMatch,
     diagnostics,
-    prdPath: effectivePrd,
-    sessionSourcePrd,
-    refinement,
+    ...(effectivePrd !== undefined ? { prdPath: effectivePrd } : {}),
+    ...(sessionSourcePrd !== undefined ? { sessionSourcePrd } : {}),
+    ...(refinement !== undefined ? { refinement } : {}),
     ticketFilesOnDisk: mat.countOnDisk,
+
+    // Post-incident policy + seal fields (attached for run-pipeline gate)
+    hasRealMaterializedTickets,
+    ticketManifestHash,
+    ticketManifestHashMatch,
+    legalForNoRefine,
   };
 
   Activity.preflightReport(sessionId, {
@@ -332,12 +356,14 @@ export function assessMetaReadiness(
         if (matches.length > 0) {
           totalHits += matches.length;
           const exLine = content.split(/\r?\n/).find(l => pat.test(l));
-          signals.push({
+          const ex = exLine ? exLine.trim().slice(0, 110) : undefined;
+          const sig: any = {
             file: rel,
             pattern: pat.source || pat.toString(),
             hits: matches.length,
-            example: exLine ? exLine.trim().slice(0, 110) : undefined,
-          });
+          };
+          if (ex !== undefined) sig.example = ex;
+          signals.push(sig);
         }
       }
     } catch {
@@ -382,6 +408,12 @@ export function summarizeReadiness(tickets: any[]): string | null {
   const a = rs.filter(r => r.status === 'amber').length;
   const r = rs.filter(r => r.status === 'red').length;
   return `meta-readiness green=${g} amber=${a} red=${r} (of ${rs.length} tickets)`;
+}
+
+/** Post-incident policy predicate: is it legal for a --prd --no-refine invocation to bypass the refine gate? */
+export function isLegalToBypassRefine(report: PreflightReport, explicitNoRefine = true): boolean {
+  if (!explicitNoRefine) return false;
+  return !!(report.hasRealMaterializedTickets && report.ticketManifestHashMatch && (report.ticketCountOnDisk || 0) > 0 && !report.isZombie);
 }
 
 export type { ReadinessAssessment };
