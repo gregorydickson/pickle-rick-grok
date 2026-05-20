@@ -253,9 +253,10 @@ export async function runDetached(sessionDir: string, options: DetachedOptions =
         try {
           const clMod: any = await import('../self-improvement-loop-closer.js');
           const prdMod: any = await import('../self-prd-generator.js');
-          const clRes = clMod.runSelfImprovementLoopCloser(sessionDir, postTarget);
+          const clRes = await clMod.runSelfImprovementLoopCloser(sessionDir, postTarget);
           console.log(`[mux-runner] Post Closer: ${clRes?.summary || 'done'}`);
-          prdMod.performPostCampaignIngest(postTarget, sessionDir);
+          if (clRes?.verifyTheaterDetected) console.log(`[mux-runner] H-VERIFY self-heal engaged: ${clRes.hardeningTicketsEmitted || 0}`);
+          await prdMod.performPostCampaignIngest(postTarget, sessionDir);
         } catch (ce: any) { console.error('[mux-runner] post-closer/ingest non-fatal:', ce?.message || ce); }
       } catch (pErr: any) {
         console.error('[mux-runner] Post block error (non-fatal):', pErr?.message || pErr);

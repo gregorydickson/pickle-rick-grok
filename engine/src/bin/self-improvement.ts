@@ -49,13 +49,14 @@ const root = discoverRoot(target);
 console.log(`[self-improvement] SELF-DOGFOOD — target=${root} iters=${iters} bg=${bg}`);
 
 if (postOnly) {
-  const res = performPostCampaignIngest(root);
-  if (!dry) {
-    fs.mkdirSync(path.dirname(res.reliabilityBacklogPath), { recursive: true });
-    fs.writeFileSync(res.reliabilityBacklogPath, res.backlogMarkdown, 'utf8');
-  }
-  console.log(`[self-improvement] post-ingest done. closed=${res.closedCount}`);
-  process.exit(0);
+  performPostCampaignIngest(root).then((res: any) => {
+    if (!dry) {
+      fs.mkdirSync(path.dirname(res.reliabilityBacklogPath), { recursive: true });
+      fs.writeFileSync(res.reliabilityBacklogPath, res.backlogMarkdown, 'utf8');
+    }
+    console.log(`[self-improvement] post-ingest done. closed=${res.closedCount} theaterHeal=${res.hardeningTicketsEmitted || 0}`);
+    process.exit(0);
+  }).catch((e: any) => { console.error('[self-improvement] post failed:', e?.message || e); process.exit(1); });
 }
 
 if (genOnly) {

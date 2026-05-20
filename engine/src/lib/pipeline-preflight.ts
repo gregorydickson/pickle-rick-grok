@@ -67,6 +67,143 @@ export function detectVerifyTheater(verify: string): { isTheatrical: boolean; re
   return { isTheatrical: hits > 0, reasons, hits };
 }
 
+/** Scan a completed campaign session's tickets + artifacts for theatrical Verify patterns (P1 self-healing trigger).
+ *  Detects high % theatrical AC Verifies (via backticks + detect), low runnable density, or early deaths (researcher/planner) with "AC Verify"/theatrical mentions in phase artifacts.
+ *  Used by post-campaign ingest to auto-emit H-VERIFY hardening tickets via emitter.
+ */
+export function analyzeSessionForVerifyTheater(sessionDir: string): {
+  totalTickets: number;
+  theatricalCount: number;
+  percent: number;
+  earlyDeathTheaterCount: number;
+  lowDensityCount: number;
+  shouldEmitHardening: boolean;
+  sampleTheatricalIds: string[];
+  details: string[];
+} {
+  const result = {
+    totalTickets: 0,
+    theatricalCount: 0,
+    percent: 0,
+    earlyDeathTheaterCount: 0,
+    lowDensityCount: 0,
+    shouldEmitHardening: false,
+    sampleTheatricalIds: [] as string[],
+    details: [] as string[],
+  };
+  const statePath = path.join(sessionDir, 'state.json');
+  if (!fs.existsSync(statePath)) {
+    result.details.push('no state.json');
+    return result;
+  }
+  let state: any;
+  try {
+    state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  } catch {
+    result.details.push('state.json unparsable');
+    return result;
+  }
+  const tickets: any[] = state.tickets || [];
+  result.totalTickets = tickets.length;
+  if (result.totalTickets === 0) return result;
+
+  const theatricalIds: string[] = [];
+  let totalStrong = 0;
+  let totalRunnableAttempts = 0;
+
+  for (const t of tickets) {
+    const id = t.id || 'unknown';
+    const ticketMdPath = path.join(sessionDir, 'tickets', id, 'ticket.md');
+    let hasTheater = false;
+    let strongForTicket = 0;
+    let runnablesForTicket = 0;
+
+    if (fs.existsSync(ticketMdPath)) {
+      const content = safeReadLocal(ticketMdPath); // local helper below
+      // Collect backticks (Verifies live in `...`)
+      const btRe = /`([^`]+)`/g;
+      let m: RegExpExecArray | null;
+      const cmds: string[] = [];
+      while ((m = btRe.exec(content)) !== null) {
+        if (m[1]) cmds.push(m[1].trim());
+      }
+      for (const cmd of cmds) {
+        if (RUNNABLE_VERIFY_RE.test(cmd)) {
+          runnablesForTicket++;
+          if (!detectVerifyTheater(cmd).isTheatrical) {
+            strongForTicket++;
+          } else {
+            hasTheater = true;
+          }
+        }
+      }
+      // Also crude check for Verify table rows with bad patterns
+      if (VERIFY_THEATER_RE.some(re => re.test(content))) {
+        hasTheater = true;
+      }
+    }
+
+    totalStrong += strongForTicket;
+    totalRunnableAttempts += runnablesForTicket;
+
+    if (hasTheater || (runnablesForTicket > 0 && strongForTicket / runnablesForTicket < 0.6)) {
+      if (hasTheater) {
+        theatricalIds.push(id);
+        result.theatricalCount++;
+      } else {
+        result.lowDensityCount++;
+      }
+    }
+
+    // Early death at planner/researcher + theater keywords in artifacts?
+    const phases: string[] = t.phasesCompleted || [];
+    const last = phases[phases.length - 1] || '';
+    const diedEarly = t.status === 'failed' && /research|plan|research_review/i.test(last);
+    if (diedEarly) {
+      const tdir = path.join(sessionDir, 'tickets', id);
+      let foundTheaterKeyword = false;
+      try {
+        const files = fs.readdirSync(tdir).filter(f => f.endsWith('.md'));
+        for (const f of files) {
+          const ac = safeReadLocal(path.join(tdir, f));
+          if (/theatrical|AC Verify|verify theater|theater.*(fail|reject|block)|"after .*fix"/i.test(ac)) {
+            foundTheaterKeyword = true;
+            break;
+          }
+        }
+      } catch {}
+      if (foundTheaterKeyword) {
+        result.earlyDeathTheaterCount++;
+        if (!theatricalIds.includes(id)) theatricalIds.push(id);
+      }
+    }
+  }
+
+  result.sampleTheatricalIds = theatricalIds.slice(0, 5);
+  result.percent = result.totalTickets > 0 ? Math.round((result.theatricalCount / result.totalTickets) * 100) : 0;
+
+  const avgDensity = totalRunnableAttempts > 0 ? totalStrong / totalRunnableAttempts : 1;
+  if (avgDensity < 0.7) {
+    result.details.push(`low overall runnable density ${avgDensity.toFixed(2)}`);
+  }
+
+  // Thresholds for P1 trigger (tunable; conservative to avoid spam)
+  const TH_PCT = 25;
+  const TH_DEATHS = 1;
+  const TH_LOW_D = Math.max(1, Math.floor(result.totalTickets * 0.3));
+  if (result.percent >= TH_PCT || result.earlyDeathTheaterCount >= TH_DEATHS || result.lowDensityCount >= TH_LOW_D) {
+    result.shouldEmitHardening = true;
+    result.details.push(`trigger: pct=${result.percent} deaths=${result.earlyDeathTheaterCount} lowD=${result.lowDensityCount}`);
+  }
+
+  return result;
+}
+
+/** local safe read to avoid import cycle (phase-utils.safeRead is fine but duplicate tiny fn) */
+function safeReadLocal(p: string): string {
+  try { return fs.readFileSync(p, 'utf8'); } catch { return ''; }
+}
+
 function computePrdHash(content: string): string {
   // simple stable hash for change detection (no crypto dep)
   let h = 0;

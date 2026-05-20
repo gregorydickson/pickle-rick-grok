@@ -110,6 +110,7 @@ function generateReport(events: any[], options: MetricsOptions) {
     prds_created: 0,
     refinements_completed: 0,
     hardening_tickets_triggered: 0,
+    verify_theater_rejected: 0,
     self_prds_generated: 0,
     self_loops_closed: 0,
     citadel_audits: 0,
@@ -206,6 +207,10 @@ function generateReport(events: any[], options: MetricsOptions) {
       report.hardening_tickets_triggered += (e.details?.count || 1);
       report.by_day[day].hardenings++;
     }
+    if (e.event === 'verify_theater_rejected') {
+      report.verify_theater_rejected += (e.details?.count || 1);
+      report.by_day[day].verify_rejects = (report.by_day[day].verify_rejects || 0) + 1;
+    }
     if (e.event === 'self_prd_generated') {
       report.self_prds_generated++;
       report.by_day[day].self_prds++;
@@ -287,6 +292,7 @@ function main() {
     console.log(`PRDs created:                  ${report.prds_created}`);
     console.log(`Refinements completed:         ${report.refinements_completed}`);
     console.log(`Hardening tickets triggered:   ${report.hardening_tickets_triggered}`);
+    console.log(`Verify theater rejected:       ${report.verify_theater_rejected}`);
     console.log(`Self-PRDs generated:           ${report.self_prds_generated}`);
     console.log(`Self-loops closed:             ${report.self_loops_closed}`);
     console.log(`Citadel audits (fails):        ${report.citadel_audits} (${report.citadel_fails})`);

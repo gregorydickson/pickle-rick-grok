@@ -125,13 +125,13 @@ test('performPostCampaignIngest + runSelfImprovementLoopCloser — ingests, clos
 
   const { performPostCampaignIngest, runSelfImprovementLoopCloser } = await loadSelf();
 
-  const ingest = performPostCampaignIngest(root, campSess);
+  const ingest = await performPostCampaignIngest(root, campSess);
   assert.ok(ingest.backlogMarkdown.length > 50);
   assert.ok(typeof ingest.closedCount === 'number');
   assert.ok(ingest.reliabilityBacklogPath.includes('reliability-backlog.md'));
 
   // direct closer (writes the file)
-  const closerRes = runSelfImprovementLoopCloser(campSess, root);
+  const closerRes = await runSelfImprovementLoopCloser(campSess, root);
   assert.ok(closerRes.backlogPath);
   assert.ok(fs.existsSync(closerRes.backlogPath));
 
@@ -152,7 +152,7 @@ test('self-meta loop — generate + ingest roundtrip shrinks or maintains delta 
   fs.mkdirSync(camp, { recursive: true });
   fs.writeFileSync(path.join(camp, 'citadel_prd_feedback.md'), '## Recommendations\n- RITUAL-01 closed by test');
 
-  const post = performPostCampaignIngest(root, camp);
+  const post = await performPostCampaignIngest(root, camp);
   // after ingest the next gen should see fewer or same open (in real it shrinks)
   const gen2 = generateSelfPrd(root, { full: true, dry: true });
 

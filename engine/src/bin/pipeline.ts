@@ -136,9 +136,14 @@ if (selfMode) {
   Activity.metaPhaseStarted('post-campaign', path.basename(sessionDir));
   console.log('[pipeline] META-PHASE post: Loop Closer + ingest (backlog + metrics)');
   try {
-    const closerRes = runSelfImprovementLoopCloser(sessionDir, targetRoot);
-    console.log(`[pipeline] Closer: ${closerRes.summary}`);
-    performPostCampaignIngest(targetRoot, sessionDir);
+    runSelfImprovementLoopCloser(sessionDir, targetRoot)
+      .then((closerRes: any) => {
+        console.log(`[pipeline] Closer: ${closerRes?.summary || 'done'}`);
+        if (closerRes?.verifyTheaterDetected) console.log(`[pipeline] H-VERIFY auto-heal: ${closerRes.hardeningTicketsEmitted || 0} tickets side-emitted`);
+      })
+      .catch((cErr: any) => console.error('[pipeline] closer error (non-fatal):', cErr?.message || cErr));
+    // second ingest kept for legacy paths (now async fire-and-forget, idempotent inside)
+    performPostCampaignIngest(targetRoot, sessionDir).catch((e: any) => console.warn('[pipeline] duplicate ingest non-fatal:', e?.message || e));
   } catch (cErr) {
     console.error('[pipeline] post meta phase error (non-fatal):', (cErr as any)?.message || cErr);
   }

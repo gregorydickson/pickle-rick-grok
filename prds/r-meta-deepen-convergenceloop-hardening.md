@@ -1,6 +1,6 @@
 # R-META-DEEPEN-001: Architecture Deepening — Full ConvergenceLoop Productionization
 
-**Status**: Refined (via /pickle-refine-prd analyst council, 2 rounds)  
+**Status**: Refined (via /pickle-refine-prd analyst council, 2 rounds + Round 2 cross-critique seal-refresh re-emit 2026-05-20 on linked session 2026-05-20-630c9ce7) 
 **Priority**: P0 (meta tooling)  
 **Created**: 2026-05-19  
 **Refined**: 2026-05-19  
@@ -85,6 +85,20 @@ All requirements must be machine-checkable. Strengthened by Requirements + Codeb
 | P0 | P0-TEST-001: Existing discovery tests + convergence-loop tests remain green; new harness exercises >=2 full `runDeepeningLoop` iterations (simulated good PROPOSAL + malformed + regression rollback + kill-resume) with structural debt movement proof | "Test coverage for real multi-iteration paths is thin" — now production grade | `npm test -- engine/tests/arch-deepener.test.ts engine/tests/convergence-loop.test.ts` passes + new it() blocks for runDeepeningLoop + `grep -c "runDeepeningLoop" engine/tests/arch-deepener.test.ts` >=2 |
 | P1 | The `deepen-changer` prompt + `**PROPOSAL**` contract is enforced by a test harness (feed buildDeepenChangerPrompt output to mock, assert exact fields + LANGUAGE terms) | Morty Implementer must not waste cycles on format violations | `npm test` green + dedicated `it('deepen-changer PROPOSAL contract')` that validates parse + all required keys (Leverage/Locality/Deletion Test etc.) |
 | P1 | Clear atomic refinable tickets + H- hardening tickets produced by `/pickle-refine-prd` with proper ticket.md + Scope + 4-8 runnable AC Verifys each | The surface must be Morty-ready for 8-phase ritual | After this refine: `ls tickets/ | wc -l` >=7 && every ticket has "Verify" table with shell commands && H- tickets exist for ritual/session/self surfaces |
+
+### Round 2 Council Polish (seal refresh + honesty)
+Requirements + Codebase + Risk council (2 full rounds + cross-critique) audited the live stubs in `arch-deepener.ts` (load always init, raw writeFileSync despite imported writeJsonAtomic, fire-and-forget applyChange with zero **PROPOSAL** parse or applyDeepeningPatch, pipeline still discovery-only, FORBIDDEN_SELF_MUT already 10 entries + isSelfMutationSafe wired and used).
+
+**Verdict**: PRD direction + decomposition (PERSIST→MUTATE→APPLY→PIPE→SELF-MUT→META→TEST + 3 H-) is correct and causal. No scope creep accepted (Risk's proposed H-004..H-007 refuted as covered by existing H-002, P0-SELF-MUT-001, H-003, and post-incident preflight/SEAL rescue in pipeline-preflight.ts + ticket-emitter).
+
+**Honesty upgrades applied to Verifies** (for re-emission):
+- All P0 Verifies now distinguish **Baseline (stub today — must pass on current tree)** from **Success (post-ticket impl — the real roundtrip/debt-drop/iteration/patch behavior)**. This prevents "verification theater".
+- P0-PERSIST-001 / MUTATE-001 / APPLY-001 / PIPE-001 / SELF-MUT-001 / TEST-001 titles and scopes tightened to the 1-file / <3-file surgical boundaries (arch-deepener.ts primary for PERSIST/MUTATE; pipeline.ts for PIPE).
+- Interface Contracts return shape documented as superset: `{converged, iterations, finalDebt, debtDelta?, history?}` (history lives on state; callers get delta for P0-META).
+- Restart hygiene + atomic onPersist closure + kill-resume folded into P0-PERSIST-001 and P0-TEST-001 (no new tickets).
+- Re-emit via `emitRefineCouncilTickets` on the linked session **is the only action that refreshes the tmh seal** and makes `--no-refine` legal again per the P0 policy.
+
+The emitted tickets under 2026-05-20-630c9ce7 now carry the honest red-green Verifies + exact Scope. Re-dispatch run-pipeline --no-refine will pass preflight and execute the real ConvergenceLoop hardening.
 
 ---
 

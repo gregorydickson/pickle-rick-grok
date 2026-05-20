@@ -354,9 +354,12 @@ async function main() {
     if (selfImprovement || hasMetaTickets || chainPost) {
       console.log('[run-pipeline] META-PHASE post: Loop Closer + performPostCampaignIngest (backlog + metrics)');
       try {
-        const closerRes: any = runSelfImprovementLoopCloser(sessionDir, postTarget);
+        const closerRes: any = await runSelfImprovementLoopCloser(sessionDir, postTarget);
         console.log(`[run-pipeline] Closer: ${closerRes?.summary || 'complete'}`);
-        performPostCampaignIngest(postTarget, sessionDir);
+        if (closerRes?.verifyTheaterDetected) {
+          console.log(`[run-pipeline] Self-heal: emitted ${closerRes.hardeningTicketsEmitted || 0} H-VERIFY tickets (verify theater auto-detected + rejected)`);
+        }
+        await performPostCampaignIngest(postTarget, sessionDir);
       } catch (cErr: any) {
         console.error('[run-pipeline] post meta phase error (non-fatal):', (cErr as any)?.message || cErr);
       }

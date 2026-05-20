@@ -34,21 +34,29 @@ export interface CloserOptions {
   background?: boolean;
 }
 
-export function runSelfImprovementLoopCloser(campaignSessionDir: string, targetRoot?: string): { backlogPath: string; closed: number; summary: string } {
+export async function runSelfImprovementLoopCloser(campaignSessionDir: string, targetRoot?: string): Promise<{ backlogPath: string; closed: number; summary: string; verifyTheaterDetected?: boolean; hardeningTicketsEmitted?: number }> {
   const root = targetRoot || process.cwd();
-  const result = performPostCampaignIngest(root, campaignSessionDir);
+  // Explicit call site inside closer per P1 requirement (delegates to ingest but surface + post-processing hook for self-heal)
+  const result = await performPostCampaignIngest(root, campaignSessionDir);
 
   fs.mkdirSync(path.dirname(result.reliabilityBacklogPath), { recursive: true });
   fs.writeFileSync(result.reliabilityBacklogPath, result.backlogMarkdown, 'utf8');
+
+  // If theater hardening triggered in ingest, log it here too for closer visibility (Rick: belt + suspenders)
+  if (result.verifyTheaterDetected) {
+    console.log(`[loop-closer] VERIFY THEATER REJECTED in ${campaignSessionDir} — ${result.hardeningTicketsEmitted || 0} H-VERIFY auto side-effected (self-healing engaged)`);
+  }
 
   Activity.selfImprovementLoopClosed(campaignSessionDir, result.closedCount, {
     backlog: result.reliabilityBacklogPath,
     open: result.openCount,
     target: root,
+    verifyTheaterDetected: !!result.verifyTheaterDetected,
+    hardeningEmitted: result.hardeningTicketsEmitted || 0,
   });
 
   console.log(`[loop-closer] CLOSED ${campaignSessionDir}. closed=${result.closedCount} backlog=${result.reliabilityBacklogPath}`);
-  return { backlogPath: result.reliabilityBacklogPath, closed: result.closedCount, summary: result.summary };
+  return { backlogPath: result.reliabilityBacklogPath, closed: result.closedCount, summary: result.summary, verifyTheaterDetected: result.verifyTheaterDetected, hardeningTicketsEmitted: result.hardeningTicketsEmitted };
 }
 
 export async function runFullSelfLoop(opts: CloserOptions = {}): Promise<void> {
@@ -111,7 +119,7 @@ if (import.meta.url === `file://${process.argv[1]}` || (process.argv[1] && /self
   const camp = args.find(a => a.includes('session') || a.includes('tmp')) || undefined;
 
   if (camp || args.includes('--post') || args.includes('--ingest')) {
-    runSelfImprovementLoopCloser(camp || target, target);
+    runSelfImprovementLoopCloser(camp || target, target).catch((e: any) => { console.error('[loop-closer] post ingest failed:', e?.message || e); process.exit(1); });
   } else {
     runFullSelfLoop({ iterations: iters, targetRoot: target, dry, background: bg });
   }

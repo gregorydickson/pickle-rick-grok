@@ -29,6 +29,7 @@ export type ActivityEventType =
   | 'prd_created'
   | 'refinement_completed'
   | 'hardening_tickets_triggered'
+  | 'verify_theater_rejected'
   | 'citadel_audit'
   | 'heartbeat'
   | 'self_prd_generated'
@@ -305,6 +306,16 @@ export const Activity = {
     };
     if (context) evt.details.context = context;
     logActivity(evt);
+  },
+
+  verifyTheaterRejected(sessionId: string, details: Record<string, any> = {}) {
+    logActivity({
+      ts: new Date().toISOString(),
+      event: 'verify_theater_rejected' as const,
+      source: 'self-prd-generator',
+      session: sessionId,
+      details,
+    });
   },
 
   citadelAudit(sessionId: string, overall: 'PASS' | 'WARN' | 'FAIL', critical: number, findings: number, extra?: Record<string, any>) {
