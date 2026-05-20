@@ -15,7 +15,7 @@
 import * as path from 'path';
 import { SessionManager } from '../session.js';
 import { Activity } from '../activity-logger.js';
-import { assessMetaReadiness, computeTicketManifestHash, writePrdSourceMeta } from './pipeline-preflight.js';
+import { assessMetaReadiness, computeTicketManifestHash, writePrdSourceMeta, getManifestPrdPath } from './pipeline-preflight.js';
 import type { ReadinessAssessment } from '../types.js';
 import * as fs from 'fs';
 
@@ -174,8 +174,11 @@ export async function emitRefinedTickets(
 
   // === Post-incident P0 provenance seal + light Verify smoke (prevents re-use of flawed tickets) ===
   try {
-    const ids = specs.map((s: any) => s.id).filter(Boolean).sort();
-    const prdForManifest = (specs[0] as any)?.sourcePrd || '';
+    // Use *full* ticket set from state (post all persistTicket/addTicket) so seal covers accumulated tickets from partial/incremental/direct emits.
+    // getManifestPrdPath + canon ensures the extra passed to compute/write is always the real resolved stamped PRD (not 'self-generated' etc).
+    const stateForSeal = sm.loadState(sessionDir);
+    const ids = Array.from(new Set((stateForSeal.tickets || []).map((t: any) => t.id).filter(Boolean))).sort();
+    const prdForManifest = getManifestPrdPath(sessionDir, (specs[0] as any)?.sourcePrd || '');
     const manifestHash = computeTicketManifestHash(ids, prdForManifest);
     writePrdSourceMeta(sessionDir, prdForManifest || process.cwd(), '', manifestHash);
 

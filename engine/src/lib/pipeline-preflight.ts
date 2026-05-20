@@ -12,6 +12,14 @@
  *
  * Uses existing atomic + lock patterns (via re-exported writeJsonAtomic).
  * No SKILLs, no self-prd mutation here.
+ *
+ * POST-INCIDENT PROVENANCE CONTRACT (P0 seal repair, Backend Reviewer-Fixer hardened 2026-05-20):
+ * - writePrdSourceMeta merge is *bulletproof even on missing or partially-corrupted sidecar*: 3-arg stamp/create/run-pipeline calls *never* clobber (or lose) a seal; we rescue tmh via regex fallback on JSON parse fail, then prefer passed truthy value (emitter only) else preserved.
+ * - getManifestPrdPath + canonicalizeForManifest + compute used for the hash extra at every seal write & every preflight current-hash; the extra is *always* the real resolved PRD path from sidecar at the instant the seal is written (survives 'self-generated', rel/abs, re-dispatch).
+ * - ticket-emitter now seals the *full* ticket id set from state (not just the batch in this emit call) → survives partial refine runs / incremental / direct ticket creation.
+ * - Richer RCA in diagnostics + report (current vs stored hash + effective extra string) so ILLEGAL --no-refine path (and Citadel) gets exact data on next occurrence.
+ * - Zero behavior change for seal-oblivious callers. Regression sketch lives in comments below.
+ * - P0 guard remains brutal: isLegalToBypassRefine + hard-error + validate still enforce real materialized tickets + matching seal.
  */
 
 import * as fs from 'fs';
@@ -43,12 +51,31 @@ function computePrdHash(content: string): string {
 
 /** Stable hash for the set of tickets emitted for a PRD (P0 post-incident provenance seal against manual/old-flawed reuse). */
 export function computeTicketManifestHash(ticketIds: string[], extra = ''): string {
-  const canon = [...ticketIds].sort().join('|') + '|' + extra;
+  const canonExtra = extra ? path.resolve(extra) : '';
+  const canon = [...ticketIds].sort().join('|') + '|' + canonExtra;
   let h = 0;
   for (let i = 0; i < canon.length; i++) {
     h = (h * 31 + canon.charCodeAt(i)) | 0;
   }
   return 'tmh' + ((h >>> 0).toString(16));
+}
+
+/** Canonicalize any extra (prdPath or marker) to its resolved absolute form for stable manifest hashing.
+ * Used by getManifestPrdPath + compute so the seal always binds to the real stamped PRD file (not 'self-generated' or rel/abs variants).
+ * Callers of compute unchanged; this makes --no-refine happy path work for R-META self-PRDs + human PRDs after council emission.
+ */
+export function canonicalizeForManifest(extra: string): string {
+  return extra ? path.resolve(extra) : '';
+}
+
+/** Authoritative PRD path for manifest seal computation (prefers .prd-source.json sidecar written at stamp/create time).
+ * Falls back to provided value. Always returns resolved form. This is the key for self-generated R-META PRDs:
+ * specs may carry 'self-generated' marker, but the session was stamped with the real prd/*.md path before emitRefinedTickets.
+ * Thus seal + current hash both use the same canonical value without mutating self-prd-generator or specs.
+ */
+export function getManifestPrdPath(sessionDir: string, fallback = ''): string {
+  const m = readPrdSourceMeta(sessionDir);
+  return canonicalizeForManifest(m?.prdPath || fallback);
 }
 
 /** Strict heuristic: requires Verify column + >=2 runnable shell commands in backticks. */
@@ -139,15 +166,36 @@ export function readPrdSourceMeta(sessionDir: string): { prdPath?: string; linke
   }
 }
 
+/**
+ * Regression test sketch (1-2 lines, drop into engine/tests/ or run ad-hoc via tsx):
+ *   // write good seal via emitter, fs.writeFileSync(json, '{corrupt:true}'); writePrdSourceMeta(dir, realPrd, 'h123'); assert(read()?.ticketManifestHash==='tmh...') // rescued (use 3-arg stamp call; avoid star-slash in this JSDoc text)
+ */
 export function writePrdSourceMeta(sessionDir: string, prdPath: string, contentHash = '', ticketManifestHash = ''): void {
-  const resolved = path.resolve(prdPath);
+  const resolved = canonicalizeForManifest(prdPath); // use getManifestPrdPath/canon logic exactly (hash extra always real resolved PRD at seal instant)
+  const p = path.join(sessionDir, '.prd-source.json');
+  let existing: any = {};
+  let preservedTicketManifestHash = '';
+  try {
+    if (fs.existsSync(p)) {
+      const raw = fs.readFileSync(p, 'utf8');
+      try {
+        existing = JSON.parse(raw) || {};
+        preservedTicketManifestHash = existing.ticketManifestHash || '';
+      } catch {
+        // partial corruption: rescue the P0 seal (tmh) so stamp callers don't nuke it
+        const m = raw.match(/"ticketManifestHash"\s*:\s*"([^"]*)"/);
+        if (m && m[1]) preservedTicketManifestHash = m[1];
+      }
+    }
+  } catch {}
   const meta: any = {
+    ...existing,
     prdPath: resolved,
     linkedAt: new Date().toISOString(),
-    contentHash: contentHash || '',
+    contentHash: contentHash || existing.contentHash || '',
   };
-  if (ticketManifestHash) meta.ticketManifestHash = ticketManifestHash;
-  const p = path.join(sessionDir, '.prd-source.json');
+  const tmhToSet = ticketManifestHash || preservedTicketManifestHash;
+  if (tmhToSet) meta.ticketManifestHash = tmhToSet;
   writeJsonAtomicLocal(p, meta);
 }
 
@@ -220,9 +268,12 @@ export function runPreflight(sessionDir: string, prdPath?: string): PreflightRep
   }
 
   // === Post-incident P0 policy fields (zero-ticket PRD bypass + manifest seal) ===
-  const currentManifestHash = computeTicketManifestHash(mat.ticketIdsInState, effectivePrd || '');
+  const currentManifestHash = computeTicketManifestHash(mat.ticketIdsInState, getManifestPrdPath(sessionDir, effectivePrd || ''));
   const ticketManifestHash = meta?.ticketManifestHash || '';
   const ticketManifestHashMatch = !!ticketManifestHash && ticketManifestHash === currentManifestHash;
+  if (ticketManifestHash && !ticketManifestHashMatch) {
+    diagnostics.push(`P0-SEAL-MISMATCH: stored=${ticketManifestHash} current=${currentManifestHash} extra=${getManifestPrdPath(sessionDir, effectivePrd || '')} (exact RCA for ILLEGAL --no-refine path; re-emit via emitRefineCouncilTickets to refresh full-set seal)`);
+  }
   const hasRealMaterializedTickets = mat.allPresent && mat.countOnDisk > 0 && !isZombie;
   const legalForNoRefine = hasRealMaterializedTickets && ticketManifestHashMatch && !isZombie && sourcePrdMatch;
 
@@ -274,6 +325,12 @@ export function runPreflight(sessionDir: string, prdPath?: string): PreflightRep
     ticketManifestHash,
     ticketManifestHashMatch,
     legalForNoRefine,
+
+    // Rich RCA payload for the ILLEGAL --no-refine error path (and any Citadel/human inspection).
+    // Safe to attach: PreflightReport interface ends with [key: string]: any. Zero impact on oblivious callers.
+    currentManifestHash,
+    storedManifestHash: ticketManifestHash,
+    manifestExtra: getManifestPrdPath(sessionDir, effectivePrd || ''),
   };
 
   Activity.preflightReport(sessionId, {
