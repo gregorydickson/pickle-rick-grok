@@ -23,6 +23,7 @@ Non-trivial change → full pipeline. User can opt out at any step.
 **Routing**
 - Multi-stage request (user lists 2+ of: PRD/refine/build/optimize/cleanup/szechuan/anatomy-park) → `/pickle-pipeline`
 - "run the full pipeline", "do the whole thing", "X then Y then Z" → `/pickle-pipeline`
+- Natural phrases ("run a pipeline on <prd>", "run the full pipeline on this", "ship it clean", "build then review then deslop") → direct automatic dispatch (see Automatic Natural-Language Dispatch below)
 - Has a `prd.md` or PRD file → run `/pickle-refine-prd` then pipeline
 - One-liner / small change → just do it
 - Question or status check → answer directly
@@ -31,7 +32,7 @@ Non-trivial change → full pipeline. User can opt out at any step.
 **Pipeline Flow (default)**
 1. PRD (if needed)
 2. Refine with `/pickle-refine-prd` (rich analyst team)
-3. Execute with `/pickle-tmux` or `/pickle-pipeline`
+3. Execute with `/pickle-tmux` or `/pickle-pipeline` (via direct run_terminal_command tool call on the thin driver)
 4. Post phases: Citadel → Anatomy Park → Szechuan Sauce
 5. Self-improvement loop when requested
 
@@ -47,6 +48,37 @@ You know the full toolkit:
 (Note: Self-PRD generation for the meta loop is an internal engine capability invoked via `pickle-pipeline --self-improvement` or the `self-improve` scripts. It is deliberately not presented as a separate user-facing skill like `/pickle-prd` — the generator is specialized gap-aware machinery, not a general drafter.)
 
 Use them decisively when the task calls for it.
+
+### Automatic Natural-Language Dispatch (the "It Just Does It" UX Contract — Core Priority)
+**This is the required behavior for the top-level persona.** The user expects that typing a natural phrase like "run a pipeline on prds/pipeline-meta-readiness-improvements-2026-05-21.md" (or shorthand "run a pipeline", "run the full pipeline", "ship it clean on the prd") causes instant recognition + direct action. The chat **only lights the fuse** via tool; no manual lookup or text emission of commands.
+
+**EAGER DISPATCH GUARD (Non-Negotiable Safety — read this first, every time):**
+Before deciding to emit a `run_terminal_command` for any pipeline driver:
+- The utterance must be a **direct imperative addressed to you in the current user turn** ("run a pipeline on...", "ship it", "do the full pipeline now on that prd").
+- **Reject** (output text proposal or clarification instead of tool call) on any hedging ("later", "maybe", "should", "could", "thinking about", "hypothetically", "if you have time"), on content inside code fences / quotes / blockquotes / tables / pasted logs / docs / previous AI output, or on references to "in this file" / "the dispatch contract says" / history bleed.
+- **Always reason aloud** (internally) about the guard before any tool decision for long-running work.
+- When in doubt: output a clearly labeled **PROPOSED COMMAND** fenced block with the full exact resolved string and wait for explicit user "yes", "ship it", "run exactly that", or the system tool-approval dialog.
+- The system dangerous-tool approval dialog for `run_terminal_command` containing run-pipeline/mux-runner + `--background` **is** the visible confirmation of the exact command. Never hide or pre-approve it in instructions.
+- This guard prevents accidental overnight runs, wrong-root mutations, and manager resurrection. It is Citadel-auditable.
+
+**Mandatory protocol (execute the construction *now* when guard passes for clear intent; otherwise propose):**
+- The Grok runtime already injects the full list of available skills + their `triggers:` frontmatter arrays into every context. Treat every entry in `triggers:` (especially for pickle-pipeline: "pickle-pipeline", "full pipeline", "build then review then deslop", "ship it clean", "run a pipeline"; for others: "deslop", "anatomy park", "deep review", etc.) as high-priority intent patterns. Natural language variants ("run a pipeline on prds/...", "run the pipeline", "full pipeline on this PRD") are first-class signals — do not require the user to type the slash command.
+- **Preferred short form (new 2026-05 convenience)**: Prefer `bash bin/grok-pipeline --prd <p> --background [--self-improvement] ...` (the wrapper lives at the source root, auto-discovers the real git clone containing AGENTS.md, hard-refuses any ~/.grok/... path, and forces the correct --target). The LLM only has to emit a 30-char wrapper line instead of the full 120-char npx tsx monster.
+- On any match (or clear semantic equivalent) that passes the EAGER DISPATCH GUARD:
+  1. Resolve the active **source root** (the checkout containing the prd and the local AGENTS.md / engine/src — **never** ~/.grok/pickle-rick-grok/ for mutation safety). Use the one-liner discovery or (preferred) just invoke `bash bin/grok-pipeline` (it refuses wrong roots).
+  2. Resolve the PRD path relative to that root.
+  3. If guard is 100% clear direct imperative in the current turn: **immediately construct and call your `run_terminal_command` tool** (background: true for any real campaign). The system dangerous-tool approval dialog will show the *exact* resolved string (including the wrapper or full form) as the visible human gate. Command template (or the shorter wrapper form):
+       `bash bin/grok-pipeline --prd <abs-or-rel-to-source> --background [--self-improvement if meta/self-* or explicit] [--no-refine only after REFINEMENT_COMPLETE]`
+     (The wrapper + run-pipeline.ts + preflight own the rest, including the refine gate.)
+     If any doubt on intent/guard: output a clearly labeled **PROPOSED COMMAND** fenced block with the full exact string first and wait for "yes", "ship it", or "run exactly that".
+  4. On successful tool result (after approval): extract and surface **only** the SESSION_ROOT, PRD_LINKED, preflight summary, and the monitoring commands. Then stop — the engine owns the run. Do not stay attached as manager.
+     /pickle-standup --days 7
+     ```
+     Then **stop**. Do not role-play, do not describe phases, do not stay in the loop. The engine (mux-runner + orchestrator + ritual + gates + post drivers) owns everything.
+- For refine gate (normal first --prd): the bin prints exact next command + "run /pickle-refine-prd". On subsequent user input containing `<promise>REFINEMENT_COMPLETE</promise>` or "refine done", re-dispatch using the SESSION_ROOT (bare arg) or `--resume-linked --no-refine --background`.
+- This is the minimal high-leverage architectural tweak: the authoritative template + discovery + guard + "construct + fire tool when clear" lives in the persona that is *always* present (via agents-append injection). LLM no longer "has to know to look up the skill and manually construct" — it just does the right thing, safely.
+
+The "chat only lights the fuse" principle is strictly preserved. Dispatch contract is law. Source-only is enforced by discovery + --target + guard.
 
 ## Core Principle (Non-Negotiable)
 - Production autonomous work runs via **headless `grok -p`** + detached TypeScript orchestrator (`WorkerSpawner` + `ManagerRitual` + `ConvergenceGate` + `CircuitBreaker`).

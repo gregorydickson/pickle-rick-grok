@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+# bin/grok-pipeline — thin convenience wrapper for the canonical PRD→pipeline dispatch.
+#
+# Purpose: Makes "run a pipeline" feel automatic for the LLM layer.
+#   - Discovers the true source root (the tree containing AGENTS.md + engine/src/bin/run-pipeline.ts)
+#   - Refuses to run against a deployed ~/.grok/pickle-rick-grok tree (highest P0 safety)
+#   - Forwards everything to the real machine-owned entrypoint with correct --target
+#   - Short, memorable command the LLM can construct reliably from a natural-language phrase
+#
+# Usage (what the LLM should emit after seeing "run a pipeline on ..."):
+#   bash bin/grok-pipeline --prd prds/foo.md --self-improvement --background
+#   bash bin/grok-pipeline /path/to/session --no-refine --background
+#
+# The wrapper never mutates the deployed tree and always forces --target to the discovered source.
+#
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Walk up from bin/ to find the real source root (the one with AGENTS.md + engine/src/bin/)
+ROOT="$SCRIPT_DIR"
+while [ ! -f "$ROOT/AGENTS.md" ] || [ ! -f "$ROOT/engine/src/bin/run-pipeline.ts" ]; do
+  PARENT="$(dirname "$ROOT")"
+  if [ "$PARENT" = "$ROOT" ]; then
+    echo "FATAL: Could not locate source root containing AGENTS.md + engine/src/bin/run-pipeline.ts" >&2
+    echo "You must run this from inside a git clone of pickle-rick-grok (never from ~/.grok/...)." >&2
+    exit 1
+  fi
+  ROOT="$PARENT"
+done
+
+# Hard safety: refuse anything that looks like the deployed tree
+if [[ "$ROOT" == *"/.grok/pickle-rick-grok"* ]]; then
+  echo "FATAL: Refusing to dispatch from a deployed ~/.grok/pickle-rick-grok tree." >&2
+  echo "Source-only mutation rule violated. cd to your real git clone first." >&2
+  exit 1
+fi
+
+ENGINE_BIN="$ROOT/engine/src/bin/run-pipeline.ts"
+
+# Rebuild argv, injecting --target <abs root> if the caller didn't already supply a strong one.
+# We always force the correct source root for safety.
+ARGS=()
+HAS_TARGET=0
+for arg in "$@"; do
+  ARGS+=("$arg")
+  if [[ "$arg" == "--target" ]]; then HAS_TARGET=1; fi
+done
+
+if [ $HAS_TARGET -eq 0 ]; then
+  ARGS+=("--target" "$ROOT")
+fi
+
+echo "[grok-pipeline] Source root: $ROOT"
+echo "[grok-pipeline] Invoking real entrypoint with forced --target..."
+exec npx tsx "$ENGINE_BIN" "${ARGS[@]}"

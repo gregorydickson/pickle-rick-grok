@@ -6,12 +6,13 @@ triggers:
   - pickle-tmux
   - detached build
   - overnight epic
+  - run detached
 ---
 # Pickle Tmux — Detached Long-Running Mode (Grok)
 
 **This is the PRIMARY and ONLY supported execution path for real work.**
 
-When the user asks to run a long-running Pickle Rick epic, launch a background build, do an overnight run, or says `/pickle-tmux`, your job is **strict dispatch only**.
+When the user asks to run a long-running Pickle Rick epic, launch a background build, do an overnight run, or says `/pickle-tmux`, your job is **strict dispatch only** (see EAGER DISPATCH GUARD + automatic natural-language protocol in dispatch-contract.md and agents-append.md).
 
 **P0-6 note**: For any PRD-driven request ("run detached on this prd", "overnight this prd"), dispatch to the canonical `npx tsx engine/src/bin/run-pipeline.ts --prd <prd> --background [--self-improvement] [--no-refine]`. It does the linkage + preflight + spawns mux-runner for you. `pickle-tmux` is now mostly the "I already have a session" or "pure build, no PRD" case.
 
@@ -27,7 +28,7 @@ This is the Core Execution Principle. Violating it defeats the entire point of t
 ## Correct Action When Invoked
 
 **PRD-driven case (new canonical — "overnight this prd", "detached build on prds/foo.md")**:
-- Dispatch straight to the single entrypoint that owns linkage + preflight:
+- Dispatch straight to the single entrypoint that owns linkage + preflight (construct resolved + fire run_terminal_command per persona protocol when guard passes):
   ```bash
   npx tsx engine/src/bin/run-pipeline.ts --prd <the-prd.md> --target . --background [--self-improvement] [--no-refine]
   ```
@@ -65,9 +66,9 @@ The mux-runner (whether called directly or via run-pipeline) sets `PICKLE_FORCE_
 
 ## What Success Looks Like
 
-The model stays in the chat only long enough to emit one of:
-- `npx tsx engine/src/bin/run-pipeline.ts --prd <foo> --background ...` (preferred for any PRD)
-- or the bare `.../run-pipeline.ts <SESSION> --background` (or legacy direct mux-runner)
+The model stays in the chat only long enough to:
+- Immediately construct the resolved argv (absolute --target source root via discovery if needed, conditional flags) and call `run_terminal_command` tool (background: true) with it when the EAGER DISPATCH GUARD is satisfied (or emit clear PROPOSED COMMAND block). The persona's automatic dispatch protocol makes the common natural phrase case feel "it just does it".
+- Or the bare `.../run-pipeline.ts <SESSION> --background` (or legacy direct mux-runner)
 
 Then you are done. The engine owns preflight, the build, resumability, and (for --self) the full post-phases.
 

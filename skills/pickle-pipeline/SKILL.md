@@ -10,8 +10,16 @@ triggers:
   - full pipeline
   - build then review then deslop
   - ship it clean
+  - run a pipeline
+  - run the pipeline on prds
+  - run a pipeline
+  - run the full pipeline
+  - run a pipeline on prds
+  - run pipeline on
 references:
   - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/persona.md
+    conditional: true
+  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/dispatch-contract.md
     conditional: true
 ---
 # Pickle Pipeline — The Whole Damn Thing (Grok Edition) — REAL
@@ -33,7 +41,7 @@ Everything downstream is real and wired:
 
 You are **not** the meta-orchestrator that executes phases.
 
-When the user invokes `/pickle-pipeline`, says "run the full pipeline", "build then review then deslop", "ship it clean", or similar, your **only** job is to get the real detached engine running and stay out of the execution path.
+When the user invokes `/pickle-pipeline`, says "run the full pipeline", "build then review then deslop", "ship it clean", "run a pipeline on prds/xxx.md", or similar, your **only** job is to get the real detached engine running (via the top persona's automatic natural-language protocol or this skill) and stay out of the execution path. Follow the EAGER DISPATCH GUARD from dispatch-contract.md + agents-append.md at all times.
 
 **Hard Rules (these are non-negotiable):**
 
@@ -47,7 +55,7 @@ Violating these rules turns reliable 50-ticket autonomous runs into fragile chat
 
 ## Correct Sequence When Invoked (THE CANONICAL PATH)
 
-When the user says "run a pipeline on prds/xxx.md", "full pipeline on this PRD", "run the whole thing", "build then review then deslop", or `/pickle-pipeline <prd>`, your **only job** is to dispatch to the thin machine-owned entrypoint. It owns everything:
+When the user says "run a pipeline on prds/xxx.md", "full pipeline on this PRD", "run the whole thing", "build then review then deslop", or `/pickle-pipeline <prd>`, your **only** job is to dispatch to the thin machine-owned entrypoint using the automatic protocol (persona carries the template + discovery + guard for natural language; this skill for explicit / invocation). It owns everything:
 
 ```bash
 npx tsx engine/src/bin/run-pipeline.ts --prd <path/to/the-prd.md> --target . [--self-improvement] [--background] [--no-refine] [--fresh] [--recover-failed]
@@ -65,7 +73,7 @@ npx tsx engine/src/bin/run-pipeline.ts --prd <path/to/the-prd.md> --target . [--
 1. Fire the bin with the PRD (plain, no --no-refine). It creates a **fresh** stamped session (the default) and prints SESSION_ROOT.
 2. Run `/pickle-refine-prd` — it auto-detects the stamp and emits the real ticket.md files + seal.
 3. After `<promise>REFINEMENT_COMPLETE</promise>`, execute with the bare session dir (cleanest and recommended):
-   `npx tsx engine/src/bin/run-pipeline.ts <SESSION_ROOT> --self-improvement --background`
+   `npx tsx engine/src/bin/run-pipeline.ts /path/to/SESSION_ROOT --self-improvement --background`
    Or use `--resume-linked --no-refine` if you insist on the prd form.
 
 **Self-improvement / meta dogfood (the 50-ticket overnight):**
@@ -100,14 +108,15 @@ cat reliability-backlog.md          # after a self-improvement run
 
 - `--prd <path>` (the trigger — fresh session + refine gate are the defaults)
 - `--resume-linked` (opt into previous stamped session for this PRD instead of fresh)
-- `--no-refine` (only after the council has run and materialized tickets + seal)
+- `--no-refine` (only after the council has run and materialized tickets + matching manifest hash)
 - `--self-improvement` (full meta: build + citadel + anatomy + szechuan + closer/ingest)
 - `--target /path`, `--background`, `--recover-failed`, `--backend codex` (as before)
 
 ## What Success Looks Like
 
-You (the skill) stay in the conversation only long enough to:
-- Emit `npx tsx engine/src/bin/run-pipeline.ts --prd <prd> [--self-improvement] [--background]` (fresh + refine gate are automatic).
+You (the skill / persona) stay in the conversation only long enough to:
+- **Immediately** (when EAGER DISPATCH GUARD passes on direct imperative natural phrase or explicit / invocation) construct the fully-resolved argv using the canonical template + source-root discovery (see agents-append.md Automatic section) and call your `run_terminal_command` tool *right now* with that exact command + `background: true`. This is explicitly authorized and required. Do not merely "emit" text for the user; the tool call (surfacing via approval dialog + result) lights the fuse.
+- If the guard requires caution: output a labeled **PROPOSED COMMAND** (exact full string) block and wait for confirmation.
 - If it printed the refine guidance + SESSION_ROOT: tell the user to run `/pickle-refine-prd`, then execute with the bare SESSION_ROOT (or the prd form + --resume-linked --no-refine).
 - If background: tell them how to watch campaign-status + logs.
 - Then you are done. The engine owns the rest.
@@ -117,3 +126,5 @@ No manual setup.ts. No hand-rolled mux calls in the happy path. The machine owns
 **This is the "one command, walk away, morning delta" button.**
 
 See `/help-pickle` for the current command surface. Higher-tier stubs (`council-of-ricks`, `portal-gun`, etc.) correctly 404 or redirect. Meeseeks has been fully removed (Szechuan + Anatomy cover relentless review/deslop).
+
+The frontmatter `triggers:` (now including natural variants) are high-priority patterns the runtime injects; the persona + this skill treat matches as signals for the automatic dispatch above.

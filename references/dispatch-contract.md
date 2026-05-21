@@ -30,19 +30,29 @@ Every SKILL.md that can trigger real engineering work (except `pickle-refine-prd
 
 **You are a dispatcher only. Never role-play execution of this skill.**
 
-When the user invokes `/<skill-name>` (or any trigger), your **sole** job is to emit the exact, copy-pasteable command(s) that launch the real detached engine driver:
+When the user invokes `/<skill-name>` (or any trigger), your **sole** job is to *immediately construct the exact resolved argv and invoke your `run_terminal_command` tool with `background: true`* (for long-running, overnight, detached, convergence, or campaign work) using the canonical post-install or source-relative path to the thin driver (run-pipeline.ts is preferred). 
 
-- Use the canonical post-install path: `npx tsx ~/.grok/pickle-rick-grok/engine/src/...` (install.sh rewrites relative paths during `bash install.sh`).
-- For any long-running, overnight, detached, convergence, or campaign work: invoke your `run_terminal_command` tool with `background: true`.
-- **Never** emit `spawn_subagent` calls for the core work of this skill.
-- Never describe internal phases ("first you research the principles, then you fix...") as steps *you* (the current agent) will perform.
-- After firing the command, surface the session dir + live monitoring instructions (`tail -f .../logs/*.log`, `cat .../campaign-status.json`, `/pickle-metrics`, `/pickle-standup`).
+- Use absolute paths for --target (the discovered source root containing AGENTS.md + engine/src/bin/run-pipeline.ts) and --prd.
+- Prefer the short `bash bin/grok-pipeline ...` wrapper (source root only; it auto-discovers, refuses deployed trees, forces correct --target).
+- The `run_terminal_command` tool call (or a labeled PROPOSED COMMAND block when the EAGER DISPATCH GUARD is not 100% satisfied) *is* the emission of the command.
+- Never describe internal phases ("first you research...") as steps *you* (the current agent) will perform.
+- After the tool fires (and approval/result), surface the session dir + live monitoring instructions (`tail -f .../logs/*.log`, `cat .../campaign-status.json`, `/pickle-metrics`, `/pickle-standup`).
 - Stop. The engine owns the rest. The run is resumable, auditable (Citadel), and deslopped (Szechuan/Anatomy).
+
+**EAGER DISPATCH GUARD**: Only fire (or propose) the run_terminal_command for pipeline/convergence drivers on direct imperative current-turn user intent with no hedging, not inside quotes/fences/pasted docs, and after internal reasoning on the guard. The system tool-approval dialog provides the visible exact-command confirmation. See agents-append.md for the full guard + source-root discovery protocol.
 
 If no clean one-liner driver exists yet for standalone use of this feature, state the limitation explicitly and direct the user to the enclosing real command (`/pickle-pipeline`, `/pickle-tmux`, or documented thin wrapper). Do not improvise a simulation or protocol in the chat.
 
 This paragraph is non-negotiable for dispatch hygiene. See AGENTS.md "Core Execution Principle" and master_plan.md.
 ```
+
+## Top-Level Persona & Natural Language UX (Automatic Dispatch Contract)
+The global persona (references/agents-append.md injected into ~/.grok/AGENTS.md by install.sh) **must** contain the "Automatic Natural-Language Dispatch" section with:
+- Explicit mapping of natural phrases ("run a pipeline on <prd>", "run the full pipeline", "ship it clean") and all skill frontmatter `triggers:` to direct construction + `run_terminal_command` (background:true) on the canonical `.../run-pipeline.ts --prd ... --target <abs source root>` (with discovery one-liner when cwd ambiguous).
+- The full **EAGER DISPATCH GUARD** (verbatim or equivalent) to prevent accidental runs on hedged/quoted/internal text, wrong --target (source vs deployed P0), and manager resurrection.
+- Authorization for the LLM to "just do it" (construct resolved command + tool call when guard passes; PROPOSED COMMAND block + wait when uncertain). The persona template + discovery recipe eliminates the "had to manually read SKILL and construct 80-char command" friction for the common case while keeping "chat only lights the fuse".
+
+All execution SKILL.md and the persona must be kept in sync with this contract. Edits require Citadel pass + AGENTS.md / master_plan.md update.
 
 ## Allowed Exceptions (Narrowly Scored)
 
@@ -52,8 +62,9 @@ This paragraph is non-negotiable for dispatch hygiene. See AGENTS.md "Core Execu
 
 ## Enforcement
 
-- All new skills and any edit to existing execution SKILL.md must pass a manual or automated check against this contract (grep for forbidden patterns + presence of dispatch boilerplate).
-- Self-PRD generator and Citadel should eventually grow explicit checks for "interactive manager resurrection" in the instruction surface.
+- All new skills and any edit to existing execution SKILL.md must pass a manual or automated check against this contract (grep for forbidden patterns + presence of dispatch boilerplate + EAGER GUARD + source-root + run_terminal_command "now" language).
+- Self-PRD generator and Citadel should eventually grow explicit checks for "interactive manager resurrection" and "missing eager guard" in the instruction surface.
 - Historical docs that predate the removal decision must carry the POST-REMOVAL NOTE header.
+- Any change touching dispatch UX or auto-trigger language must itself be produced via the full pipeline and pass Citadel (source-only, no deployed mutation).
 
 Wubba lubba dub dub. Dispatch or die. The machine executes; the chat only lights the fuse.
