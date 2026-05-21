@@ -32,10 +32,12 @@ Build a production-grade autonomous engineering system that can:
 - Root discovery must always resolve to this tree (fixed).
 - Arch-deepener self-mutation guards (FORBIDDEN_SELF_MUT).
 - Specific known issues: szechuan bare catches, aux bin type debt, preflight edge cases on meta PRDs.
-- 2026-05-21 dispatch UX: "run a pipeline" (natural phrase) now has automatic, guard-protected, tool-direct execution via strengthened persona (EAGER DISPATCH GUARD) + new `bin/grok-pipeline` thin wrapper (auto root discovery + deployed-tree refusal). See references/agents-append.md + dispatch-contract.md.
+- 2026-05 dispatch UX: "run a pipeline on <prd>" (natural phrase) has automatic dispatch via persona + bin/grok-pipeline. Plain form now smartly prefers the latest legal sealed council session (post first /pickle-refine-prd) so the command reliably leads to a running autonomous campaign. See references/agents-append.md (updated sealed-prior policy) + dispatch-contract.md.
 
 ## Dispatch UX (2026-05-21 addition)
 Natural language "run a pipeline on <prd>" (and trigger variants) now triggers automatic construction + `run_terminal_command` (background:true, --target = discovered source root via the one-liner, using `bin/grok-pipeline` helper or full run-pipeline.ts) from the top persona in agents-append.md. EAGER DISPATCH GUARD + PROPOSED COMMAND blocks + system approval dialog enforce safety. The `bin/grok-pipeline` wrapper (propagated by install.sh) gives the LLM a dramatically shorter argv while baking the source-root --target. All changes to dispatch paths require full pipeline + Citadel.
+
+**Smart sealed-prior prefer (enforced)**: Plain "run a pipeline on <prd>" (no --fresh) now auto-selects the latest *legal sealed council prior* (materialized tickets + legalForNoRefine + manifest match) and directly launches the complete autonomous execution. First-time or --fresh cases still create fresh + require the /pickle-refine-prd gate. After refine, simply repeat the same plain natural phrase — it "just works". Old partials stay forensic. See the updated policy in references/agents-append.md.
 
 ## Key References
 

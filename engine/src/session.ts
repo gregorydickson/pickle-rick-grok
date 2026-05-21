@@ -696,6 +696,44 @@ export class SessionManager {
   }
 
   /**
+   * Find the *newest* session for this PRD that has real materialized tickets, matching manifest seal,
+   * and passes the full legalForNoRefine predicate (post R-META-DEEPEN-001 safety).
+   * Walks newest-first; first qualifying sealed-good wins. Newer partials for the same PRD are skipped.
+   * Used by plain `--prd` dispatch so that "run a pipeline on <known-good-prd>" directly launches
+   * the complete autonomous headless execution instead of always creating a throwaway fresh session.
+   */
+  findLegalSealedPriorForPrd(prdPath: string): string | null {
+    if (!prdPath) return null;
+    const target = path.resolve(prdPath);
+    try {
+      const dirs = fs.readdirSync(this.dataRoot, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => d.name)
+        .sort()
+        .reverse(); // newest first
+
+      for (const id of dirs) {
+        const sdir = path.join(this.dataRoot, id);
+        const seal = this.getManifestSeal(sdir);
+        if (seal?.prdPath && path.resolve(seal.prdPath) === target) {
+          try {
+            const probe = this.preflightPipeline(sdir, prdPath);
+            if (probe.hasRealMaterializedTickets && probe.legalForNoRefine && !probe.isZombie) {
+              return sdir; // newest good sealed council run
+            }
+            // continue: a newer partial for same PRD must not hide an older sealed good one
+          } catch {
+            /* preflight on that dir failed, skip */
+          }
+        }
+      }
+    } catch {
+      /* dataRoot or fs issues */
+    }
+    return null;
+  }
+
+  /**
    * Single owner for PRD provenance + manifest seal (collapses the hydra).
    * Idempotent, atomic under state lock. Populates sourcePrd/* + optional ticketManifestHash into state.
    * NO sidecar write (reduces sidecars; legacy sidecars only read in getManifestSeal for compat).

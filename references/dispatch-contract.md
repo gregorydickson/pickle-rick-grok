@@ -49,7 +49,7 @@ This paragraph is non-negotiable for dispatch hygiene. See AGENTS.md "Core Execu
 ## Top-Level Persona & Natural Language UX (Automatic Dispatch Contract)
 The global persona (references/agents-append.md injected into ~/.grok/AGENTS.md by install.sh) **must** contain the "Automatic Natural-Language Dispatch" section with:
 - Explicit mapping of natural phrases ("run a pipeline on <prd>", "run the full pipeline", "ship it clean") and all skill frontmatter `triggers:` to direct construction + `run_terminal_command` (background:true) on the canonical `.../run-pipeline.ts --prd ... --target <abs source root>` (with discovery one-liner when cwd ambiguous).
-- The full **EAGER DISPATCH GUARD** (verbatim or equivalent) to prevent accidental runs on hedged/quoted/internal text, wrong --target (source vs deployed P0), and manager resurrection.
+- The full **EAGER DISPATCH GUARD** (verbatim or equivalent) to prevent accidental runs on hedged/quoted/internal text, wrong --target (source vs deployed P0), and manager resurrection. Plain --prd dispatches now auto-prefer a legal sealed prior session when one exists (making "run a pipeline on <good prd>" launch the full headless campaign directly after the initial council).
 - Authorization for the LLM to "just do it" (construct resolved command + tool call when guard passes; PROPOSED COMMAND block + wait when uncertain). The persona template + discovery recipe eliminates the "had to manually read SKILL and construct 80-char command" friction for the common case while keeping "chat only lights the fuse".
 
 All execution SKILL.md and the persona must be kept in sync with this contract. Edits require Citadel pass + AGENTS.md / master_plan.md update.

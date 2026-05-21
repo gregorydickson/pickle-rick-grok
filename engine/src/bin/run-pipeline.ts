@@ -3,9 +3,9 @@
  * run-pipeline.ts — THE canonical thin machine-owned entrypoint for "run a pipeline on prds/xxx.md".
  *
  * Single command that wires:
- *   resolve PRD (abs) → SessionManager.findLinked or createSessionForPrd (with stamp + prdPipelineInitiated) →
- *   stampPrdProvenance (single owner in session) → preflightPipeline → (needsRefine gate...) →
- *   validateTicketArtifacts (P0 hard guard with recovery text) → updateCampaignStatus →
+ *   resolve PRD (abs) → SessionManager.findLegalSealedPriorForPrd (if plain --prd and a council-sealed good prior exists) OR createSessionForPrd (fresh for first-time/raw or --fresh) →
+ *   stampPrdProvenance (single owner) → preflightPipeline → (needsRefine gate only on fresh/partial; sealed priors bypass to direct execution) →
+ *   validateTicketArtifacts (P0 hard guard) → updateCampaignStatus →
  *   (bg: child_process spawn npx tsx mux-runner with PICKLE_FORCE_HEADLESS + inherit stdio + unref) OR
  *   (fg: import+await runDetached) →
  *   (if --self-improvement || report.isMeta || --chain-post: after success, runCitadel + AnatomyParkDriver + SzechuanDriver + runSelfImprovementLoopCloser + performPostCampaignIngest)
@@ -43,13 +43,13 @@ Usage:
   npx tsx engine/src/bin/run-pipeline.ts --prd <path/to/prd.md> [--target <dir>] [--no-refine] [--self-improvement] [--background] [--fresh] [--resume-linked] [--recover-failed] [--resume] [--chain-post]
   npx tsx engine/src/bin/run-pipeline.ts <sessionDir> [--recover-failed ...]   # back-compat for plain or already-linked sessions
 
-  --prd <path>          Absolute or cwd-relative path to the PRD markdown. Triggers fresh session + stamp + preflight (fresh is now the default to avoid stale partial runs).
+  --prd <path>          Absolute or cwd-relative path to the PRD markdown. Plain form now auto-selects the latest *legal sealed council prior* (if one exists with materialized tickets + manifest match) and launches complete autonomous execution directly. First-time/raw PRDs create fresh + hit the /pickle-refine-prd gate (r-meta-deepen safety). --fresh forces new.
   --target <dir>        workingDir/grok-root passed to createSessionForPrd + used for post-phase drivers (defaults to cwd).
-  --no-refine           Bypass the refine gate — ONLY legal when the session has real materialized ticket.md files + matching manifest hash (the post-r-meta-deepen P0 safety). Plain --prd paths default to requiring /pickle-refine-prd.
+  --no-refine           Bypass the refine gate — ONLY legal when the session has real materialized ticket.md files + matching manifest hash (the post-r-meta-deepen P0 safety). Plain --prd now prefers sealed priors so you rarely need the flag.
   --self-improvement    Meta mode: after build, run full post phases + loop-closer + post-campaign ingest.
   --background          Fire mux-runner detached (stdio inherit so logs continue in terminal; pair with tmux for real detach).
-  --fresh               Force a brand new session even if a prior linked one exists (now the default for --prd; explicit for clarity).
-  --resume-linked       Opt into the previous stamped session for this PRD (reverses the fresh default). Bare session dir also works for precise control.
+  --fresh               Force a brand new session even if a prior sealed one exists (for deliberate re-council or PRD evolution).
+  --resume-linked       Opt into *any* linked session for this PRD (bypasses the sealed-prior auto-select; useful for forensics on partials). Bare session dir also works.
   --recover-failed      Passed to mux-runner: reset any 'failed' tickets → 'pending' before starting (standard after bugfix).
   --resume              Explicit resume marker (mux-runner is inherently resumable via state + ritual; recorded in campaign-status).
   --chain-post          Force execution of Citadel + Anatomy Park + Szechuan (+ closer) after successful build.
@@ -74,12 +74,12 @@ Honors workingDir from --target (new sessions) or baked state.workingDir (resume
 tsc-clean, zero slop, recovery everywhere a Jerry partial-state can appear.
 
 Examples:
-  npx tsx engine/src/bin/run-pipeline.ts --prd prds/feature-x.md --self-improvement --background     # fresh (default) + will guide through refine
-  npx tsx engine/src/bin/run-pipeline.ts --prd prds/self-meta-....md --self-improvement --no-refine --resume-linked --target . --background
-  npx tsx engine/src/bin/run-pipeline.ts /path/to/fresh-or-resumed-session --self-improvement --background   # recommended after refine
-  npx tsx engine/src/bin/run-pipeline.ts --prd prds/foo.md --recover-failed --fresh   # explicit fresh (same as default)
+  npx tsx engine/src/bin/run-pipeline.ts --prd prds/feature-x.md --self-improvement --background     # plain: auto-picks latest sealed council prior if exists (complete autonomous run); else fresh + refine gate
+  npx tsx engine/src/bin/run-pipeline.ts --prd prds/self-meta-....md --self-improvement --background   # after first refine: directly launches the full headless pipeline on the sealed tickets
+  npx tsx engine/src/bin/run-pipeline.ts /path/to/fresh-or-resumed-session --self-improvement --background   # explicit session (precise control)
+  npx tsx engine/src/bin/run-pipeline.ts --prd prds/foo.md --fresh --self-improvement --background   # force brand new (for re-decomposition)
 
-After "REFINEMENT_COMPLETE" in refine output: re-run same command + --no-refine.
+After "REFINEMENT_COMPLETE" in refine output: simply re-run the *same plain* 'bash bin/grok-pipeline --prd <the-prd> --background' (it will now auto-select the newly-sealed session and launch the complete autonomous run). Or pass the bare SESSION_ROOT.
 For overnight 50-ticket self-dogfood: the self-PRD path + --no-refine --self-improvement --background (or use self-improvement-loop-closer).
 `);
 }
@@ -175,17 +175,42 @@ async function main() {
       process.exit(1);
     }
 
-    const linked = fresh ? null : sm.findLinkedSessionForPrd(prdAbs);
-    if (linked && !fresh) {
-      sessionDir = linked;
-      await sm.stampPrdProvenance(sessionDir, prdAbs);
-      console.log(`[run-pipeline] Reusing linked session for PRD (because --resume-linked): ${path.basename(sessionDir)}`);
-    } else {
+    // Smart sealed-prior prefer for plain "run a pipeline on <prd>" (the natural dispatch case).
+    // After a council refine has produced real ticket.md + manifest seal, a plain invocation
+    // (no --fresh) now auto-selects the latest *legal* sealed prior and proceeds directly to
+    // mux-runner + post-phases (complete autonomous execution). First-time / raw PRDs still
+    // create fresh + hit the /pickle-refine-prd gate. All P0 guards (legalForNoRefine, manifest
+    // match, !zombie, validateTicketArtifacts) are re-enforced by the finder + downstream.
+    if (explicitFresh) {
       const task = getTaskFromPrd(prdAbs);
-      const reason = explicitResumeLinked ? '(explicit --resume-linked overruled by --fresh)' : '(fresh is default for --prd to prevent stale ticket reuse)';
-      console.log(`[run-pipeline] Creating new fresh session (task="${task.slice(0, 60)}...") ${reason} under workingDir=${createWorkingDir}`);
+      console.log(`[run-pipeline] Creating new fresh session (explicit --fresh) (task="${task.slice(0, 60)}...") under workingDir=${createWorkingDir}`);
       const res = await sm.createSessionForPrd(createWorkingDir, task, prdAbs);
       sessionDir = res.sessionDir;
+    } else {
+      const sealedPrior = sm.findLegalSealedPriorForPrd(prdAbs);
+      if (sealedPrior) {
+        sessionDir = sealedPrior;
+        await sm.stampPrdProvenance(sessionDir, prdAbs);
+        console.log(`[run-pipeline] Auto-selected legal sealed prior session for PRD (natural dispatch post-council, legalForNoRefine + materialized + manifest match): ${path.basename(sessionDir)}`);
+      } else if (explicitResumeLinked) {
+        const anyLinked = sm.findLinkedSessionForPrd(prdAbs);
+        if (anyLinked) {
+          sessionDir = anyLinked;
+          await sm.stampPrdProvenance(sessionDir, prdAbs);
+          console.log(`[run-pipeline] Reusing linked session for PRD (explicit --resume-linked, may still hit gate if unsealed): ${path.basename(sessionDir)}`);
+        } else {
+          const task = getTaskFromPrd(prdAbs);
+          console.log(`[run-pipeline] Creating new fresh session (explicit --resume-linked but no linked found) (task="${task.slice(0, 60)}...") under workingDir=${createWorkingDir}`);
+          const res = await sm.createSessionForPrd(createWorkingDir, task, prdAbs);
+          sessionDir = res.sessionDir;
+        }
+      } else {
+        const task = getTaskFromPrd(prdAbs);
+        const reason = '(no legal sealed prior for PRD — first run on raw PRD or priors are partial/unsealed; fresh default + refine gate per r-meta-deepen safety)';
+        console.log(`[run-pipeline] Creating new fresh session (task="${task.slice(0, 60)}...") ${reason} under workingDir=${createWorkingDir}`);
+        const res = await sm.createSessionForPrd(createWorkingDir, task, prdAbs);
+        sessionDir = res.sessionDir;
+      }
     }
   } else {
     throw new Error('unreachable: neither prd nor bare session');
@@ -221,14 +246,14 @@ async function main() {
   if (isPrdDriven && noRefine) {
     const legal = isLegalToBypassRefine(report, true);
     if (!legal) {
-      const msg = `[run-pipeline] ILLEGAL --no-refine for --prd path: no real materialized tickets (or hash mismatch or zombie). Must run /pickle-refine-prd first to produce ticket.md + stamped manifest hash. Fresh is default; use --resume-linked only when you deliberately want a prior campaign's tickets. Zero-ticket bypass is a P0 safety violation (see the r-meta-deepen incident).`;
+      const msg = `[run-pipeline] ILLEGAL --no-refine for --prd path: no real materialized tickets (or hash mismatch or zombie). Must run /pickle-refine-prd first to produce ticket.md + stamped manifest hash. Use plain --prd (no flags) on subsequent runs — it now auto-selects the sealed prior. Zero-ticket bypass is a P0 safety violation (see the r-meta-deepen incident).`;
       console.error(msg);
       Activity.awaitingRefineForPrd(path.basename(sessionDir), prdAbs || report.prdPath || '', report.refinement?.reasons || []);
       process.exit(1);
     }
   }
 
-  // Policy-aware soft gate (default for --prd is "always refine" unless legal bypass)
+  // Policy-aware soft gate (plain --prd now prefers sealed priors via findLegalSealedPriorForPrd; gate only for fresh/partial)
   const effectiveNeedsRefine = isPrdDriven ? (!report.hasRealMaterializedTickets || !report.legalForNoRefine) : report.needsRefine;
   if (effectiveNeedsRefine && !noRefine) {
     // Surface any good prior sealed campaign for this PRD so the user can immediately run the *complete* autonomous pipeline
@@ -245,13 +270,14 @@ async function main() {
       }
     } catch {}
 
-    const guidance = 'PRD-driven pipeline defaults to fresh + requires /pickle-refine-prd (the r-meta-deepen safety).\n\n' +
+    const guidance = 'PRD-driven pipeline creates fresh + requires /pickle-refine-prd on first run or when no legal sealed prior exists (r-meta-deepen safety).\n\n' +
       '1. Run: /pickle-refine-prd   (it auto-detects the fresh stamped session from SESSION_ROOT/campaign-status.json + state.sourcePrd via SessionManager)\n\n' +
-      '2. After you see <promise>REFINEMENT_COMPLETE</promise>, execute the tickets with the bare session dir (cleanest) or --resume-linked:\n\n' +
-      '    npx tsx engine/src/bin/run-pipeline.ts /path/to/SESSION_ROOT --self-improvement --background [--recover-failed]\n\n' +
-      '    # or (if you prefer the prd form and want the session we just refined):\n' +
-      '    npx tsx engine/src/bin/run-pipeline.ts --prd <the-prd-path> --resume-linked --no-refine [--self-improvement] [--background]\n\n' +
-      'Fresh is the default on every --prd invocation so you never accidentally pick up a half-done prior campaign. Old sessions are left for forensics. --no-refine is only legal after the council has materialized real ticket.md + seal.' +
+      '2. After you see <promise>REFINEMENT_COMPLETE</promise>, simply re-run the *same plain command* you used initially:\n\n' +
+      '    bash bin/grok-pipeline --prd <the-prd-path> --self-improvement --background\n\n' +
+      '    (The dispatch now auto-selects the newly-sealed council session and launches the complete autonomous pipeline.)\n\n' +
+      '   Or use the bare SESSION_ROOT for precision:\n' +
+      '    npx tsx engine/src/bin/run-pipeline.ts /path/to/SESSION_ROOT --self-improvement --background\n\n' +
+      'Old sessions and partials are left for forensics. --fresh forces a brand-new decomposition. --no-refine is only legal after the council has materialized real ticket.md + seal.' +
       priorCmd;
     console.log(guidance);
     console.log(`SESSION_ROOT=${sessionDir}`);
