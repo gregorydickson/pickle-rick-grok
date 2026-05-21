@@ -20,6 +20,7 @@ import { SessionState, Ticket, Step, Backend, Runtime, CampaignStatus, CampaignP
 import { Activity } from './activity-logger.js';
 import * as Preflight from './lib/pipeline-preflight.js';
 import type { PreflightReport } from './types.js';
+import { getExecutableTicketsForSelfMeta } from './lib/phase-utils.js';
 
 function getDataRoot(): string {
   const xdg = process.env.XDG_DATA_HOME;
@@ -445,6 +446,75 @@ export class SessionManager {
       return { total: ts.length, remaining, done, failed, blocked, deferred };
     } catch {
       return { total: 0, remaining: 0, done: 0, failed: 0, blocked: 0, deferred: 0 };
+    }
+  }
+
+  /**
+   * Meta/self-PR D live executable set + pause state computer.
+   * Uses the new phase-utils promotion so that R-META tickets blocked on their own
+   * Verify theater (with readiness.suggestedPrereqs naming the H-* rescuers) cause
+   * the sibling hardening tickets to become executable even if static deps would block.
+   * Returns everything the orchestrator while-loop and the pause writer need.
+   */
+  computeMetaPauseOrExecutable(sessionDir: string): {
+    executable: any[];
+    normalReady: any[];
+    promoted: any[];
+    blocked: any[];
+    nextHardening: string[];
+    progress: ReturnType<SessionManager['countRemainingTickets']>;
+    pauseReason?: string;
+  } {
+    try {
+      const state = this.loadState(sessionDir);
+      const tickets = state.tickets || [];
+      const meta = getExecutableTicketsForSelfMeta(tickets);
+      const progress = this.countRemainingTickets(sessionDir);
+
+      let pauseReason: string | undefined;
+      if (meta.executable.length === 0 && meta.blocked.length > 0) {
+        const reasons = meta.blocked
+          .map((t: any) => {
+            const r = t.readiness?.reason || t.readiness?.summary || '';
+            return `${t.id}: ${String(r).slice(0, 180)}`;
+          })
+          .join(' | ');
+        pauseReason = `META BATCH PAUSED — ${meta.blocked.length} tickets blocked on RA (EMISSION_THEATER / hygiene). Suggested next: ${meta.nextHardening.join(', ') || 'H-* hardening in batch'}. ${reasons}`;
+      }
+
+      return {
+        ...meta,
+        progress,
+        pauseReason,
+      };
+    } catch (e: any) {
+      return {
+        executable: [],
+        normalReady: [],
+        promoted: [],
+        blocked: [],
+        nextHardening: [],
+        progress: { total: 0, remaining: 0, done: 0, failed: 0, blocked: 0, deferred: 0 },
+        pauseReason: `compute failed: ${e?.message || e}`,
+      };
+    }
+  }
+
+  /** Write the rich paused state (and the final normal state) to campaign-status.json. */
+  updatePausedCampaignStatus(sessionDir: string, details: { executable: any[]; blocked: any[]; nextHardening: string[]; pauseReason?: string; progress: any }): void {
+    try {
+      const now = new Date().toISOString();
+      const isPaused = !!(details.pauseReason && details.blocked.length > 0);
+      this.updateCampaignStatusSync(sessionDir, {
+        progress: details.progress,
+        note: isPaused ? 'META PAUSED — awaiting hardening / re-dispatch' : 'orchestrator finished (no more executable work)',
+        paused: isPaused || undefined,
+        pauseReason: details.pauseReason,
+        lastPhaseResult: details.blocked.length > 0 ? { ticketId: details.blocked[0]?.id, phase: 'researcher', status: 'blocked', bestEffort: true } : undefined,
+        lastUpdated: now,
+      } as any);
+    } catch (e: any) {
+      console.warn('[session] updatePausedCampaignStatus non-fatal:', e?.message || e);
     }
   }
 

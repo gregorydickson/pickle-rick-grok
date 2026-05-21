@@ -267,3 +267,56 @@ export function getReadyTickets(
     return deps.every(d => !inSet.has(d) || done.has(d));
   });
 }
+
+/**
+ * Pure meta/self-PR D helper: collect pending hardening tickets (isHardening or H-* id)
+ * that appear in any currently-blocked ticket's readiness.suggestedPrereqs or
+ * suggestedPrerequisites. This is the "rescue path" the R-META researcher writes
+ * when it detects EMISSION_THEATER or similar; the scheduler must promote them
+ * even when static .dependencies would otherwise keep them unrunnable.
+ */
+export function getPromotedHardeningTickets(tickets: any[]): any[] {
+  const blocked = tickets.filter((t: any) => t.status === 'blocked' || t.status === 'deferred');
+  const suggested = new Set<string>();
+  for (const b of blocked) {
+    const r = (b as any).readiness || {};
+    const prs: string[] = [
+      ...((r.suggestedPrereqs as string[]) || []),
+      ...((r.suggestedPrerequisites as string[]) || []),
+    ];
+    for (const p of prs) {
+      const m = String(p).match(/([A-Z][A-Z0-9-]{2,}-\d{3,}|[A-Z][A-Z0-9-]{2,})/);
+      if (m && m[1]) suggested.add(m[1]);
+    }
+  }
+  return tickets.filter((t: any) =>
+    (t.status === 'pending' || t.status === 'in_progress') &&
+    (t.isHardening === true || String(t.id || '').startsWith('H-') || suggested.has(String(t.id || '')))
+  );
+}
+
+/**
+ * Returns the current executable set for a self-meta / pipeline-meta batch.
+ * Normal ready tickets (via getReadyTickets) + any RA-promoted hardening siblings.
+ * The orchestrator while-loop uses this to keep making progress instead of
+ * exiting after the first blocked researcher in a mixed R-META + H-* batch.
+ */
+export function getExecutableTicketsForSelfMeta(
+  tickets: any[],
+  doneIds: Set<string> = new Set()
+): {
+  executable: any[];
+  normalReady: any[];
+  promoted: any[];
+  blocked: any[];
+  nextHardening: string[];
+} {
+  const normalReady = getReadyTickets(tickets as any, doneIds);
+  const promoted = getPromotedHardeningTickets(tickets);
+  const seen = new Set(normalReady.map((t: any) => t.id));
+  const extra = promoted.filter((t: any) => !seen.has(t.id));
+  const executable = [...normalReady, ...extra];
+  const blocked = tickets.filter((t: any) => t.status === 'blocked' || t.status === 'deferred');
+  const nextHardening = promoted.map((t: any) => t.id);
+  return { executable, normalReady, promoted: extra, blocked, nextHardening };
+}

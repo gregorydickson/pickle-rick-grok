@@ -53,6 +53,7 @@ import {
   topologicalSort,
   detectCycles,
   getReadyTickets,
+  getExecutableTicketsForSelfMeta,
   type TicketRef,
 } from '../lib/phase-utils.js';
 import {
@@ -351,51 +352,80 @@ export async function runOrchestrator(
       }
     } catch {}
 
-    for (const ticket of ticketsToProcess) {
+    // DYNAMIC META/SELF RE-SCAN (the fix for "drop the ball" on pipeline-meta PRDs):
+    // After any researcher returns blocked (ritual writes the RA + suggestedPrereqs naming the H-* rescuers),
+    // we re-compute executable set (normalReady UNION promoted hardening). This lets the sibling H-ANATOMY / H-SZECHUAN
+    // tickets become runnable even when their static .dependencies reference the now-blocked R-META P0s.
+    // Normal non-meta batches see the same termination behavior (executable shrinks to [] after last ticket).
+    // When executable is empty but blocked remain, we write the rich paused state so `cat campaign-status.json`
+    // is a useful live monitor instead of a t+1s stale launch snapshot.
+    let iterationGuard = 0;
+    const MAX_ITER = 500;
+
+    while (true) {
       if (shutdown()) {
-        console.log('[orchestrator] Shutdown flag detected between tickets — clean exit. Resumable.');
+        console.log('[orchestrator] Shutdown flag detected — clean exit. Resumable.');
+        break;
+      }
+      if (++iterationGuard > MAX_ITER) {
+        console.warn('[orchestrator] iteration guard tripped — breaking');
         break;
       }
 
+      const meta = sm.computeMetaPauseOrExecutable(sessionDir);
+      if (meta.executable.length === 0) {
+        if (meta.blocked.length > 0 && meta.pauseReason) {
+          sm.updatePausedCampaignStatus(sessionDir, meta as any);
+          console.log(`[orchestrator] META PAUSED — ${meta.blocked.length} blocked on RA; next hardening: ${meta.nextHardening.join(', ')}`);
+        }
+        break;
+      }
+
+      // Prefer a promoted (RA-suggested) hardening ticket when present for deterministic self-heal order.
+      const nextTicket = (meta.promoted && meta.promoted.length > 0) ? meta.promoted[0] : meta.executable[0];
+
       const currentStatus =
-        (sm.loadState(sessionDir).tickets.find((t: any) => t.id === ticket.id) || ticket).status;
-      if (currentStatus === 'pending' || currentStatus === 'in_progress') {
-        // META-READINESS: respect declared dependencies at runtime (prereqs must be 'done'; blocked/deferred/fail do not satisfy)
-        // Combined with topo order + getReadyTickets this guarantees dependents never run before prereqs (or if prereq blocked).
-        const deps: string[] = (ticket.dependencies || []);
-        if (deps.length > 0) {
-          const liveState = sm.loadState(sessionDir);
-          const unsatisfied = deps.filter((d: string) => {
-            const dt = liveState.tickets.find((tt: any) => tt.id === d);
-            return dt && dt.status !== 'done';
-          });
-          if (unsatisfied.length > 0) {
-            console.log(`[orchestrator] ${ticket.id} skipped — unsatisfied prereqs: ${unsatisfied.join(', ')} (not 'done')`);
-            continue;
-          }
+        (sm.loadState(sessionDir).tickets.find((t: any) => t.id === nextTicket.id) || nextTicket).status;
+      if (currentStatus !== 'pending' && currentStatus !== 'in_progress') {
+        continue;
+      }
+
+      // META-READINESS: respect declared dependencies, but relax for promoted hardening tickets
+      // (their static deps may point at the blocked P0s whose theater they exist to fix).
+      const deps: string[] = (nextTicket.dependencies || []);
+      if (deps.length > 0) {
+        const liveState = sm.loadState(sessionDir);
+        const unsatisfied = deps.filter((d: string) => {
+          const dt = liveState.tickets.find((tt: any) => tt.id === d);
+          return dt && dt.status !== 'done';
+        });
+        const isPromoted = (meta.promoted || []).some((p: any) => p.id === nextTicket.id) || (meta.nextHardening || []).includes(nextTicket.id);
+        if (unsatisfied.length > 0 && !isPromoted) {
+          console.log(`[orchestrator] ${nextTicket.id} skipped — unsatisfied prereqs: ${unsatisfied.join(', ')} (not 'done')`);
+          continue;
         }
+      }
 
-        currentTicketId = ticket.id;
+      currentTicketId = nextTicket.id;
 
+      try {
+        await sm.markTicketInProgress(sessionDir, nextTicket.id);
+      } catch (lockErr) {
+        console.warn('[orchestrator] markTicketInProgress lock hiccup (non-fatal):', lockErr);
+      }
+
+      try {
+        await runTicket(nextTicket);
+      } catch (outerErr: any) {
+        const msg = outerErr?.message || String(outerErr);
+        console.error(`[orchestrator] OUTER CRASH on ticket ${nextTicket.id} (isolated — continuing): ${msg}`);
+        Activity.ticketFailed(state.sessionId || 'unknown', nextTicket.id, `outer crash: ${msg}`);
         try {
-          await sm.markTicketInProgress(sessionDir, ticket.id);
-        } catch (lockErr) {
-          console.warn('[orchestrator] markTicketInProgress lock hiccup (non-fatal):', lockErr);
-        }
-
-        try {
-          await runTicket(ticket);
-        } catch (outerErr: any) {
-          const msg = outerErr?.message || String(outerErr);
-          console.error(`[orchestrator] OUTER CRASH on ticket ${ticket.id} (isolated — continuing): ${msg}`);
-          Activity.ticketFailed(state.sessionId || 'unknown', ticket.id, `outer crash: ${msg}`);
-          try {
-            await sm.updateTicketStatus(sessionDir, ticket.id, 'failed');
-          } catch {}
-          emitProgress(`ticket ${ticket.id} OUTER-FAILED (isolated)`, ticket.id);
-        } finally {
-          currentPhase = null;
-        }
+          await sm.updateTicketStatus(sessionDir, nextTicket.id, 'failed');
+        } catch {}
+        emitProgress(`ticket ${nextTicket.id} OUTER-FAILED (isolated)`, nextTicket.id);
+      } finally {
+        currentPhase = null;
       }
     }
   } finally {
