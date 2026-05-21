@@ -112,7 +112,20 @@ export function analyzeSessionForVerifyTheater(sessionDir: string): {
       while ((m = btRe.exec(content)) !== null) {
         if (m[1]) cmds.push(m[1].trim());
       }
-      for (const cmd of cmds) {
+
+      // Hygiene filter: ignore injected contract/doc boilerplate and test-data examples
+      // (the very strings we put in the 8-phase notes, VERIFY_THEATER_RE illustrations, and
+      // detectVerifyTheater("bad sample") payloads inside H-VERIFY tickets). Only real AC
+      // Verify shell commands should contribute to theatrical/low-density counts.
+      const realCmds = cmds.filter(c => {
+        if (!c || c.length < 4) return false;
+        // Skip anything that looks like a regex metachar pattern or our own doc examples
+        if (/\\[bsw*+?^${}()|[\]\\]/.test(c) || /after\s*(good|fix|patch)|feed good|\/\* after/i.test(c)) return false;
+        if (VERIFY_THEATER_RE.some(re => re.source.includes(c.slice(0, 12)) || c.includes(re.source.slice(0, 12)))) return false;
+        return true;
+      });
+
+      for (const cmd of realCmds) {
         if (RUNNABLE_VERIFY_RE.test(cmd)) {
           runnablesForTicket++;
           if (!detectVerifyTheater(cmd).isTheatrical) {
@@ -230,7 +243,16 @@ export function isPrdSufficientlyRefined(prdContent: string): { sufficient: bool
     backtickCmds.push((m[1] || '').trim()); // noUncheckedIndexedAccess on RegExpExecArray
   }
 
-  const runnableMatches = backtickCmds.filter(c => RUNNABLE_VERIFY_RE.test(c));
+  // Same hygiene filter as analyzeSessionForVerifyTheater — ignore doc boilerplate
+  // so that meta PRDs containing their own contract examples don't get false "theatrical"
+  const realPrdCmds = backtickCmds.filter(c => {
+    if (!c || c.length < 4) return false;
+    if (/\\[bsw*+?^${}()|[\]\\]/.test(c) || /after\s*(good|fix|patch)|feed good|\/\* after/i.test(c)) return false;
+    if (VERIFY_THEATER_RE.some(re => re.source.includes(c.slice(0, 12)) || c.includes(re.source.slice(0, 12)))) return false;
+    return true;
+  });
+
+  const runnableMatches = realPrdCmds.filter(c => RUNNABLE_VERIFY_RE.test(c));
   const strongMatches = runnableMatches.filter(c => !detectVerifyTheater(c).isTheatrical);
   if (strongMatches.length === 0) {
     reasons.push('No runnable, theater-free verification commands found in Verify cells (no "after fix", "|| true", "manually observe", etc.)');
