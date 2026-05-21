@@ -270,13 +270,16 @@ async function main() {
       }
     } catch {}
 
+    // Machine-readable signal for the top persona so it can chain the one allowed rich council
+    // step when the original user imperative was a direct "run a pipeline on <raw-prd>".
+    // This closes the first-time autonomy gap without violating the rich-teams-only-in-refine rule.
+    console.log(`RAW_PRD_AWAITING_REFINEMENT=${sessionDir}`);
+
     const guidance = 'PRD-driven pipeline creates fresh + requires /pickle-refine-prd on first run or when no legal sealed prior exists (r-meta-deepen safety).\n\n' +
-      '1. Run: /pickle-refine-prd   (it auto-detects the fresh stamped session from SESSION_ROOT/campaign-status.json + state.sourcePrd via SessionManager)\n\n' +
-      '2. After you see <promise>REFINEMENT_COMPLETE</promise>, simply re-run the *same plain command* you used initially:\n\n' +
-      '    bash bin/grok-pipeline --prd <the-prd-path> --self-improvement --background\n\n' +
-      '    (The dispatch now auto-selects the newly-sealed council session and launches the complete autonomous pipeline.)\n\n' +
+      '1. The persona will now auto-chain the allowed rich council (/pickle-refine-prd) for this stamped session because the original request was a direct full-pipeline imperative.\n\n' +
+      '2. After <promise>REFINEMENT_COMPLETE</promise> the refine step itself auto-fires the continuation `bash bin/grok-pipeline --prd <the-prd-path> --background` (plain, no --self-improvement unless this is a self-meta PRD).\n\n' +
       '   Or use the bare SESSION_ROOT for precision:\n' +
-      '    npx tsx engine/src/bin/run-pipeline.ts /path/to/SESSION_ROOT --self-improvement --background\n\n' +
+      '    npx tsx engine/src/bin/run-pipeline.ts /path/to/SESSION_ROOT --background\n\n' +
       'Old sessions and partials are left for forensics. --fresh forces a brand-new decomposition. --no-refine is only legal after the council has materialized real ticket.md + seal.' +
       priorCmd;
     console.log(guidance);

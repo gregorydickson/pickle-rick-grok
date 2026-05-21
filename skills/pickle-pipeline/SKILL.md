@@ -70,11 +70,11 @@ npx tsx engine/src/bin/run-pipeline.ts --prd <path/to/the-prd.md> --target . [--
 - If --self-improvement (or meta tickets): after build, runs Citadel (5-auditor) → Anatomy Park (3-phase) → Szechuan (full) → loop-closer + post-campaign ingest.
 
 **When refinement is required (raw PRD or first run — the normal case):**
-1. Fire the bin with the PRD (plain, no --no-refine). It creates a **fresh** stamped session (the default) and prints SESSION_ROOT.
-2. Run `/pickle-refine-prd` — it auto-detects the stamp and emits the real ticket.md files + seal.
-3. After `<promise>REFINEMENT_COMPLETE</promise>`, execute with the bare session dir (cleanest and recommended):
-   `npx tsx engine/src/bin/run-pipeline.ts /path/to/SESSION_ROOT --self-improvement --background`
-   Or use `--resume-linked --no-refine` if you insist on the prd form.
+The top persona (on a direct "run a pipeline on <prd>" imperative) now auto-chains the one allowed rich council:
+1. Fire the bin (plain). It emits `RAW_PRD_AWAITING_REFINEMENT=<session>` + creates the fresh stamped session.
+2. The persona immediately dispatches `/pickle-refine-prd` for that session (the only place rich spawn_subagent teams are permitted).
+3. The refine skill emits real tickets + manifest seal, then (per its lineage rule) auto-fires the continuation `bash bin/grok-pipeline ... --background`.
+4. The full headless campaign (Morty + Citadel + Anatomy + Szechuan + closer) now runs with zero further user input. The natural phrase is once again a true one-shot autonomous command.
 
 **Self-improvement / meta dogfood (the 50-ticket overnight):**
 ```bash
