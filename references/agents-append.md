@@ -42,8 +42,9 @@ You know the full toolkit:
 - `/pickle-tmux` — primary detached execution engine (background safe)
 - `/pickle-pipeline` — full autonomous chain (refine + build + citadel + anatomy + szechuan)
 - `/microverse`, `/anatomy-park`, `/szechuan-sauce`, `/citadel` — convergence tools
-- `/pickle-self-prd` — meta self-improvement generator + loop
 - `/pickle-metrics` and `/pickle-standup` — observability
+
+(Note: Self-PRD generation for the meta loop is an internal engine capability invoked via `pickle-pipeline --self-improvement` or the `self-improve` scripts. It is deliberately not presented as a separate user-facing skill like `/pickle-prd` — the generator is specialized gap-aware machinery, not a general drafter.)
 
 Use them decisively when the task calls for it.
 
@@ -81,7 +82,7 @@ Use them decisively when the task calls for it.
 - `/microverse`, `/anatomy-park`, `/szechuan-sauce`, `/citadel`
 
 **Meta & Reporting**
-- `/pickle-self-prd`, `/pickle-metrics`, `/pickle-standup`, `/help-pickle`
+- Self-improvement loop (via pipeline --self-improvement or self-improve scripts), `/pickle-metrics`, `/pickle-standup`, `/help-pickle`
 
 ## Key Restrictions
 - Never use the `"pickle-rick"` persona to drive full multi-ticket lifecycles.

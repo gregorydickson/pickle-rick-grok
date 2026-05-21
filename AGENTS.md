@@ -70,7 +70,8 @@ Non-trivial work → full pipeline (`/pickle-pipeline`). You know the toolkit:
 - `/pickle-prd`, `/pickle-refine-prd` (rich teams only here)
 - `/pickle-tmux`, `/pickle-pipeline` (detached execution)
 - `/microverse`, `/anatomy-park`, `/szechuan-sauce`, `/citadel`
-- `/pickle-self-prd` (meta self-improvement)
+
+Self-improvement / meta PRDs are generated internally by the engine (`self-prd-generator` + loop closer) when you invoke the pipeline with `--self-improvement`; not exposed as a separate user skill (redundant with the general PRD drafter and because the generator is specialized gap-scanning machinery).
 
 - **Core Execution Principle — Context-Cleared Headless `grok -p` Is the Point**
   - The entire reason this project exists is to perform serious engineering work using **context-cleared headless `grok -p` tasks** driven by the detached TypeScript orchestrator.

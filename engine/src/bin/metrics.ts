@@ -88,7 +88,7 @@ function suggestNextPrds(events: any[], backlog: any): string[] {
   const wFails = events.filter((e: any) => (e.event === 'worker_outcome' || e.event === 'worker_completed') && e.details?.success === false).length;
   if (wFails > 4) out.push('Stabilize headless worker contracts + promise token detection');
   if (backlog.campaigns > 0 && backlog.trend !== 'improving') out.push(`Self-loop delta lagging — target ${backlog.trend} gaps from reliability-backlog.md`);
-  if (out.length === 0) out.push('Run self-prd-generator or /pickle-self-prd to auto-seed next 40-50 ticket improvement PRD from current gaps');
+  if (out.length === 0) out.push('Run `npm run self-improve` or `pickle-pipeline --self-improvement` to auto-seed next 40-50 ticket improvement PRD from current gaps');
   return Array.from(new Set(out)).slice(0, 6);
 }
 

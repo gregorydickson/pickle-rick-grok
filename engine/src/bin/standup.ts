@@ -93,7 +93,7 @@ function deriveSuggestedPrds(events: any[], blInfo: string): string[] {
   const citFail = events.some((e: any) => e.event === 'citadel_audit' && e.citadel_overall === 'FAIL');
   if (citFail) s.push('• Close Citadel coverage gaps exposed in last audit (ritual/persist contracts)');
   if (blInfo.includes('regress') || !blInfo.includes('+')) s.push('• Ingest more post-campaign feedback; target top 5 open items from reliability-backlog.md');
-  if (s.length === 0) s.push('• Run `/pickle-self-prd` or pipeline --self-improvement to auto-generate next improvement PRD');
+  if (s.length === 0) s.push('• Run `pickle-pipeline --self-improvement` (or `npm run self-improve`) to auto-generate next improvement PRD');
   return s;
 }
 

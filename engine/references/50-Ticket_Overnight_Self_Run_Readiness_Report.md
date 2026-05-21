@@ -58,7 +58,7 @@ Post-fix: gate = ghost that minds its own business. Victory.
 ---
 
 ## Full Chain (now actually bulletproof for 50-tix dogfood)
-1. `npx tsx engine/src/self-prd-generator.ts --full` (or /pickle-self-prd) → backlog-aware PRD + auto session + 50 R-META executable tickets (justification + machine AC + verify cmds).
+1. `npx tsx engine/src/self-prd-generator.ts --full` (or `npm run self-improve -- --gen-only`) → backlog-aware PRD + auto session + 50 R-META executable tickets (justification + machine AC + verify cmds). The old dedicated user command surface for self-PRD generation has been retired as redundant with the general PRD skill + internal engine nature of the generator.
 2. (optional refine) or direct.
 3. `npx tsx engine/src/runners/mux-runner.ts <sessionDir> --heartbeat-ms 300000` (or pipeline --self-improvement --target /path/to/grok --no-refine).
 4. Detach. Orchestrator + per-phase ManagerRitual (promise+artifact+append+gate(now safe)+circuit) + real drivers + citadel gate + anatomy 3x + szechuan converge.

@@ -30,8 +30,13 @@ triggers:
 - `/pickle-metrics` — Rich usage/productivity + self-loop forensics from activity logs (per-day deltas, regression patterns, self_delta, auto suggested next PRDs, worker_outcome, citadel, all meta events). --json for pipelines.
 - `/pickle-standup` — Narrative daily/weekly autonomous work summary with per-day+delta table, expanded forensics, Suggested Next PRDs section, Self-Improvement Loop + Delta Visibility, Graphite/Linear CLI integration with fallback.
 
-## Meta
-- `/pickle-self-prd` or `npm run self-improve [--gen-only] [--iterations 2] [--target .]` or npx tsx engine/src/self-prd-generator.ts (note: generator lives in src/) — Self-PRD generator + meta-loop closer. Generates own 50-ticket improvement PRD, runs full pipeline on it (orchestrator+ritual+citadel+anatomy+szechuan), auto-ingests post-campaign feedback into reliability-backlog.md for the next autonomous iteration. The true dogfood entry point. --self-improvement flag on pipeline also works.
+## Meta / Self-Improvement (internal engine, not a separate user skill)
+- Self-PRD generation and the full meta loop are **not** exposed as a standalone user skill (that would be redundant with the general `/pickle-prd` drafter + the fact that the generator is highly specialized internal machinery).
+- Instead, run the autonomous self-improvement loop via:
+  - `pickle-pipeline --self-improvement` (recommended; full build + post phases + closer + ingest)
+  - `npm run self-improve -- --iterations N --target .` (or the installed equivalent after `bash install.sh`)
+  - Direct power-user: `npx tsx engine/src/bin/self-improvement.ts` or the generator `engine/src/self-prd-generator.ts --full`
+- The generator itself (`self-prd-generator.ts`) + loop closer are first-class internal engine components. They produce gap-targeted, machine-verifiable R-META PRDs + auto-decompose into executable tickets with theater rejection, then feed the reliability-backlog for the next iteration.
 - `/help-pickle` — This list
 
 **Higher-tier / P2-P3 skills — honest deprecation stubs (NOT PORTED to Grok engine yet)**:

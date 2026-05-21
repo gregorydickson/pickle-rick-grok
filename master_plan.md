@@ -14,7 +14,7 @@
 **Core 50-Ticket Overnight Self-Improvement Loop: 100% GO — Production Ready**
 
 The system can:
-- Generate its own high-quality self-PRD targeting real gaps (via `self-prd-generator --full` or `/pickle-self-prd`)
+- Generate its own high-quality self-PRD targeting real gaps (via the internal `self-prd-generator --full` or `self-improve` scripts; invoked automatically by `pickle-pipeline --self-improvement`)
 - Auto-decompose into ~50 atomic, orchestrator-shaped R-META tickets with justification blocks + machine-verifiable Verify commands
 - Execute them reliably in detached mode (`mux-runner` or `pipeline --self-improvement --target . --no-refine`)
 - Apply ManagerRitual on every phase return (single source of truth)
