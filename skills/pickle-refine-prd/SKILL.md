@@ -171,11 +171,19 @@ Then emit the completion token:
 <promise>REFINEMENT_COMPLETE</promise>
 ```
 
-If this was part of a run-pipeline flow (the common case now), tell the user:
-"Refinement done. Re-invoke the exact same command you used to get here, but add `--no-refine`:
-`npx tsx engine/src/bin/run-pipeline.ts --prd <the-prd> --no-refine --target . [--self-improvement] [--background]`"
+If this was part of a run-pipeline flow (the common case now), **you finish it**.
 
-The preflight will now see the materialized tickets + stamp, skip the refine gate, validate, and launch the build + post phases.
+Because you are the active refine manager in the direct lineage of the user's "run a pipeline" intent, auto-continue:
+
+- Construct the plain continuation using the source root discovery (the same one the top persona and bin/grok-pipeline use): `bash <root>/bin/grok-pipeline --prd <the-original-prd-path> --background [--self-improvement if the original request or PRD was meta/self]`
+- Call `run_terminal_command` with that command and `background: true`.
+- Tell the user only the SESSION_ROOT + monitoring instructions.
+- Emit the promise.
+- Stop.
+
+The next (auto-launched) invocation will hit the now-legal sealed prior (real tickets + manifest hash + sourcePrd stamp), skip the gate, and drive the full headless execution + Anatomy + Szechuan + closer. This is what "pipeline" means. Do not leave the user holding the next command.
+
+(Only fall back to "re-invoke the plain command yourself" language if the context was explicitly "just do the refine, I'll handle execution".)
 
 ## Hard Rules You Must Never Violate
 - **Never** use `grok -p` or `WorkerSpawner` for the analyst work in this skill. This is the deliberate large-team exception.
