@@ -215,7 +215,7 @@ export function isPrdSufficientlyRefined(prdContent: string): { sufficient: bool
   let score = 0;
 
   const lines = prdContent.split(/\r?\n/);
-  const hasVerifyCol = lines.some(l => /\|\s*Verify\s*\|/i.test(l) || /Verify\s*\|\s*Criterion/i.test(l));
+  const hasVerifyCol = lines.some(l => /\|\s*(Verify|Verification)\s*\|/i.test(l) || /(Verification|Verify)\s*\|\s*Criterion/i.test(l));
   if (!hasVerifyCol) {
     reasons.push('Missing "Verify" column in Acceptance Criteria table (required for machine guards)');
     return { sufficient: false, score: 0, reasons };

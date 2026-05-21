@@ -231,13 +231,28 @@ async function main() {
   // Policy-aware soft gate (default for --prd is "always refine" unless legal bypass)
   const effectiveNeedsRefine = isPrdDriven ? (!report.hasRealMaterializedTickets || !report.legalForNoRefine) : report.needsRefine;
   if (effectiveNeedsRefine && !noRefine) {
+    // Surface any good prior sealed campaign for this PRD so the user can immediately run the *complete* autonomous pipeline
+    // on the council-approved tickets instead of starting over. This is pure diagnostics; does not change the fresh default or any gate.
+    let priorCmd = '';
+    try {
+      const candidate = sm.findLinkedSessionForPrd(prdAbs || '');
+      if (candidate && candidate !== sessionDir) {
+        const probe = sm.preflightPipeline(candidate, prdAbs);
+        if (probe.hasRealMaterializedTickets && probe.legalForNoRefine && !probe.isZombie) {
+          const wrapper = `bash bin/grok-pipeline ${candidate} --background${selfImprovement ? ' --self-improvement' : ''}`;
+          priorCmd = `\n\n**To run the COMPLETE AUTONOMOUS PIPELINE on the already-refined council campaign (recommended):**\n    ${wrapper}\n    # (or: npx tsx engine/src/bin/run-pipeline.ts ${candidate} --background${selfImprovement ? ' --self-improvement' : ''})\n`;
+        }
+      }
+    } catch {}
+
     const guidance = 'PRD-driven pipeline defaults to fresh + requires /pickle-refine-prd (the r-meta-deepen safety).\n\n' +
       '1. Run: /pickle-refine-prd   (it auto-detects the fresh stamped session from SESSION_ROOT/campaign-status.json + state.sourcePrd via SessionManager)\n\n' +
       '2. After you see <promise>REFINEMENT_COMPLETE</promise>, execute the tickets with the bare session dir (cleanest) or --resume-linked:\n\n' +
       '    npx tsx engine/src/bin/run-pipeline.ts /path/to/SESSION_ROOT --self-improvement --background [--recover-failed]\n\n' +
       '    # or (if you prefer the prd form and want the session we just refined):\n' +
       '    npx tsx engine/src/bin/run-pipeline.ts --prd <the-prd-path> --resume-linked --no-refine [--self-improvement] [--background]\n\n' +
-      'Fresh is the default on every --prd invocation so you never accidentally pick up a half-done prior campaign. Old sessions are left for forensics. --no-refine is only legal after the council has materialized real ticket.md + seal.';
+      'Fresh is the default on every --prd invocation so you never accidentally pick up a half-done prior campaign. Old sessions are left for forensics. --no-refine is only legal after the council has materialized real ticket.md + seal.' +
+      priorCmd;
     console.log(guidance);
     console.log(`SESSION_ROOT=${sessionDir}`);
     if (prdAbs) console.log(`PRD_LINKED=${prdAbs}`);
