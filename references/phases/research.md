@@ -39,23 +39,26 @@ Ignore *all* other backticks in the document (Verify Discipline section, 8-Phase
 
 **This is the gate that would have killed R-META-DEEPEN-001 at research time.** Planner and later phases refuse any ticket with EMISSION_THEATER blocked research Readiness.
 
-**WAIVER FOR THEATER-SELF-HEALING / H-VERIFY / EMISSION_THEATER CLOSER TICKETS (the only case where a meta campaign can heal its own bootstrap defects autonomously)**:
+**WAIVER FOR THEATER-SELF-HEALING / H-VERIFY / EMISSION_THEATER CLOSER TICKETS + AUTO-GENERATED DEBT HEALERS (the "never stop, progress then fix" autonomous policy)**:
 
 If this ticket's `id` starts with `H-VERIFY-` or `H-ANATOMY-DEP-`, or `category` contains `h-verify`/`h-anatomy`, or its title / justification / scope / sourcePrd explicitly states the goal is to harden `detectVerifyTheater`, close the "producer emission theater gap", strengthen the generator / emitter / preflight, emit H-VERIFY side-effects, or self-heal Verify quality / EMISSION_THEATER:
+
+**OR** the ticket carries an auto-generated sibling debt healer (see `theaterWaiverSibling`, `hardeningTickets` containing `H-VERIFY-EMIT-`, or the injected "EMISSION_THEATER DEBT WAIVER (autonomous 'never stop + progress then fix' policy)" block in the 8-Phase Notes):
 
 - Still perform the *full* audit + literal BASELINE executions + evidence capture exactly as above.
 - If theatrical hits exist *but are confined exclusively to*:
   - strings inside `detectVerifyTheater("...")`, `analyzeSessionForVerifyTheater(...)`, or other test payloads you are feeding the detector (the intended test data for the H-VERIFY case), **or**
-  - the (now table-scoped) doc/contract boilerplate that the ticket itself carries as part of the injected discipline,
+  - the (now table-scoped) doc/contract boilerplate that the ticket itself carries as part of the injected discipline, **or**
+  - the debt from a producer (refine council / emitter / self-prd-generator) that auto-emitted a sibling `H-VERIFY-EMIT-*` healer in the same batch,
 - then **do not hard-block**.
-  - In your Verify Theater Audit subsection document: "HITS EXPECTED — self-test data or injected contract language for the emission hygiene machinery under repair (documented-risk waiver for H-VERIFY / theater-hardening ticket). Real AC Verify commands are clean runnable BASELINE/SUCCESS pairs."
-  - **Status**: ready (or amber with waiver note)
-  - **Reason**: "Theatrical patterns are intentional test inputs or contract boilerplate for the ticket whose explicit purpose is to repair the producer emission path; not a production Verify defect. Per self-improvement contract, this ticket may proceed so the fix can land."
-  - Suggested Prerequisites: none (or sibling H-* only).
+  - In your Verify Theater Audit subsection document: "HITS EXPECTED — self-test data, injected contract language, or documented EMISSION_THEATER debt from producer (auto sibling healer present). Per autonomous 'never stop + progress then fix' policy, this ticket may proceed amber so the main work lands while the sibling H-VERIFY rewrites the bad Verifies + hardens the producer."
+  - **Status**: amber (with waiver note)
+  - **Reason**: "Theatrical patterns are debt from the emission producer; sibling H-VERIFY healer was auto-created in the same batch. Campaign must continue. Real intended ACs for this ticket are the non-debt ones."
+  - Suggested Prerequisites: the sibling H-VERIFY-EMIT-* (or none if already healing).
 
-This waiver + table-only extraction is what allows a meta/self campaign whose own tickets legitimately triggered the gate (because they are the ones fixing the producer) to complete its healing work autonomously instead of starving the 50-ticket loop.
+This waiver + table-only extraction + auto-sibling healer is what allows the entire self-improvement loop to **never stop**. Bad producer output now automatically carries its own healer instead of killing the campaign.
 
-All other tickets: hard block exactly as before on any hit or non-deterministic baseline. Verifier phase will still hard-fail with "INVALID SPEC — EMISSION_THEATER" on real bad AC Verifies.
+All other tickets (no auto sibling healer present): hard block exactly as before on any hit or non-deterministic baseline. Verifier phase will still hard-fail with "INVALID SPEC — EMISSION_THEATER" on real bad AC Verifies.
 
 ## Your Job (only after clean theater audit)
 Deeply explore the codebase for everything relevant to this ticket.

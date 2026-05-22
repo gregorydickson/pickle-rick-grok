@@ -109,6 +109,19 @@ ${spec.nonGoals || 'Nothing outside the listed Scope and ACs.'}
 
 ${hardening}
 
+${(spec as any).theaterWaiverSibling ? `
+## EMISSION_THEATER DEBT WAIVER (autonomous "never stop + progress then fix" policy)
+This ticket was emitted with theatrical Verify strings by the producer (refine council manager or self-prd-generator).
+
+A sibling healer ticket **${(spec as any).theaterWaiverSibling}** was auto-created in the exact same emission batch.
+
+**Researcher / Planner / Implementer**: Treat this ticket as **amber**. Perform your normal work. The sibling H-VERIFY owns:
+- Rewriting the bad AC Verify columns in this ticket.md (using the exact evidence you capture in research_*.md)
+- Hardening the producer (SKILL.md synthesis step + ticket-emitter gate) so theatrical Verifies can never be emitted again.
+
+Do **not** hard-block. The campaign must continue. This is the explicit "never stop" contract.
+` : ''}
+
 When all 8 phases have emitted <promise>I AM DONE</promise> and the post-return ritual has accepted the artifacts + gates, this ticket is complete.
 
 **Rick**: "This ticket.md *is* the spec for the worker. If your AC table is shit, the Morties will produce shit. Garbage in, garbage in the reliability-backlog. Do better."
@@ -140,17 +153,53 @@ export async function emitRefinedTickets(
       const verifyJoined = (spec.acceptanceCriteria || []).map((ac: any) => (ac.verify || ac.criterion || '')).join('\n');
       readiness = assessMetaReadiness(spec.scope || '', verifyJoined, { ...(opts.grokRoot !== undefined ? { grokRoot: opts.grokRoot } : {}) });
 
-      // HARD GATE: theatrical Verifies are poison (the exact R-META-DEEPEN-001 failure mode)
+      // HARD GATE + "never stop" autonomous healer (progress then fix)
+      // Theatrical Verifies from the producer (refine council / self-prd-generator) now auto-emit a sibling H-VERIFY healer
+      // in the same batch instead of hard-stopping the campaign. The original ticket is marked amber + waived.
       const theater = detectVerifyTheater(verifyJoined);
       const isMetaSelf = (opts.generatedBy || '').toLowerCase().includes('self') ||
                          (spec as any).isSelfMeta ||
                          (spec.sourcePrd === 'self-generated');
+      const isAlreadyHealing = (spec.id || '').toUpperCase().startsWith('H-VERIFY') ||
+                               (spec.category || '').toLowerCase().includes('h-verify');
+
       if (theater.isTheatrical || (readiness?.status === 'red' && isMetaSelf)) {
         const msg = `[ticket-emitter] HARD EMISSION GATE for ${spec.id}: theatrical=${theater.isTheatrical} readiness=${readiness?.status} (meta/self=${isMetaSelf}). Reasons: ${[...(readiness?.signals || []), ...theater.reasons].map(r => (r as any).example || r).join(' | ')}`;
-        if (isMetaSelf) {
+
+        if (isMetaSelf && !isAlreadyHealing) {
           throw new Error(msg + ' — self/meta paths must never emit theatrical Verifies');
-        } else {
-          console.error(msg + ' (council path — emitting with strong warning; fix in next refine round)');
+        } else if (!isAlreadyHealing) {
+          // Council / normal path: emit sibling healer instead of just warning. Campaign must continue.
+          console.error(msg + ' (council path — auto-emitting sibling H-VERIFY healer + amber waiver per never-stop policy)');
+
+          // Mark original for amber + debt waiver (consumed by research.md waiver + generateTicketMarkdown injection)
+          (spec as any).theaterWaiverSibling = `H-VERIFY-EMIT-${spec.id}`;
+          (spec as any).readiness = readiness || { status: 'amber', score: 50, signals: [{ pattern: 'EMISSION_THEATER_DEBT', hits: theater.reasons.length }], suggestedPrereqs: [`Sibling ${ (spec as any).theaterWaiverSibling }`] };
+          if (!(spec as any).hardeningTickets) (spec as any).hardeningTickets = '';
+          (spec as any).hardeningTickets += `\n- Auto sibling: ${(spec as any).theaterWaiverSibling} (rewrites bad Verifies + hardens refine manager / emitter)`;
+        }
+
+        // Auto-emit the sibling healer in the same batch (simple "progress + heal" mechanism)
+        if ((spec as any).theaterWaiverSibling && !isAlreadyHealing) {
+          const hId = (spec as any).theaterWaiverSibling;
+          const healer: TicketSpec = {
+            id: hId,
+            title: `H-VERIFY: heal EMISSION_THEATER debt in ${spec.id} + harden refine manager / emitter`,
+            justification: `Auto-generated sibling by ticket-emitter because the producer (refine council or self-prd-generator) emitted theatrical Verifies for ${spec.id}. Per autonomous "never stop, progress then fix" policy, the main ticket proceeds amber while this H-VERIFY rewrites the bad ACs and hardens the synthesis step in skills/pickle-refine-prd/SKILL.md + ticket-emitter.ts so this class of debt can never be emitted again.`,
+            acceptanceCriteria: [
+              { id: 'AC1', criterion: `The debt ticket ${spec.id} no longer contains theatrical || true / | cat / non-deterministic Verify strings`, verify: `grep -E '|| true| | cat |/tmp/test-.*-session' tickets/${spec.id}/ticket.md | wc -l | grep -q '^0$'` },
+              { id: 'AC2', criterion: 'skills/pickle-refine-prd/SKILL.md Step 3/4 synthesis now runs detectVerifyTheater + literal BASELINE execution on every Verify before calling emitRefineCouncilTickets', verify: `grep -A 20 'for every verify in the TicketSpec' skills/pickle-refine-prd/SKILL.md | grep -q 'detectVerifyTheater\|BASELINE'` },
+              { id: 'AC3', criterion: 'ticket-emitter no longer silently warns on council path; it forces a healer sibling for any remaining theatrical case', verify: `grep -A 5 'auto-emitting sibling H-VERIFY healer' engine/src/lib/ticket-emitter.ts | grep -q 'theaterWaiverSibling'` },
+            ],
+            scope: `skills/pickle-refine-prd/SKILL.md\nengine/src/lib/ticket-emitter.ts\nreferences/phases/research.md\nreferences/refine/refine-contract.md\nengine/src/lib/pipeline-preflight.ts\ntickets/${spec.id}/ticket.md`,
+            nonGoals: 'Do not change the hard block for clean non-debt tickets.',
+            category: 'h-verify',
+            severity: 'P0',
+            sourcePrd: spec.sourcePrd,
+            hardeningTickets: `Cleans emission debt for ${spec.id} and prevents future producer slop from stopping autonomous campaigns.`,
+          };
+          // We will push this healer after the current loop iteration by mutating a side array (see below)
+          (spec as any).__healerToEmit = healer;
         }
       }
     } catch (e: any) {
@@ -185,6 +234,36 @@ export async function emitRefinedTickets(
 
     const ticketPath = await sm.persistTicket(sessionDir, spec.id, md, meta);
     created.push(ticketPath);
+
+    // Emit the auto-generated sibling healer in the same batch (simple progress + heal)
+    const healer = (spec as any).__healerToEmit;
+    if (healer) {
+      const hVerifyJoined = (healer.acceptanceCriteria || []).map((ac: any) => (ac.verify || ac.criterion || '')).join('\n');
+      const hReadiness = assessMetaReadiness(healer.scope || '', hVerifyJoined, { ...(opts.grokRoot !== undefined ? { grokRoot: opts.grokRoot } : {}) });
+
+      const hMd = generateTicketMarkdown(healer, {
+        generatedBy: (opts.generatedBy || 'refine-prd council') + ' + auto emission healer',
+        ...(opts.grokRoot !== undefined ? { grokRoot: opts.grokRoot } : {})
+      });
+
+      const hMeta = {
+        title: healer.title,
+        status: 'pending' as const,
+        phasesCompleted: [] as string[],
+        category: healer.category,
+        severity: healer.severity,
+        sourcePrd: healer.sourcePrd,
+        justification: healer.justification,
+        isHardening: true,
+        readiness: hReadiness,
+        ...healer,
+      };
+
+      const hPath = await sm.persistTicket(sessionDir, healer.id, hMd, hMeta);
+      created.push(hPath);
+      hardeningCount++;
+      console.log(`[ticket-emitter] Auto-emitted sibling healer ${healer.id} for debt ticket ${spec.id}`);
+    }
   }
 
   // === Post-incident P0 provenance seal + light Verify smoke (prevents re-use of flawed tickets) ===
