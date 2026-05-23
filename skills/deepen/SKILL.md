@@ -70,7 +70,7 @@ The real work (in `engine/src/arch-deepener.ts` and supporting drivers) will:
 2. Explore the target (using enhanced discovery that understands modules/seams, not just file counts).
 3. Apply the Deletion Test and classify modules as shallow vs deep.
 4. Present numbered **Deepening Opportunities** (Files + Problem + Proposed Seam + Expected Leverage + Locality + Testability benefits).
-5. Support an interactive "grilling" mode when the user picks a candidate (rich spawn_subagent allowed here for design exploration).
+5. Support an interactive "grilling" mode (tiny local chat/dev experiment only) when the user explicitly picks a candidate. Use engineering personas + native spawn_subagent per the chat mode rules (references/personas/engineering-council.md). Never the restricted Requirements+Codebase+Risk refinement council (locked exclusively to /pickle-refine-prd per dispatch-contract.md and AGENTS.md). Real deepening runs are headless via the engine.
 6. For autonomous runs: spawn `deepen-changer` workers that propose tiny, high-signal structural changes.
 7. Use `ConvergenceLoop` + `ManagerRitual` + gates for safe, resumable iteration.
 8. Emit trap doors and feed findings back into the self-improvement loop.

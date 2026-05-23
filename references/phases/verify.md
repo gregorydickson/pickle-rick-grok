@@ -7,7 +7,7 @@ Read the PRD acceptance criteria and the ticket's interface contracts.
 ## MANDATORY THEATER AUDIT (Verifier — before running anything)
 - Extract every Verify backtick from the ticket + prior artifacts + conformance notes.
 - Test each against the exact forbidden patterns listed in `references/phases/research.md` (THEATER REJECTION RULE + detectVerifyTheater patterns: || true, "manually observe", "after fix", bare ls, TODO/ placeholder in Verify, /* feed good, etc.).
-- **If ANY Verify string matches theatrical patterns**: immediately fail the phase. Write **"INVALID SPEC — EMISSION_THEATER: <exact match + reason>"** in `conformance_<id>.md` **before running any commands**. Do not proceed to execution. This catches what slipped research. Signal for Citadel audit (EMISSION_THEATER category).
+- **If ANY Verify string matches theatrical patterns**: immediately fail the phase. Write **"INVALID SPEC — EMISSION_THEATER: <exact match + reason>"** in `verify_<id>.md` **before running any commands**. Do not proceed to execution. This catches what slipped research. Signal for Citadel audit (EMISSION_THEATER category).
 - Only on clean theater pass: literally run every Verify command in the table (BASELINE was already proven at research; now prove SUCCESS post-impl).
 
 Run every machine-checkable verification:
@@ -16,7 +16,7 @@ Run every machine-checkable verification:
 - Relevant tests
 - Contract assertions
 
-Document results in `conformance_<id>.md`.
+Document results in `verify_<id>.md`.
 
 If anything fails (red exit, wrong output, or theater hit), the ticket does not pass this phase.
 

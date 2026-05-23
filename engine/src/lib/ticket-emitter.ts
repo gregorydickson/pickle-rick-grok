@@ -101,25 +101,25 @@ ${((spec as any).readiness.suggestedPrereqs || []).length ? '**Suggested prereqs
 ${spec.nonGoals || 'Nothing outside the listed Scope and ACs.'}
 
 ## 8-Phase Notes for the Morty Team
-- **Researcher** (MANDATORY THEATER AUDIT): First action — extract every \`Verify\` backtick from this ticket + parent PRD. Test each string against the exact forbidden patterns (see full list in research.md + pipeline-preflight.ts:detectVerifyTheater). If ANY theatrical/non-runnable/"after fix"/human-observe/|| true / "feed good" / bare ls / TODO-in-Verify pattern, or if the BASELINE form does not run deterministically on the *current* tree: mark Readiness Assessment **Status: blocked**, Reason: "EMISSION_THEATER risk — theatrical Verify in ACs (would have killed researcher/planner)", Suggested Prerequisites: "H-VERIFY hardening + re-refine". Surface in research artifact for Citadel/ritual. Do not proceed to plan.
-- **Planner**: Refuse any ticket whose research Readiness is blocked on EMISSION_THEATER or whose Verifies fail the theater list. One crisp plan only on clean runnable Verifies.
-- **Implementer**: make the change + write conformance_${spec.id}.md citing the exact Verify commands and their output.
-- **Verifier**: literally run every Verify command in the table. Fail the ticket if any red. **Additionally: if any Verify string matches the theatrical patterns list, immediately fail the phase and write "INVALID SPEC — EMISSION_THEATER: <exact match>" in conformance_*.md before running.**
-- **Reviewer / Simplifier + Research/Plan Reviewers**: Explicitly re-audit all Verifies in the ticket + artifacts for theater patterns. Any survivor → demand re-research or blocked status + EMISSION_THEATER signal.
+- **Researcher** (MANDATORY THEATER AUDIT): First action — extract every \`Verify\` backtick from this ticket + parent PRD. Test each string against the exact forbidden patterns (see full list in research.md + pipeline-preflight.ts:detectVerifyTheater). If ANY theatrical/non-runnable/"after fix"/human-observe/|| true / "feed good" / bare ls / TODO-in-Verify pattern, or if the BASELINE form does not run deterministically on the *current* tree: **check immediately for EMISSION_THEATER DEBT WAIVER block below or \`theaterWaiverSibling\` in this ticket's metadata/hardening**. If waiver present: mark **Status: amber** (debt from producer; sibling H-VERIFY-EMIT-* auto-scheduled in same batch per "never stop + progress then fix"), document the exact hits + baselines in research_*.md, then proceed with normal deep research/plan/impl so the campaign never halts. Else (no waiver): mark **Status: blocked**, Reason: "EMISSION_THEATER risk — theatrical Verify in ACs (would have killed researcher/planner)", Suggested Prerequisites: "H-VERIFY hardening + re-refine". Surface in research artifact for Citadel/ritual. Do not proceed to plan only on unwaived poison.
+- **Planner**: Refuse any ticket whose research Readiness is blocked on EMISSION_THEATER or whose Verifies fail the theater list. One crisp plan only on clean runnable Verifies. Waived debt tickets (amber + sibling present) are allowed to plan/impl.
+- **Implementer**: make the change + write implement_${spec.id}.md citing the exact Verify commands and their output.
+- **Verifier**: literally run every Verify command in the table. Fail the ticket if any red. **Additionally: if any Verify string matches the theatrical patterns list, immediately fail the phase and write "INVALID SPEC — EMISSION_THEATER: <exact match>" in verify_*.md before running.**
+- **Reviewer / Simplifier + Research/Plan Reviewers**: Explicitly re-audit all Verifies in the ticket + artifacts for theater patterns. Any survivor → demand re-research or blocked status + EMISSION_THEATER signal (unless the explicit debt waiver block is present, in which case amber + healer is the contract).
 
 ${hardening}
 
 ${(spec as any).theaterWaiverSibling ? `
 ## EMISSION_THEATER DEBT WAIVER (autonomous "never stop + progress then fix" policy)
-This ticket was emitted with theatrical Verify strings by the producer (refine council manager or self-prd-generator).
+This ticket was emitted with theatrical Verify strings (or red preflight) by the producer (refine council manager or self-prd-generator).
 
-A sibling healer ticket **${(spec as any).theaterWaiverSibling}** was auto-created in the exact same emission batch.
+A sibling healer ticket **${(spec as any).theaterWaiverSibling}** was auto-created in the exact same emission batch (see state + tickets/ dir).
 
-**Researcher / Planner / Implementer**: Treat this ticket as **amber**. Perform your normal work. The sibling H-VERIFY owns:
+**Researcher / Planner / Implementer / Verifier**: Treat this ticket as **amber** (forced by emitter). Perform your normal work + capture literal BASELINE evidence. The sibling H-VERIFY owns:
 - Rewriting the bad AC Verify columns in this ticket.md (using the exact evidence you capture in research_*.md)
-- Hardening the producer (SKILL.md synthesis step + ticket-emitter gate) so theatrical Verifies can never be emitted again.
+- Hardening the producer (SKILL.md synthesis step + ticket-emitter gate + pipeline-preflight assess) so theatrical Verifies / noisy reds can never be emitted again for council paths.
 
-Do **not** hard-block. The campaign must continue. This is the explicit "never stop" contract.
+Do **not** hard-block. The campaign must continue. This is the explicit "never stop" contract. See research.md WAIVER section for full auditor rules.
 ` : ''}
 
 When all 8 phases have emitted <promise>I AM DONE</promise> and the post-return ritual has accepted the artifacts + gates, this ticket is complete.
@@ -163,33 +163,39 @@ export async function emitRefinedTickets(
       const isAlreadyHealing = (spec.id || '').toUpperCase().startsWith('H-VERIFY') ||
                                (spec.category || '').toLowerCase().includes('h-verify');
 
-      if (theater.isTheatrical || (readiness?.status === 'red' && isMetaSelf)) {
+      // Unconditional "never stop" for council: any theatrical or red at emission from producer gets sibling healer + amber debt ticket.
+      // Meta/self still hard-fail (must not emit poison). Healer creation + waiver field makes researcher proceed amber.
+      if (theater.isTheatrical || (readiness?.status === 'red' && !isAlreadyHealing)) {
         const msg = `[ticket-emitter] HARD EMISSION GATE for ${spec.id}: theatrical=${theater.isTheatrical} readiness=${readiness?.status} (meta/self=${isMetaSelf}). Reasons: ${[...(readiness?.signals || []), ...theater.reasons].map(r => (r as any).example || r).join(' | ')}`;
 
         if (isMetaSelf && !isAlreadyHealing) {
           throw new Error(msg + ' — self/meta paths must never emit theatrical Verifies');
         } else if (!isAlreadyHealing) {
-          // Council / normal path: emit sibling healer instead of just warning. Campaign must continue.
-          console.error(msg + ' (council path — auto-emitting sibling H-VERIFY healer + amber waiver per never-stop policy)');
+          // Council / normal path (or any non-healing): auto sibling H-VERIFY healer + amber waiver. Campaign MUST continue.
+          console.error(msg + ' (council/normal path — auto-emitting sibling H-VERIFY healer + amber waiver per never-stop policy)');
 
           // Mark original for amber + debt waiver (consumed by research.md waiver + generateTicketMarkdown injection)
           (spec as any).theaterWaiverSibling = `H-VERIFY-EMIT-${spec.id}`;
-          (spec as any).readiness = readiness || { status: 'amber', score: 50, signals: [{ pattern: 'EMISSION_THEATER_DEBT', hits: theater.reasons.length }], suggestedPrereqs: [`Sibling ${ (spec as any).theaterWaiverSibling }`] };
+          // Force amber on debt ticket so Preflight section + researcher see "proceed with healer" not loud red block
+          const debtReadiness = readiness
+            ? { ...readiness, status: 'amber' as const, score: 55, summary: (readiness.summary || '').replace(/RED|red/i, 'AMBER (EMISSION_THEATER_DEBT_WAIVER)') }
+            : { status: 'amber' as const, score: 50, signals: [{ pattern: 'EMISSION_THEATER_DEBT', hits: theater.reasons.length }], suggestedPrereqs: [`Sibling H-VERIFY-EMIT-${spec.id}`], filesScanned: [], summary: 'AMBER (EMISSION_THEATER_DEBT_WAIVER)' };
+          (spec as any).readiness = debtReadiness;
           if (!(spec as any).hardeningTickets) (spec as any).hardeningTickets = '';
-          (spec as any).hardeningTickets += `\n- Auto sibling: ${(spec as any).theaterWaiverSibling} (rewrites bad Verifies + hardens refine manager / emitter)`;
+          (spec as any).hardeningTickets += `\n- Auto sibling: ${(spec as any).theaterWaiverSibling} (rewrites bad Verifies + hardens refine manager / emitter + preflight)`;
         }
 
-        // Auto-emit the sibling healer in the same batch (simple "progress + heal" mechanism)
+        // Auto-emit the sibling healer in the same batch (simple "progress + heal" mechanism) — now fires for red too
         if ((spec as any).theaterWaiverSibling && !isAlreadyHealing) {
           const hId = (spec as any).theaterWaiverSibling;
           const healer: TicketSpec = {
             id: hId,
             title: `H-VERIFY: heal EMISSION_THEATER debt in ${spec.id} + harden refine manager / emitter`,
-            justification: `Auto-generated sibling by ticket-emitter because the producer (refine council or self-prd-generator) emitted theatrical Verifies for ${spec.id}. Per autonomous "never stop, progress then fix" policy, the main ticket proceeds amber while this H-VERIFY rewrites the bad ACs and hardens the synthesis step in skills/pickle-refine-prd/SKILL.md + ticket-emitter.ts so this class of debt can never be emitted again.`,
+            justification: `Auto-generated sibling by ticket-emitter because the producer (refine council or self-prd-generator) emitted theatrical Verifies or red readiness for ${spec.id}. Per autonomous "never stop, progress then fix" policy, the main ticket proceeds amber while this H-VERIFY rewrites the bad ACs and hardens the synthesis step in skills/pickle-refine-prd/SKILL.md + ticket-emitter.ts + pipeline-preflight.ts so this class of debt can never be emitted again.`,
             acceptanceCriteria: [
-              { id: 'AC1', criterion: `The debt ticket ${spec.id} no longer contains theatrical || true / | cat / non-deterministic Verify strings`, verify: `grep -E '|| true| | cat |/tmp/test-.*-session' tickets/${spec.id}/ticket.md | wc -l | grep -q '^0$'` },
+              { id: 'AC1', criterion: `The debt ticket ${spec.id} no longer contains theatrical || true / | cat / non-deterministic Verify strings`, verify: `grep -E '\\|\\| true| \\| cat |/tmp/test-.*-session' tickets/${spec.id}/ticket.md | wc -l | grep -q '^0$'` },
               { id: 'AC2', criterion: 'skills/pickle-refine-prd/SKILL.md Step 3/4 synthesis now runs detectVerifyTheater + literal BASELINE execution on every Verify before calling emitRefineCouncilTickets', verify: `grep -A 20 'for every verify in the TicketSpec' skills/pickle-refine-prd/SKILL.md | grep -q 'detectVerifyTheater\|BASELINE'` },
-              { id: 'AC3', criterion: 'ticket-emitter no longer silently warns on council path; it forces a healer sibling for any remaining theatrical case', verify: `grep -A 5 'auto-emitting sibling H-VERIFY healer' engine/src/lib/ticket-emitter.ts | grep -q 'theaterWaiverSibling'` },
+              { id: 'AC3', criterion: 'ticket-emitter forces healer sibling + amber for ANY theatrical/red from council (not just direct theater or meta)', verify: `grep -A 5 'council/normal path' engine/src/lib/ticket-emitter.ts | grep -q 'theaterWaiverSibling'` },
             ],
             scope: `skills/pickle-refine-prd/SKILL.md\nengine/src/lib/ticket-emitter.ts\nreferences/phases/research.md\nreferences/refine/refine-contract.md\nengine/src/lib/pipeline-preflight.ts\ntickets/${spec.id}/ticket.md`,
             nonGoals: 'Do not change the hard block for clean non-debt tickets.',

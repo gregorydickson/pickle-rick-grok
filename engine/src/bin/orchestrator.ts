@@ -472,8 +472,7 @@ function buildPhasePrompt(ticket: any, phase: string, sessionDir: string, state:
   if (fs.existsSync(personaPath)) {
     roleHeader = fs.readFileSync(personaPath, 'utf8');
   } else {
-    const short = phase.replace('morty-phase-', '').replace(/-/g, ' ');
-    roleHeader = `You are Morty the ${short.charAt(0).toUpperCase() + short.slice(1)}.\nYour job is to perform this phase honestly for the ticket.`;
+    throw new Error(`[orchestrator] CRITICAL: missing persona file ${personaFile} at ${personaPath} — source tree integrity violation. Aborting to prevent silent emission of weak prompts that produce theater or giant stdout (the exact 2026-05-23 desync class). Fix the checkout or regenerate the persona.`);
   }
 
   // Short Grok-headless contract (no Claude extension assumptions, direct artifact + promise contract)
