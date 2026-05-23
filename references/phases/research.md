@@ -95,3 +95,8 @@ When finished, output:
 ```
 <promise>I AM DONE</promise>
 ```
+
+**CRITICAL RESILIENCE RULE (prevents runner-ritual desync after large researcher output, see 2026-05-23 PRD + RCA)**: 
+You MUST use your write tool (write / write_file / shell equivalent) as your *final tool action* to materialize the *complete* structured report (theater audit with literal BASELINE evidence, all sections, ## Readiness Assessment block) to the *exact canonical path* `tickets/<ticket-id>/research_<ticket-id>.md` (or research_<id>.md) inside the ticket directory. Confirm the file write succeeded via ls/read. 
+Only *after* that, your final non-tool response (the text that reaches stdout / the CLI JSON .text envelope) MUST be short: a single sentence such as "Research complete. Full report persisted to research_XXX.md." followed immediately by the promise token.
+NEVER emit the report body, long findings, file listings, or any large payload in the final message. The on-disk artifact is now the authoritative source; stdout/logs must stay tiny so that a future `mux-runner <session>` (after kill -9, OOM, or parent death) can always recover the phase from the log + artifact without manual surgery. This rule is non-negotiable for autonomous 50+ ticket runs.

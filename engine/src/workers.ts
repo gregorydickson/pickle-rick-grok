@@ -67,6 +67,24 @@ export interface WorkerResult {
 }
 
 /**
+ * Unified extraction of the worker's final text payload (handles the CLI JSON envelope
+ * used by both codex and grok paths, plus raw fallback). This is the single source for
+ * promise token checks and (for legacy giant reports) report body extraction during
+ * orphan recovery after runner death.
+ * Single source so recovery and live promise/artifact paths never drift on envelope changes.
+ */
+export function extractWorkerOutputText(rawOutput: string): string {
+  let text = rawOutput || '';
+  try {
+    const j = JSON.parse(rawOutput);
+    text = j.text || j.response || j.output || j.message || j.final || JSON.stringify(j);
+  } catch {
+    /* not JSON or no envelope — use raw */
+  }
+  return text;
+}
+
+/**
  * WorkerSpawner — Grok-native worker abstraction
  *
  * Headless grok -p is the production path per AGENTS.md. spawn_subagent only inside /pickle-refine-prd for analysts.
@@ -188,11 +206,8 @@ export class WorkerSpawner {
       });
 
       // Robust promise token + artifact discovery (handles --output-format json envelopes + partial transcripts)
-      let textForCheck = output;
-      try {
-        const j = JSON.parse(output);
-        textForCheck = j.text || j.response || j.output || j.message || j.final || JSON.stringify(j);
-      } catch {}
+      // Now uses the single unified extractor (prevents drift with recovery + grok close path)
+      const textForCheck = extractWorkerOutputText(output);
       const lowerOutput = textForCheck.toLowerCase();
       const hasPromise = textForCheck.includes('<promise>I AM DONE</promise>') ||
                          lowerOutput.includes('i am done') ||
@@ -322,16 +337,10 @@ export class WorkerSpawner {
 
     const writeLog = (chunk: Buffer | string) => {
       if (logFd != null) {
-        const fd = logFd;
         try {
-          if (typeof chunk === 'string') {
-            fs.writeSync(fd, chunk);
-          } else {
-            fs.writeSync(fd, chunk);
-          }
-        } catch {
-          /* fd closed or late write */
-        }
+          if (typeof chunk === 'string') fs.writeSync(logFd, chunk);
+          else fs.writeSync(logFd, chunk);
+        } catch { /* fd closed or late write */ }
       }
     };
 
@@ -551,11 +560,8 @@ export class WorkerSpawner {
         const output = stdoutChunks.join('') + (stderrChunks.length ? '\n' + stderrChunks.join('') : '');
 
         // same robust parse as before (json envelope or raw, promise token, artifacts)
-        let textForCheck = output;
-        try {
-          const j = JSON.parse(output);
-          textForCheck = j.text || j.response || j.output || j.message || j.final || JSON.stringify(j);
-        } catch {}
+        // Unified via extractWorkerOutputText (single source for live + orphan recovery)
+        const textForCheck = extractWorkerOutputText(output);
         const lowerOutput = textForCheck.toLowerCase();
         const hasPromise =
           textForCheck.includes('<promise>I AM DONE</promise>') ||

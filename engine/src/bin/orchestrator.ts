@@ -303,8 +303,9 @@ export async function runOrchestrator(
 
     // Resource hygiene settle — final gaps sweeper integration (long-run safe)
     try {
-      pruneDirOlderThan(path.join(sessionDir, '.worker-logs'), 48 * 3600 * 1000);
-      pruneDirOlderThan(path.join(sessionDir, '.worker-prompts'), 7 * 24 * 3600 * 1000);
+      // Corrected to real creation site (workers.ts:310 tmp/worker-logs); prior .worker-* paths were dead code (hygiene trap from RCA)
+      pruneDirOlderThan(path.join(sessionDir, 'tmp', 'worker-logs'), 48 * 3600 * 1000);
+      pruneDirOlderThan(path.join(sessionDir, 'tmp', 'worker-prompts'), 7 * 24 * 3600 * 1000);
       hintGC();
       gentleGitGc(sessionDir);
       const mem = getMemSnapshot();

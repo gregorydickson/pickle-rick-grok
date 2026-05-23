@@ -275,4 +275,72 @@ test('ManagerRitual.performPostReturn — gate fail + autoRollbackOnGateFail exe
   cleanup(root);
 });
 
+// === DESYNC ORPHAN RECOVERY (P0 from fix-runner-ritual-desync PRD + 3-analyst RCA) ===
+// Theater-free Red test: demonstrates live-only promise path defect using dynamic large-blob log injection.
+// BASELINE today: no healer → 0 recovered, artifact missing, phases empty → test fails (proves desync).
+// After Green impl of recoverOrphanPhasesFromLogs the same literal fs + state asserts will pass (SUCCESS).
+test('recoverOrphanPhasesFromLogs — P0-1/P0-4/P0-5: detects promise in worker log but missing artifact + empty phasesCompleted; materializes research_*.md and appends phase (baseline today fails proving the exact desync RCA)', async () => {
+  const sm = new (await import('../src/session.js')).SessionManager();
+  const { sessionDir } = sm.createSession('/tmp/ritual-wd-orphan', 'desync-orphan-red');
+  const ticketId = 'H-002-desync';
+  const ticketDir = path.join(sessionDir, 'tickets', ticketId);
+  fs.mkdirSync(ticketDir, { recursive: true });
+  const logDir = path.join(sessionDir, 'tmp', 'worker-logs');
+  fs.mkdirSync(logDir, { recursive: true });
+
+  // Dynamic injection of 28k-style JSON log (no 28k constant in source tree; mimics forensic 1779476970410.log envelope + promise)
+  const bigBody = 'Relevant files: engine/src/runners/mux-runner.ts, ritual.ts\nOpen questions: runner death after promise\nExisting patterns: hasPromiseToken + appendPhase\nData flows: worker log -> ritual -> state\n## Readiness Assessment\n**Status**: ready\n**Reason**: injected for exact desync RCA reproduction from 28k forensic\n' + 'x'.repeat(28000);
+  const logContent = JSON.stringify({ text: bigBody + '<promise>I AM DONE</promise>' });
+  const logPath = path.join(logDir, `${ticketId}-morty-phase-researcher-1748000000000.log`);
+  fs.writeFileSync(logPath, logContent, 'utf8');
+
+  // Minimal state: in_progress, zero phasesCompleted (the desync state after runner death)
+  const initialState = {
+    sessionId: 'desync-red-test',
+    tickets: [{ id: ticketId, title: 'desync test', path: `tickets/${ticketId}/ticket.md`, status: 'in_progress', phasesCompleted: [] as string[] }],
+    backend: 'grok'
+  };
+  fs.writeFileSync(path.join(sessionDir, 'state.json'), JSON.stringify(initialState, null, 2));
+
+  const researchArtifact = path.join(ticketDir, 'research_H-002-desync.md');
+  assert.equal(fs.existsSync(researchArtifact), false, 'BASELINE DEFECT: research artifact must be missing (live-only path never wrote it)');
+
+  // The healer under test (absent today → will be undefined or no-op, causing later asserts to fail = Red)
+  let healed: any[] = [];
+  try {
+    const mod = await import('../src/ritual.js');
+    if (typeof mod.recoverOrphanPhasesFromLogs === 'function') {
+      healed = await mod.recoverOrphanPhasesFromLogs(sessionDir);
+    }
+  } catch (e: any) {
+    // expected on Red: module or fn not yet present or throws
+  }
+
+  const stateAfter = sm.loadState(sessionDir);
+  const t = (stateAfter.tickets || []).find((x: any) => x.id === ticketId) || { phasesCompleted: [] };
+  const existsAfter = fs.existsSync(researchArtifact);
+
+  // Literal, machine-checkable, theater-free SUCCESS criteria (P0-1, P0-4, P0-5). These fail today.
+  assert.ok(healed && healed.length >= 1, 'BASELINE FAIL: must report >=1 recovered orphan phase from the promise log');
+  assert.ok(existsAfter, 'BASELINE FAIL: research_*.md must be materialized from the log content');
+  assert.ok((t.phasesCompleted || []).some((p: string) => p.includes('research')), 'BASELINE FAIL: phasesCompleted must include the research phase after recovery');
+  const written = fs.readFileSync(researchArtifact, 'utf8');
+  assert.ok(written.includes('Relevant files:'), 'recovered artifact must contain the injected report body');
+  assert.ok(written.includes('Readiness Assessment'), 'recovered artifact must contain RA block for downstream ritual/closer');
+
+  // P0-4 idempotency (second call = no-op, no dupe, no corruption)
+  let healed2: any[] = [];
+  try {
+    const mod2 = await import('../src/ritual.js');
+    if (typeof mod2.recoverOrphanPhasesFromLogs === 'function') healed2 = await mod2.recoverOrphanPhasesFromLogs(sessionDir);
+  } catch {}
+  assert.equal(healed2.length, 0, 'second pass must be pure no-op (idempotent)');
+  const state2 = sm.loadState(sessionDir);
+  const countResearch = (state2.tickets || []).find((x: any) => x.id === ticketId)!.phasesCompleted.filter((p: string) => p.includes('research')).length;
+  assert.equal(countResearch, 1, 'exactly one phase entry after two recovery passes');
+
+  // cleanup the created session dir (best-effort, not the outer tmp root)
+  try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch {}
+});
+
 console.log('[ritual-test] All core ritual paths for 50-ticket overnight validated. Gate noise in bare tmp dirs is expected (real wd has package.json). Rollback + circuit auto paths now covered.');

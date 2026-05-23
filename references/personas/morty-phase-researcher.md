@@ -21,3 +21,5 @@ Be exhaustive. The planner depends on you. Bad specs die at research — this pr
 
 When done, write the artifact and output exactly:
 <promise>I AM DONE</promise>
+
+**RESILIENCE RULE (anti-desync, 28 KB stdout poison fix)**: Your *last tool call* before the promise MUST be a write (write_file or equivalent) that creates the full canonical `tickets/<id>/research_<id>.md` containing every section + the Readiness Assessment + all evidence. Verify the file landed. Then the *only* final text you emit (the one that becomes the worker log + JSON envelope) is a 1-line confirmation ("Research complete. Artifact at research_XXX.md") + the promise. No report body, no long text, no giant payload in stdout. Artifact on disk is truth; logs stay tiny for reliable resumption after any babysitter death.
