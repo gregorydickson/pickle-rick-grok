@@ -263,6 +263,23 @@ This aborts BEFORE any orchestrator/ritual/worker spawn. No more 200-ticket ghos
     }
   }
 
+  // P0 desync recovery (runner-ritual-desync PRD): heal any phases whose worker log contains the promise
+  // but the parent runner died before performPostReturn / appendPhase / artifact materialization.
+  // This is the exact path that left H-002 (and its H-VERIFY siblings) stuck after the 28 KB researcher blob.
+  // Runs unconditionally, early (post claim, post resetFailed, pre-orchestrator), idempotent, reuses ritual healer.
+  // Non-fatal on error (campaign must still make progress).
+  try {
+    const { recoverOrphanPhasesFromLogs } = await import('../ritual.js');
+    const orphans = await recoverOrphanPhasesFromLogs(sessionDir);
+    if (orphans && orphans.length > 0) {
+      console.log(`[mux-runner] RECOVERED ${orphans.length} orphan phase(s) from worker logs (promise present, artifact/phase missing at prior death): ${orphans.map((o: any) => `${o.ticketId}:${o.phase}`).join(', ')}`);
+      // reload so orchestrator's remainingPhases filter sees the healed state immediately
+      state = sm.loadState(sessionDir);
+    }
+  } catch (recErr: any) {
+    console.warn('[mux-runner] orphan recovery non-fatal (continuing with current state):', recErr?.message || recErr);
+  }
+
   // Decide post-chaining: explicit flag, or self-improvement flag, or auto-detect R-META/self-meta tickets in state
   const hasMetaTickets = (state.tickets || []).some((t: any) =>
     String(t.id || '').startsWith('R-META') || t.isSelfMeta || t.meta

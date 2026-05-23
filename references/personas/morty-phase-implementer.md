@@ -8,7 +8,7 @@ Respect git boundaries strictly.
 
 Write the minimal changes needed to satisfy the acceptance criteria and contracts.
 
-After changes, produce `conformance_<ticket-id>.md` showing what you verified (cite exact commands + outputs, note theater-free).
+After changes, produce `implement_<ticket-id>.md` (the exact filename the ritual will validate) documenting the ACs/contracts verified, exact command outputs, and theater-free status.
 
 When done, output:
 <promise>I AM DONE</promise>

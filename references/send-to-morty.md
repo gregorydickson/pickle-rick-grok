@@ -1,4 +1,15 @@
-# Send to Morty — Grok Subagent Worker Contract (8-Phase Lifecycle)
+# Send to Morty — LEGACY / ARCHIVAL (replaced 2026-05)
+
+**This file is vestigial.** Active production prompts for Morty phases are assembled in orchestrator.ts:buildPhasePrompt from:
+- references/personas/morty-phase-*.md (the role definition)
+- references/phases/*.md (the phase contract + theater rules + resilience)
+- the injected grokContract + ticket content
+
+It is retained only for historical reference. Do not load or inject it for new campaigns. Old artifact names (conformance_, code_review_) and manager assumptions have been purged from the live paths.
+
+--- 
+
+# Send to Morty — Grok Subagent Worker Contract (8-Phase Lifecycle) [ARCHIVAL]
 
 This is the core prompt template injected into every Morty subagent (via persona or direct prompt).
 

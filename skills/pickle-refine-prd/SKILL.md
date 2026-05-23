@@ -8,15 +8,15 @@ triggers:
   - decompose tickets
   - 3-analyst
 references:
-  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/refine/refine-contract.md
-  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/refine/ticket-template.md
-  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/personas/requirements-analyst.md
-  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/personas/codebase-analyst.md
-  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/personas/risk-analyst.md
-  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/prd-template.md
-  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/persona.md
+  - path: ../../references/refine/refine-contract.md
+  - path: ../../references/refine/ticket-template.md
+  - path: ../../references/personas/requirements-analyst.md
+  - path: ../../references/personas/codebase-analyst.md
+  - path: ../../references/personas/risk-analyst.md
+  - path: ../../references/prd-template.md
+  - path: ../../references/persona.md
     conditional: true
-  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/spawn-subagent-contract.md
+  - path: ../../references/spawn-subagent-contract.md
 ---
 
 # Pickle Refine PRD — Large Agent Team Decomposition (The One Exception)
@@ -26,7 +26,7 @@ This is the **only** process in the entire Pickle Rick Grok system that is allow
 
 Everything downstream (the 8-phase ticket work, anatomy, szechuan, citadel, overnight runs) deliberately uses the reliable headless `grok -p` + `WorkerSpawner` + `ManagerRitual` path for crash safety and detachability.
 
-See `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/refine-contract.md` for the full philosophy and rules.
+See the referenced `references/refine/refine-contract.md` (resolved relative to the skill or via install to the stable home).
 
 ## Step 0: Bootstrap / Session
 **Always** obtain or create a canonical session first (the session directory is the run context for state + tickets).
@@ -57,8 +57,8 @@ The preflight in run-pipeline + stamp is what killed the zombie session problem.
 
 ## Step 1: Load Inputs
 - Read the original `prd.md` (or `prds/latest.md` etc.)
-- Read `/Users/gregorydickson/.grok/pickle-rick-grok/references/prd-template.md`
-- Read the full refine contract: `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/refine-contract.md`
+- Read the referenced `references/prd-template.md` (portable across source and installed locations)
+- Read the full refine contract: `references/refine/refine-contract.md` (resolved from skill root or installed home)
 - Explore the target tree (list_dir, grep, read key files in engine/src, skills/, etc.)
 
 If no `prd.md` exists yet, tell the user to run `/pickle-prd` first.
@@ -95,8 +95,9 @@ After the analysts are quiet:
 
 **Default behavior (in-place refinement)**: Overwrite the **original input PRD file** (the exact path the user supplied to you in Step 1) with the fully refined version.
    - This is now the canonical and preferred behavior. "Refine this PRD" means upgrade the artifact the user gave you.
-   - Follow the exact structure of `/Users/gregorydickson/.grok/pickle-rick-grok/references/prd-template.md`
+   - Follow the exact structure of `../../references/prd-template.md`
    - Every single requirement row **must** have a real, runnable Verification column.
+   - **THEATER AUDIT (non-negotiable before emit)**: For every proposed Verify in the AC/Verification tables, run the equivalent of `detectVerifyTheater` (from engine/src/lib/pipeline-preflight.ts) + mentally execute a BASELINE form on current tree. If ANY || true, | cat, invented path, future-tense, "after fix", bare observation, non-deterministic, or non-runnable-today pattern: either rewrite the Verify to explicit BASELINE (runnable today, asserts the gap) vs SUCCESS, or explicitly attach a sibling H-VERIFY-* healer ticket in the specs you will emit. Do not emit poison that would hard-stop the autonomous campaign.
    - Add a "Hardening Tickets" section at the bottom if the Risk/Codebase analysts surfaced material new surfaces.
    - The file on disk is upgraded in place. No extra `prd_refined.md` sprawl.
 
@@ -131,7 +132,7 @@ console.log(`Emitted ${result.count} tickets (${result.hardeningCount} hardening
 
 This is the library seam. The chat manager only collects the `TicketSpec` objects from the analysts — the machine owns the emission.
 
-Use the exact shape from `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/ticket-template.md`.
+Use the exact shape from `../../references/refine/ticket-template.md`.
 
 After all tickets:
 - Update `state.tickets` array + `state.step = 'implementing'`
@@ -194,7 +195,7 @@ The next (auto-launched) invocation will hit the now-legal sealed prior (real ti
 - The original PRD (now updated in place) must be good enough that Citadel and the next self-PRD generator are happy with it. If a sidecar was explicitly requested, the `prd_refined.md` must also satisfy the same bar.
 
 ## Why Only This Step Gets the Big Native Team
-See the top of `/Users/gregorydickson/.grok/pickle-rick-grok/references/refine/refine-contract.md`.  
+See the top of `../../references/refine/refine-contract.md`.  
 Refinement is the last high-creativity, high-judgment, multi-perspective act. Once the tickets are cut, we want boring, reliable, detachable, resumable execution via the headless path. This split is intentional and architectural.
 
 Rick: "The analysts are the last chance to catch Jerry's vague bullshit before it becomes 50 tickets of technical debt. Use the full power of Grok's spawn_subagent. Make the food good, Morty."

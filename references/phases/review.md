@@ -12,6 +12,6 @@ Check for:
 
 You may make small fixes yourself if they are mechanical.
 
-Produce `code_review_<id>.md` with findings + any fixes applied.
+Produce `review_<id>.md` (canonical name) with findings + any fixes applied.
 
 The ticket is not complete until this review is satisfactory.

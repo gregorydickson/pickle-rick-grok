@@ -11,7 +11,7 @@ Write the code, add tests if required by the ticket, run the project's typecheck
 
 ## Required Output
 - Actual code changes (committed)
-- `conformance_<id>.md` documenting which ACs and contracts were verified and how
+- `implement_<id>.md` (canonical name from phase-utils) documenting which ACs and contracts were verified and how (cite exact outputs)
 
 End with:
 ```

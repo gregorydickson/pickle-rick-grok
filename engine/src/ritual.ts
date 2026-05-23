@@ -17,7 +17,8 @@ import { CircuitBreaker } from './circuit.js';
 import { getGitHead, getChangedPaths, safeRollback } from './git_safety.js';
 import { Activity } from './activity-logger.js';
 import type { ReadinessAssessment } from './types.js';
-import { getTicketStallLimit } from './lib/phase-utils.js';
+import { getTicketStallLimit, getExpectedArtifactName } from './lib/phase-utils.js';
+import { extractWorkerOutputText } from './workers.js';
 
 export function hasPromiseToken(output: string): boolean {
   return /<promise>\s*I\s+AM\s+DONE\s*<\/promise>/i.test(output || '');
@@ -113,6 +114,97 @@ export function extractReadinessAssessment(artifactContent: string): ReadinessAs
     reason,
     extractedFromResearch: true,
   };
+}
+
+/**
+ * recoverOrphanPhasesFromLogs
+ * P0 desync fix (see prds/fix-runner-ritual-desync-after-large-researcher-output-2026-05-23.md + RCA from requirements/codebase/risk/plan agents).
+ * On every mux-runner launch (and recover tool), scan tmp/worker-logs for any log whose content contains a well-formed
+ * promise token for a phase whose artifact is missing and whose phase is not yet in the ticket's phasesCompleted.
+ * Materializes the report text (from JSON .text envelope or raw — handles the exact 28k forensic blob) into the canonical
+ * research_*.md (or plan_ etc), then calls the same locked appendPhase the live ritual uses.
+ * Idempotent, per-log try/catch, skips 0B/empty, best-effort RA validation on recovered content.
+ * Runtime-only mutation of *session* state/ticket dirs (never source root) — compliant with source-only + self-mut rules.
+ * Returns list of recovered {ticketId, phase, artifactPath} for logging / campaign-status.
+ */
+export async function recoverOrphanPhasesFromLogs(sessionDir: string): Promise<Array<{ticketId: string; phase: string; artifactPath: string}>> {
+  const sm = new SessionManager();
+  const healed: Array<{ticketId: string; phase: string; artifactPath: string}> = [];
+  const logDir = path.join(sessionDir, 'tmp', 'worker-logs');
+  if (!fs.existsSync(logDir)) return healed;
+  let logFiles: string[] = [];
+  try {
+    logFiles = fs.readdirSync(logDir).filter(f => f.endsWith('.log') && fs.statSync(path.join(logDir, f)).size > 0);
+  } catch {
+    return healed;
+  }
+  // sort newest first per ticket/role to prefer latest attempt
+  logFiles.sort((a, b) => b.localeCompare(a));
+
+  for (const f of logFiles) {
+    try {
+      const lp = path.join(logDir, f);
+      const raw = fs.readFileSync(lp, 'utf8');
+      if (!raw) continue;
+      const textForCheck = extractWorkerOutputText(raw);
+      if (!hasPromiseToken(raw) && !hasPromiseToken(textForCheck)) continue;
+
+      // Filename convention from workers: ${ticketId}-${role}-${ts}.log  (role e.g. morty-phase-researcher)
+      const m = f.match(/^([A-Za-z0-9._-]+)-(morty-phase-[a-z-]+)-\d+\.log$/);
+      if (!m) continue;
+      const ticketId = m[1];
+      const phaseRole = m[2]; // canonical e.g. 'morty-phase-researcher' — appendPhase accepts the role string used in TICKET_PHASES
+
+      const ticketDir = path.join(sessionDir, 'tickets', ticketId);
+      if (!fs.existsSync(ticketDir)) continue;
+
+      const expectedName = getExpectedArtifactName(phaseRole, ticketId);
+      const artifactPath = path.join(ticketDir, expectedName);
+
+      const state = sm.loadState(sessionDir);
+      const t = (state.tickets || []).find((x: any) => x.id === ticketId);
+      const alreadyDone = !!(t && (t.phasesCompleted || []).includes(phaseRole));
+      const alreadyArtifact = fs.existsSync(artifactPath);
+
+      if (alreadyArtifact && alreadyDone) continue; // fully idempotent no-op
+
+      if (alreadyArtifact) {
+        // Prefer the on-disk artifact (post-resilience direct-write case: Morty wrote research_*.md via tool, runner died before append)
+        if (!alreadyDone) {
+          await sm.appendPhase(sessionDir, ticketId, phaseRole, artifactPath);
+          healed.push({ ticketId, phase: phaseRole, artifactPath });
+        }
+        continue;
+      }
+
+      // Legacy path (pre-resilience giant stdout blob in log, no artifact yet) — materialize from the captured report text
+      let report = textForCheck.replace(/<promise>[\s\S]*?<\/promise>/i, '').trim();
+      if (!report || report.length < 50) {
+        report = raw.replace(/<promise>[\s\S]*?<\/promise>/i, '').trim() || 'Orphan phase recovered from worker log. No structured report body was present in the captured stdout (post-contract short-stdout run or early death). Re-run the phase for full artifact.';
+      }
+
+      // Atomic write for the artifact (tmp+rename, survives crash mid-write; risk mitigation from RCA)
+      const tmpMd = artifactPath + `.tmp-orphan-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      fs.mkdirSync(path.dirname(artifactPath), { recursive: true });
+      fs.writeFileSync(tmpMd, report + '\n\n<!-- RECOVERED_ORPHAN_PHASE from ' + f + ' at ' + new Date().toISOString() + ' -->\n', 'utf8');
+      fs.renameSync(tmpMd, artifactPath);
+
+      // Use the exact same locked append as live ritual (self-mut safe, idempotent inside appendPhase)
+      await sm.appendPhase(sessionDir, ticketId, phaseRole, artifactPath);
+
+      healed.push({ ticketId, phase: phaseRole, artifactPath });
+
+      // Best-effort observability (no new hard dependency; Activity may be soft)
+      try {
+        const sessId = path.basename(sessionDir);
+        Activity.workerOutcome?.(sessId, phaseRole as any, true, ticketId, { reason: 'recovered_orphan_log', logFile: f, artifact: expectedName });
+      } catch { /* non-fatal */ }
+    } catch (e: any) {
+      console.warn('[ritual] per-log orphan recovery skipped (robust):', f, e?.message || e);
+      continue;
+    }
+  }
+  return healed;
 }
 
 export class ManagerRitual {

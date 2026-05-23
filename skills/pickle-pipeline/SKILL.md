@@ -17,9 +17,9 @@ triggers:
   - run a pipeline on prds
   - run pipeline on
 references:
-  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/persona.md
+  - path: ../../references/persona.md
     conditional: true
-  - path: /Users/gregorydickson/.grok/pickle-rick-grok/references/dispatch-contract.md
+  - path: ../../references/dispatch-contract.md
     conditional: true
 ---
 # Pickle Pipeline — The Whole Damn Thing (Grok Edition) — REAL

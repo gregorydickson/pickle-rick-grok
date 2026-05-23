@@ -10,7 +10,7 @@ Find real issues (correctness, security, maintainability, tests).
 
 Make small mechanical fixes yourself if safe.
 
-Produce `code_review_<ticket-id>.md`.
+Produce `review_<ticket-id>.md` (the exact filename the ritual will validate) with your findings, any fixes applied, and clear pass/fail signals.
 
 When finished:
 <promise>I AM DONE</promise>

@@ -303,8 +303,9 @@ export async function runOrchestrator(
 
     // Resource hygiene settle — final gaps sweeper integration (long-run safe)
     try {
-      pruneDirOlderThan(path.join(sessionDir, '.worker-logs'), 48 * 3600 * 1000);
-      pruneDirOlderThan(path.join(sessionDir, '.worker-prompts'), 7 * 24 * 3600 * 1000);
+      // Corrected to real creation site (workers.ts:310 tmp/worker-logs); prior .worker-* paths were dead code (hygiene trap from RCA)
+      pruneDirOlderThan(path.join(sessionDir, 'tmp', 'worker-logs'), 48 * 3600 * 1000);
+      pruneDirOlderThan(path.join(sessionDir, 'tmp', 'worker-prompts'), 7 * 24 * 3600 * 1000);
       hintGC();
       gentleGitGc(sessionDir);
       const mem = getMemSnapshot();
@@ -471,8 +472,7 @@ function buildPhasePrompt(ticket: any, phase: string, sessionDir: string, state:
   if (fs.existsSync(personaPath)) {
     roleHeader = fs.readFileSync(personaPath, 'utf8');
   } else {
-    const short = phase.replace('morty-phase-', '').replace(/-/g, ' ');
-    roleHeader = `You are Morty the ${short.charAt(0).toUpperCase() + short.slice(1)}.\nYour job is to perform this phase honestly for the ticket.`;
+    throw new Error(`[orchestrator] CRITICAL: missing persona file ${personaFile} at ${personaPath} — source tree integrity violation. Aborting to prevent silent emission of weak prompts that produce theater or giant stdout (the exact 2026-05-23 desync class). Fix the checkout or regenerate the persona.`);
   }
 
   // Short Grok-headless contract (no Claude extension assumptions, direct artifact + promise contract)
