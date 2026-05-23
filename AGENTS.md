@@ -4,12 +4,13 @@ Local rules for agents working in this source tree.
 
 ## Project Objectives
 
-Build a production-grade autonomous engineering system that can:
+Build a system that autonomously runs and develops systems using PRDs. The overriding principle is: **never stop and ask the user**. Always continue working until something is created. Overcome issues and keep developing — they will be ironed out in the polishing phases (Anatomy Park and Szechuan Sauce). While we are currently bootstrapping pickle-rick-grok and may perform manual fixes ourselves, the purpose of the system is completely autonomous development.
 
-- Run full campaigns (PRD → tickets → 8-phase ritual → convergence) via headless `grok -p` + orchestrator at 50+ ticket scale.
-- Drive sustained improvement via Anatomy Park (deep review), Szechuan Sauce (deslopping), and Citadel (conformance + traps).
-- Do self-directed iteration: discover gaps, emit self-PRDs, execute, measure deltas, repeat — approaching Karpathy-style autoresearch for engineering.
-- Dogfood aggressively while enforcing strict source vs deployed separation.
+The system should be capable of:
+
+- Running full campaigns (PRD → tickets → 8-phase ritual → convergence) via headless `grok -p` + orchestrator at 50+ ticket scale.
+- Driving sustained improvement via Anatomy Park (deep review), Szechuan Sauce (deslopping), and Citadel (conformance + traps).
+- Dogfooding aggressively while enforcing strict source vs deployed separation.
 
 ## Core Safety Rules
 

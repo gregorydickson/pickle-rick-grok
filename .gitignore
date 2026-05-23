@@ -40,3 +40,7 @@ coverage/
 # Misc
 *.tgz
 *.tar.gz
+
+# GitNexus (opt-in deep codebase graph via --with-gitnexus)
+.gitnexus/
+gitnexus*.log
