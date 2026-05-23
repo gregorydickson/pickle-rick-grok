@@ -34,8 +34,17 @@ export function writeJsonAtomic(filePath: string, data: unknown): void {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
   const tmp = `${filePath}.tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  const fd = fs.openSync(tmp, 'w');
+  fs.writeSync(fd, JSON.stringify(data, null, 2));
+  fs.fsyncSync(fd);
+  fs.closeSync(fd);
   fs.renameSync(tmp, filePath);
+  // Dir fsync (best-effort cross-platform; critical for durability on SIGKILL/power loss)
+  try {
+    const dirFd = fs.openSync(dir, process.platform === 'win32' ? 'r' : (fs.constants.O_RDONLY | fs.constants.O_DIRECTORY));
+    fs.fsyncSync(dirFd);
+    fs.closeSync(dirFd);
+  } catch {}
 }
 
 /** Helper for the lock file (used by production orchestrator + withFileLock). */

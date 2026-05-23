@@ -17,7 +17,7 @@ import { CircuitBreaker } from './circuit.js';
 import { getGitHead, getChangedPaths, safeRollback } from './git_safety.js';
 import { Activity } from './activity-logger.js';
 import type { ReadinessAssessment } from './types.js';
-import { getTicketStallLimit, getExpectedArtifactName } from './lib/phase-utils.js';
+import { getTicketStallLimit, getExpectedArtifactName, getExpectedDoneMarkerName, hasPhaseDoneMarker, findDoneMarkersForTicket, getPhaseRoleFromStem } from './lib/phase-utils.js';
 import { extractWorkerOutputText } from './workers.js';
 
 export function hasPromiseToken(output: string): boolean {
@@ -140,6 +140,65 @@ export async function recoverOrphanPhasesFromLogs(sessionDir: string): Promise<A
   }
   // sort newest first per ticket/role to prefer latest attempt
   logFiles.sort((a, b) => b.localeCompare(a));
+
+  // New marker-first discovery (primary durable signal per 2026-05 desync RCA)
+  const allDoneMarkers: string[] = [];
+  try {
+    const ticketsDir = path.join(sessionDir, 'tickets');
+    if (fs.existsSync(ticketsDir)) {
+      const ticketDirs = fs.readdirSync(ticketsDir).filter(d => fs.statSync(path.join(ticketsDir, d)).isDirectory());
+      for (const tid of ticketDirs) {
+        allDoneMarkers.push(...findDoneMarkersForTicket(sessionDir, tid));
+      }
+    }
+  } catch {}
+
+  // Process marker-driven heals first (most reliable, parent-death proof)
+  for (const markerPath of allDoneMarkers) {
+    try {
+      const base = path.basename(markerPath, '.done');
+      // expected form: <stem>_<ticketId>.done  (stem e.g. research_H-001)
+      const m = base.match(/^(.+)_([A-Za-z0-9._-]+)$/);
+      if (!m) continue;
+      const stem = m[1];
+      const ticketId = m[2];
+      // Clean reverse mapping (single source of truth in phase-utils)
+      const phaseRole = getPhaseRoleFromStem(stem);
+
+      const ticketDir = path.join(sessionDir, 'tickets', ticketId);
+      const expectedName = getExpectedArtifactName(phaseRole, ticketId);
+      const artifactPath = path.join(ticketDir, expectedName);
+
+      const state = sm.loadState(sessionDir);
+      const t = (state.tickets || []).find((x: any) => x.id === ticketId);
+      const alreadyDone = !!(t && (t.phasesCompleted || []).includes(phaseRole));
+
+      if (alreadyDone) continue;
+
+      const markerPresent = hasPhaseDoneMarker(sessionDir, ticketId, phaseRole);
+      const artifactPresent = fs.existsSync(artifactPath);
+
+      if (markerPresent || artifactPresent) {
+        // Marker or durable artifact present → heal (idempotent append)
+        await sm.appendPhase(sessionDir, ticketId, phaseRole, artifactPath || markerPath);
+        healed.push({ ticketId, phase: phaseRole, artifactPath: artifactPath || markerPath });
+        // Bootstrap the primary .done signal if this was an artifact-only heal (makes future recoveries marker-first)
+        if (!markerPresent && artifactPath) {
+          try {
+            const markerP = getExpectedDoneMarkerPath(sessionDir, ticketId, phaseRole);
+            fs.writeFileSync(markerP, `healed at ${new Date().toISOString()} via artifact (post-desync RCA)\n`);
+          } catch {}
+        }
+        try {
+          const sessId = path.basename(sessionDir);
+          Activity.workerOutcome?.(sessId, phaseRole as any, true, ticketId, { reason: 'recovered_via_done_marker', marker: markerPath, artifact: expectedName });
+        } catch {}
+      }
+    } catch (e: any) {
+      console.warn('[ritual] marker-driven orphan recovery skipped:', markerPath, e?.message || e);
+      continue;
+    }
+  }
 
   for (const f of logFiles) {
     try {

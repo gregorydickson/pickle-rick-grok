@@ -24,6 +24,7 @@
 
 import type { WorkerRole } from '../workers.js';
 import * as fs from 'fs';
+import * as path from 'path';
 
 export const TICKET_PHASES: readonly WorkerRole[] = [
   'morty-phase-researcher',
@@ -140,6 +141,49 @@ export function getPhaseFileName(phase: string): string {
 export function getExpectedArtifactName(phase: string, ticketId: string): string {
   const stem = getPhaseFileName(phase);
   return `${stem}_${ticketId}.md`;
+}
+
+export function getExpectedDoneMarkerName(phase: string, ticketId: string): string {
+  const stem = getPhaseFileName(phase);
+  return `${stem}_${ticketId}.done`;
+}
+
+export function getExpectedDoneMarkerPath(sessionDir: string, ticketId: string, phase: string): string {
+  return path.join(sessionDir, 'tickets', ticketId, getExpectedDoneMarkerName(phase, ticketId));
+}
+
+export function hasPhaseDoneMarker(sessionDir: string, ticketId: string, phase: string): boolean {
+  try { return fs.existsSync(getExpectedDoneMarkerPath(sessionDir, ticketId, phase)); } catch { return false; }
+}
+
+export function findDoneMarkersForTicket(sessionDir: string, ticketId: string): string[] {
+  const dir = path.join(sessionDir, 'tickets', ticketId);
+  try {
+    return fs.readdirSync(dir).filter(f => f.endsWith('.done')).map(f => path.join(dir, f));
+  } catch { return []; }
+}
+
+/** Bidirectional stem ↔ phaseRole (single source of truth, kills the brittle if-chain in recovery) */
+const PHASE_STEM_MAP: Record<string, string> = {
+  'research': 'morty-phase-researcher',
+  'research_review': 'morty-phase-research-reviewer',
+  'plan': 'morty-phase-planner',
+  'plan_review': 'morty-phase-plan-reviewer',
+  'implement': 'morty-phase-implementer',
+  'verify': 'morty-phase-verifier',
+  'review': 'morty-phase-reviewer',
+  'simplify': 'morty-phase-simplifier',
+};
+
+export function getPhaseRoleFromStem(stem: string): string {
+  return PHASE_STEM_MAP[stem] || stem;
+}
+
+export function getStemFromPhaseRole(role: string): string {
+  for (const [stem, r] of Object.entries(PHASE_STEM_MAP)) {
+    if (r === role) return stem;
+  }
+  return role.replace(/^morty-phase-/, '').replace(/-/g, '_');
 }
 
 /** Shared atomic-safe read (prevents boilerplate try/catch everywhere). */
