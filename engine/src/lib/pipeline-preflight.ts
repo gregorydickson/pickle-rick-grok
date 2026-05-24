@@ -18,6 +18,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { Activity } from '../activity-logger.js';
 import type { PreflightReport, ReadinessAssessment } from '../types.js';
 
@@ -610,8 +611,32 @@ export function evaluateAcShapeEnforcement(smells: Array<{type?: string; locatio
 
 const FORWARD_REF_ANNOTATION_RE = /\s\(forward-created\)|\s\(created by ticket [A-Za-z0-9-]{3,20}\)|\s\(introduced by ticket [^\)]{3,30}\)/;
 
-/** scanAnalystOutputsForUnverifiedPaths + forward-ref annotation format check (lightweight; full git verification is prompt-enforced on analysts via PATH_VERIFICATION_PROMPT_SECTION). */
-export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, ticketManifestOrTicketsText = ''): { errors: string[]; warnings: string[]; passed: boolean; checkedTokens: number } {
+/** Exact forward-ref annotation contract (Claude R-RTRC-7 / R-SAOV-7 style, one ASCII space outside backticks). */
+const VALID_FORWARD_ANNO = ['forward-created', 'created by ticket ', 'introduced by ticket '];
+const ANNOTATED_PATH_RE = /`([^`]+?)`\s{1}(\((?:forward-created|created by ticket [A-Za-z0-9_.-]{3,25}|introduced by ticket [A-Za-z0-9_.-]{3,25})\))/gi;
+const BARE_PATH_RE = /`([a-zA-Z0-9_\/.-]+\.(?:ts|js|tsx|jsx|mjs|cjs|md|json|sh|yml|yaml))`/g;
+
+/** Verify a candidate path exists on disk or via git (at HEAD). Non-fatal on git fail. */
+function pathExistsUnderGit(rel: string, root: string): boolean {
+  const cleaned = rel.replace(/^\.\/|^\/+/, '');
+  if (!cleaned || cleaned.includes('node_modules')) return false;
+  const abs = path.isAbsolute(cleaned) ? cleaned : path.join(root, cleaned);
+  try {
+    execSync(`git ls-files --error-unmatch -- "${cleaned}"`, {
+      cwd: root,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 3000
+    });
+    return true;
+  } catch {
+    return fs.existsSync(abs);
+  }
+}
+
+/** scanAnalystOutputsForUnverifiedPaths + forward-ref annotation format check (lightweight; full git verification is prompt-enforced on analysts via PATH_VERIFICATION_PROMPT_SECTION).
+ * Enhanced with git ls-files enforcement + exact annotation regex (P0 Claude hygiene, folded into the single preflight home per review).
+ */
+export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, ticketManifestOrTicketsText = '', grokRoot = process.cwd()): { errors: string[]; warnings: string[]; passed: boolean; checkedTokens: number } {
   const errors: string[] = [];
   const warnings: string[] = [];
   const combined = `${analystOutputs || ''}\n${ticketManifestOrTicketsText || ''}`;
@@ -621,7 +646,6 @@ export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, tic
   while ((m = backtickRe.exec(combined)) !== null) {
     const tok = (m[1] || '').trim();
     if (!tok || tok.length < 3) continue;
-    // skip obvious stdlib / node built-ins (never backtick per rule)
     if (/^(fs|path|os|child_process|crypto|util|stream|http|https|node:|[A-Z][a-z]+Error)\b/.test(tok)) continue;
     checked++;
     const contextAfter = combined.substring(m.index + m[0].length, Math.min(combined.length, m.index + m[0].length + 80));
@@ -630,7 +654,36 @@ export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, tic
       errors.push(`Forward-ref hygiene violation for \`${tok}\`: annotation must be exactly one ASCII space followed by (forward-created) or (created by ticket <hash>) or (introduced by ticket ...). Found near: ${contextAfter.slice(0,40)}`);
     }
   }
-  // Light ac_shape_smells structural check
+
+  // Full git-enforced forward-ref scan (exact Claude R-RTRC-7 style)
+  const seen = new Set<string>();
+  let m2: RegExpExecArray | null;
+  while ((m2 = ANNOTATED_PATH_RE.exec(combined)) !== null) {
+    const p = (m2[1] ?? '').trim();
+    const anno = m2[2] ?? '';
+    const key = `${p}:${anno}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const valid = VALID_FORWARD_ANNO.some(v => anno.includes(v));
+    if (!valid) {
+      errors.push(`Malformed forward-ref annotation on \`${p}\`: "${anno}". Must be exactly one space then (forward-created) or (created by ticket <hash>) or (introduced by ticket ...).`);
+    } else if (!pathExistsUnderGit(p, grokRoot)) {
+      // allowed for forward-created
+    }
+  }
+  BARE_PATH_RE.lastIndex = 0;
+  while ((m2 = BARE_PATH_RE.exec(combined)) !== null) {
+    const p = (m2[1] ?? '').trim();
+    if (seen.has(p)) continue;
+    seen.add(p);
+    const idx = m2.index ?? 0;
+    const context = combined.slice(Math.max(0, idx - 30), idx + m2[0].length + 20);
+    const hasValidAnnoNearby = ANNOTATED_PATH_RE.test(context);
+    if (!hasValidAnnoNearby && !pathExistsUnderGit(p, grokRoot)) {
+      errors.push(`Backticked path \`${p}\` does not exist on disk / git HEAD and carries no valid forward-ref annotation. Every backticked path/symbol in ACs/Verifies/Scope must be verified with git ls-files/git grep before emission.`);
+    }
+  }
+
   if (/##\s*ac_shape_smells/i.test(combined) && !/"smells"\s*:\s*\[/i.test(combined)) {
     warnings.push('ac_shape_smells section present but missing expected machine-readable JSON { "smells": [...] } shape');
   }
@@ -638,4 +691,20 @@ export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, tic
   return { errors, warnings, passed, checkedTokens: checked };
 }
 
+/** Machinability check layered on detectVerifyTheater (MACHINE_HINT_RE vs PURE_PROSE_RE). */
+const MACHINE_HINT_RE = /\b(exit (0|1|code|codes)|assert|expect|===|==|!=|length|includes|count|rows?|entries?|table|JSON\.parse|parseInt|grep -[cq]|test -[ef]|tsc --noEmit|node --test|describe\.each|writes? (to|file|artifact)|emits? (event|signal)|--check|status.*0|\d+ (files?|lines?|matches?))\b/i;
+const PURE_PROSE_RE = /\b(must (feel|be|look|seem|appear)|should (be|feel|look)|robust|fast(er)?|good|clean|intuitive|reliable|performant|scalable|user-friendly)\b/i;
+
+export function checkVerifyMachinability(verify: string): { isMachineCheckable: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  if (PURE_PROSE_RE.test(verify) && !MACHINE_HINT_RE.test(verify)) {
+    reasons.push('pure prose without machine hints');
+  }
+  if (!MACHINE_HINT_RE.test(verify) && !/\|.+\|/.test(verify) && !/`[^`]+`/.test(verify)) {
+    reasons.push('no machine-actionable hints or structured output');
+  }
+  return { isMachineCheckable: reasons.length === 0, reasons };
+}
+
 export type { ReadinessAssessment };
+export { scanAnalystOutputsForUnverifiedPaths, checkVerifyMachinability, evaluateAcShapeEnforcement };

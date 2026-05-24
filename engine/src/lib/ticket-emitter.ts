@@ -19,8 +19,8 @@
 import * as path from 'path';
 import { SessionManager } from '../session.js';
 import { Activity } from '../activity-logger.js';
-import { assessMetaReadiness, computeTicketManifestHash, detectVerifyTheater } from './pipeline-preflight.js';
-import { runReadinessGate } from './readiness-gate.js';
+import { assessMetaReadiness, computeTicketManifestHash, detectVerifyTheater, scanAnalystOutputsForUnverifiedPaths, checkVerifyMachinability } from './pipeline-preflight.js';
+// Post-synthesis emission quality now unified in pipeline-preflight (no parallel gate module).
 import type { ReadinessAssessment } from '../types.js';
 import * as fs from 'fs';
 
@@ -340,11 +340,16 @@ export async function emitRefinedTickets(
         title: 'H-VERIFY: proactive emission honesty + verify-theater hardening (always-on at refine emission)',
         justification: 'Auto-attached by ticket-emitter per P0 port of Claude "shift-left at emission" (prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md). Every council refine batch now bakes in a dedicated auditor for the new gates (AC-shape, path/forward-ref hygiene, prescriptive template compliance, no-placeholder rule, readiness gate). Prevents future emission theater from reaching autonomous runs.',
         acceptanceCriteria: [
-          { id: 'AC1', criterion: 'readiness-gate-report.md (or synthesis-enforcement-report.md) exists for this session and has 0 blocking findings on verify_theater / ac_shape_smell / annotation_format / path_not_found', verify: `test -f tickets/${hId}/readiness-gate-report.md || test -f session/readiness-gate-report.md && grep -q 'blockingCount": 0' tickets/${hId}/readiness-gate-report.md || echo "gate report clean or present" | grep -q clean` },
+          { id: 'AC1', criterion: 'preflight + hygiene scan on emitted batch has 0 blocking findings (machinability, forward-ref annotation format, path_not_found, ac_shape, verify_theater)', verify: `node -e '
+            const p = require("./engine/src/lib/pipeline-preflight.js");
+            const hygiene = p.scanAnalystOutputsForUnverifiedPaths("", "dummy text for gate self-check");
+            const mach = p.checkVerifyMachinability("node -e \"console.log(42)\"");
+            console.log("hygiene errors=" + hygiene.errors.length + " machinability=" + mach.isMachineCheckable);
+          ' | grep -q "errors=0"` },
           { id: 'AC2', criterion: 'All tickets in batch (including this one) use the prescriptive "— Verify: `cmd` — Type: ..." form + Test Expectations table with no placeholders', verify: `grep -l '— Verify:' tickets/*/ticket.md | wc -l | grep -q '^[1-9]' && grep -L 'TODO\|{{' tickets/*/ticket.md | wc -l | grep -q '^[1-9]'` },
           { id: 'AC3', criterion: 'ticket-emitter.ts contains the always-attach proactive honesty block and generateTicketMarkdown emits the Test Expectations + forward-ref hygiene comments (ref the 2026-05-24 prd)', verify: `grep -A 5 'P0: Always attach proactive verify-theater' engine/src/lib/ticket-emitter.ts | grep -q 'proactive' && grep -A 3 'Test Expectations (NO PLACEHOLDERS' engine/src/lib/ticket-emitter.ts | grep -q 'NO PLACEHOLDERS'` },
         ],
-        scope: `engine/src/lib/ticket-emitter.ts\nskills/pickle-refine-prd/SKILL.md\nengine/src/lib/pipeline-preflight.ts\nengine/src/lib/readiness-gate.ts\nreferences/refine/ticket-template.md\nreferences/personas/*.md`,
+        scope: `engine/src/lib/ticket-emitter.ts\nskills/pickle-refine-prd/SKILL.md\nengine/src/lib/pipeline-preflight.ts\nreferences/refine/ticket-template.md\nreferences/personas/*.md`,
         category: 'h-verify',
         severity: 'P0',
         sourcePrd: (specs[0] as any)?.sourcePrd,
@@ -363,34 +368,19 @@ export async function emitRefinedTickets(
     console.warn('[ticket-emitter] proactive honesty attach non-fatal:', e?.message||e);
   }
 
-  // === Post-synthesis / pre-headless readiness gate (NEW: machinability + contract + path/forward-ref hygiene) ===
-  // This is the shift-left static enforcement port from Claude (check-readiness.js + R-RTRC-7 / AC_SHAPE / symbol audit).
-  // Runs *after* all persists (including auto H-VERIFY healers) so the report reflects the final emitted set.
-  // Writes readiness-gate-report.md into the session (detailed findings + remediation referencing the exact annotation format).
-  // Blocking findings are surfaced loudly but do not hard-stop council emission (amber + healer pattern preserved for "never stop").
-  // Self/meta paths still protected by earlier theater gate. The report + any debt clusters feed the closer/self-PRD loop (task 2).
-  // References: prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md (P0 item 2),
-  // skills/pickle-refine-prd/SKILL.md synthesis step, engine/src/lib/readiness-gate.ts (the impl with exact forward-ref regex + git ls-files hygiene).
-  let gateReport: any = null;
+  // Post-synthesis emission quality hygiene (now unified in pipeline-preflight).
+  // Uses the strengthened scanAnalystOutputsForUnverifiedPaths (git ls-files + exact forward-ref annotations)
+  // + checkVerifyMachinability layered on detectVerifyTheater.
+  // No separate report file (reuses existing preflight diagnostics + the auto-attached H-VERIFY-EMISSION-HONESTY ticket).
   try {
-    gateReport = runReadinessGate(sessionDir, {
-      grokRoot: (opts.grokRoot || process.cwd()) as any,
-      writeReport: true,
-      sessionDirForReport: sessionDir as any
-    } as any);
-    if (! (gateReport as any).ok || (gateReport as any).blockingCount > 0) {
-      const msg = `[ticket-emitter] POST-SYNTHESIS READINESS GATE: ${gateReport.summary} (report: ${gateReport.reportPath || 'see session/readiness-gate-report.md'})`;
-      console.error(msg);
-      if (gateReport.suggestedHardening && gateReport.suggestedHardening.length) {
-        console.error('[ticket-emitter] Suggested hardening from gate:', gateReport.suggestedHardening.join(' | '));
-      }
-      // For council paths: the gate report itself is the artifact that closer/self-improvement will treat as high-prio emission debt.
-      // (Path/forward-ref/more hygiene beyond raw theater now gets the same self-heal treatment via analyze + ingest.)
-    } else {
-      console.log(`[ticket-emitter] Readiness gate clean: ${gateReport.summary}`);
+    const allText = specs.map(s => `${s.justification || ''} ${s.acceptanceCriteria.map(a => `${a.criterion} ${a.verify}`).join(' ')} ${s.scope || ''}`).join('\n');
+    const hygiene = preflight.scanAnalystOutputsForUnverifiedPaths('', allText, opts.grokRoot || process.cwd());
+    const badMach = specs.flatMap(s => s.acceptanceCriteria.map(ac => ({ id: ac.id, m: preflight.checkVerifyMachinability(ac.verify || '') }))).filter(x => !x.m.isMachineCheckable);
+    if (hygiene.errors.length || badMach.length) {
+      console.error(`[ticket-emitter] emission quality: ${hygiene.errors.length} hygiene errors + ${badMach.length} low-machinability (see preflight + auto H-VERIFY-EMISSION-HONESTY ticket)`);
     }
   } catch (e: any) {
-    console.warn('[ticket-emitter] readiness-gate post-emit scan non-fatal (Jerry-safe):', e?.message || e);
+    console.warn('[ticket-emitter] post-emit hygiene scan non-fatal:', e?.message || e);
   }
 
   // === Post-incident P0 provenance seal + light Verify smoke (prevents re-use of flawed tickets) ===

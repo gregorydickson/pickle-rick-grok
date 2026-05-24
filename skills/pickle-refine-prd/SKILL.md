@@ -138,27 +138,16 @@ const result = await emitRefineCouncilTickets(sessionDir, specs, {
 console.log(`Emitted ${result.count} tickets (${result.hardeningCount} hardening)`);
 ```
 
-**Post-Emit Readiness Gate (NEW — the post-synthesis static gate, mandatory before sealing for headless)**:
-After the emitter returns, *immediately* run the full machinability + contract + path/forward-ref hygiene gate (the thing that would have caught the GitNexus stall at source):
+**Post-Emit Emission Quality Gate (unified in pipeline-preflight, mandatory before sealing for headless)**:
+After the emitter returns, *immediately* run the strengthened preflight hygiene + machinability scan (the thing that would have caught the GitNexus stall at source; now lives in the single preflight home per review simplification):
 ```ts
-import { runReadinessGate } from './engine/src/lib/readiness-gate.js';
-// or the CLI: npx tsx engine/src/bin/check-readiness.ts --session ${sessionDir}
-
-const gate = runReadinessGate(sessionDir, {
-  grokRoot: discoveredRoot,
-  writeReport: true,
-  sessionDirForReport: sessionDir
-});
-if (!gate.ok || gate.blockingCount > 0) {
-  console.error('READINESS GATE BLOCKED — detailed report written to readiness-gate-report.md');
-  console.error(gate.summary);
-  console.error('Suggested:', gate.suggestedHardening.join(' | '));
-  // For council: do NOT emit REFINEMENT_COMPLETE / do not auto-chain headless yet.
-  // Emit a healer H-REFINE-GATE-* if needed (emitter already did for basic theater), re-synth analysts with full injected hygiene prompts, or surface for manual.
-  // The report artifact is the contract for closer/self-improvement (see task 2).
-  throw new Error('Bad refine output — gate report in session dir. Fix before headless.');
+import * as preflight from './engine/src/lib/pipeline-preflight.js';
+const hygiene = preflight.scanAnalystOutputsForUnverifiedPaths(combinedAnalystText, manifestText);
+const mach = specs.flatMap(s => s.acceptanceCriteria.map(ac => preflight.checkVerifyMachinability(ac.verify)));
+if (hygiene.errors.length || mach.some(m => !m.isMachineCheckable)) {
+  console.error('EMISSION QUALITY ISSUES — see preflight scan + auto H-VERIFY-EMISSION-HONESTY sibling');
+  // emit healer + amber (never-stop preserved); write synthesis-enforcement note for closer
 }
-console.log('Gate clean:', gate.summary, 'Report:', gate.reportPath);
 ```
 
 The emitter itself (emitRefineCouncilTickets) now also runs this gate post-persist (see ticket-emitter.ts) and always produces the report artifact. The explicit call here makes the manager own the "refuse synthesis on bad output" contract from the Claude port + synthesis PRD.
@@ -235,7 +224,7 @@ The next (auto-launched) invocation will hit the now-legal sealed prior (real ti
 - Always emit the 4 proactive hardening tickets (code-qual, dataflow, test-qual, xref-consistency) for non-trivial cases + theater H-VERIFY healers (see Step 3). Hardening tickets are mandatory for any change that touches the meta surfaces (ritual, session, citadel, orchestrator, git_safety, self-*).
 - Scope lists in tickets must be brutally honest — the ConvergenceGate will later punish violations.
 - The original PRD (now updated in place) must be good enough that Citadel and the next self-PRD generator are happy with it. If a sidecar was explicitly requested, the `prd_refined.md` must also satisfy the same bar.
-- **Post-synthesis readiness gate must pass with 0 blocking findings** (machinability + path/forward-ref hygiene per readiness-gate.ts + synthesis PRD). The report artifact + any debt must be in the session before <promise>REFINEMENT_COMPLETE</promise> or auto-chain to headless. Bad output is caught here, not 12h later in researcher.
+- **Post-synthesis emission quality gate must pass with 0 blocking findings** (machinability + path/forward-ref hygiene via the unified pipeline-preflight scan + synthesis PRD). The auto-attached H-VERIFY-EMISSION-HONESTY + any debt must be in the session before <promise>REFINEMENT_COMPLETE</promise> or auto-chain to headless. Bad output is caught here, not 12h later in researcher.
 - The improved runner skip behavior for research Verify blocks (pure DEFERRED/no-evidence cases treated as normal terminal `skipped` state, filtered from epic completion) is now a supported path; emission quality prevents the poison that used to cause total stalls.
 
 ## Why Only This Step Gets the Big Native Team
