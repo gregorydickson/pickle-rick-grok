@@ -162,9 +162,27 @@ export function isPrdSufficientlyRefined(prdContent: string): boolean {
 export function checkTicketMaterialization(sessionDir: string): any {
   try {
     const state = JSON.parse(fs.readFileSync(path.join(sessionDir, 'state.json'), 'utf8'));
-    const onDisk = fs.readdirSync(path.join(sessionDir, 'tickets')).filter((d: string) => !d.startsWith('.')).length;
-    return { onDisk, inState: (state.tickets || []).length, match: onDisk === (state.tickets || []).length };
-  } catch { return { onDisk: 0, inState: 0, match: false }; }
+    const stateTickets: string[] = (state.tickets || []).map((t: any) => t.id);
+    const diskDir = path.join(sessionDir, 'tickets');
+    const onDiskSet = new Set(
+      fs.existsSync(diskDir)
+        ? fs.readdirSync(diskDir).filter((d: string) => !d.startsWith('.'))
+        : []
+    );
+    const missingTicketIds = stateTickets.filter((id: string) => !onDiskSet.has(id));
+    const allPresent = missingTicketIds.length === 0;
+    const onDisk = onDiskSet.size;
+    const inState = stateTickets.length;
+    return {
+      onDisk,
+      inState,
+      match: onDisk === inState,
+      allPresent,
+      missingTicketIds,
+    };
+  } catch {
+    return { onDisk: 0, inState: 0, match: false, allPresent: false, missingTicketIds: [] };
+  }
 }
 
 export function computeTicketManifestHash(tickets: any[]): string {
@@ -172,10 +190,84 @@ export function computeTicketManifestHash(tickets: any[]): string {
   return require('crypto').createHash('sha256').update(ids).digest('hex').slice(0, 16);
 }
 
-export {
-  runPreflight, assessMetaReadiness, summarizeReadiness, isPrdSufficientlyRefined,
-  checkTicketMaterialization, computeTicketManifestHash
-};
+// Functions above are already exported via "export function" declarations.
+// The previous duplicate export block was removed to resolve redeclaration errors after the full port restoration.
+
+// === Core shift-left hygiene (the missing pieces the 2026-05-24 PRD + SKILLs + agent reviews demanded)
+// Ported from sibling ../pickle-rick-claude/extension/src/bin/check-readiness.ts + services/forward-ref-annotation.ts
+// + prior dist/ bodies. These are the functions ticket-emitter, SKILL synthesis, self-prd, citadel etc. actually call.
+
+const MACHINE_HINT_RE = /\b(exit (0|1|code|codes)|assert|expect|===|==|!=|length|includes|count|rows?|entries?|table|JSON\.parse|parseInt|grep -[cq]|test -[ef]|tsc --noEmit|node --test|describe\.each|writes? (to|file|artifact)|emits? (event|signal)|--check|status.*0|\d+ (files?|lines?|matches?))\b/i;
+const PURE_PROSE_RE = /\b(must (feel|be|look|seem|appear)|should (be|feel|look)|robust|fast(er)?|good|clean|intuitive|reliable|performant|scalable|user-friendly)\b/i;
+
+export function checkVerifyMachinability(verify: string): { isMachineCheckable: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  if (PURE_PROSE_RE.test(verify) && !MACHINE_HINT_RE.test(verify)) {
+    reasons.push('pure prose without machine hints');
+  }
+  if (!MACHINE_HINT_RE.test(verify) && !/\|.+\|/.test(verify) && !/`[^`]+`/.test(verify)) {
+    reasons.push('no machine-actionable hints or structured output');
+  }
+  return { isMachineCheckable: reasons.length === 0, reasons };
+}
+
+const FORWARD_REF_ANNOTATION_RE = /\s\(forward-created\)|\s\(created by ticket [A-Za-z0-9-]{3,20}\)|\s\(introduced by ticket [^\)]{3,30}\)/;
+
+export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, ticketManifestOrTicketsText = '', grokRoot = process.cwd()): { errors: string[]; warnings: string[]; passed: boolean; checkedTokens: number } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const combined = `${analystOutputs || ''}\n${ticketManifestOrTicketsText || ''}`;
+  const backtickRe = /`([^\s`]+?(?:\.(?:ts|js|md|json|tsx|jsx)|:[0-9]+|[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z]))`/g;
+  let m: RegExpExecArray | null;
+  let checked = 0;
+  while ((m = backtickRe.exec(combined)) !== null) {
+    const tok = (m[1] || '').trim();
+    if (!tok || tok.length < 3) continue;
+    if (/^(fs|path|os|child_process|crypto|util|stream|http|https|node:|[A-Z][a-z]+Error)\b/.test(tok)) continue;
+    checked++;
+    const contextAfter = combined.substring(m.index + m[0].length, Math.min(combined.length, m.index + m[0].length + 80));
+    const hasForwardMention = /forward|created by|introduced by|new file|will (create|emit|add)/i.test(combined.substring(Math.max(0, m.index - 40), m.index + 120));
+    if (hasForwardMention && !FORWARD_REF_ANNOTATION_RE.test(contextAfter)) {
+      errors.push(`Forward-ref hygiene violation for \`${tok}\`: annotation must be exactly one ASCII space followed by (forward-created) or (created by ticket <hash>) or (introduced by ticket ...). Found near: ${contextAfter.slice(0,40)}`);
+    }
+  }
+  // Minimal git-enforced forward-ref scan (exact one-space forms)
+  const ANNOTATED_PATH_RE = /`([^`]+?)`\s{1}(\((?:forward-created|created by ticket [A-Za-z0-9_.-]{3,25}|introduced by ticket [A-Za-z0-9_.-]{3,25})\))/gi;
+  const BARE_PATH_RE = /`([a-zA-Z0-9_\/.-]+\.(?:ts|js|tsx|jsx|mjs|cjs|md|json|sh|yml|yaml))`/g;
+  const VALID_FORWARD_ANNO = ['forward-created', 'created by ticket ', 'introduced by ticket '];
+  const seen = new Set<string>();
+  let m2: RegExpExecArray | null;
+  ANNOTATED_PATH_RE.lastIndex = 0;
+  while ((m2 = ANNOTATED_PATH_RE.exec(combined)) !== null) {
+    const p = (m2[1] ?? '').trim();
+    const anno = m2[2] ?? '';
+    const key = `${p}:${anno}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const valid = VALID_FORWARD_ANNO.some(v => anno.includes(v));
+    if (!valid) {
+      errors.push(`Malformed forward-ref annotation on \`${p}\`: "${anno}". Must be exactly one space then (forward-created) or (created by ticket <hash>) or (introduced by ticket ...).`);
+    }
+  }
+  BARE_PATH_RE.lastIndex = 0;
+  while ((m2 = BARE_PATH_RE.exec(combined)) !== null) {
+    const p = (m2[1] ?? '').trim();
+    if (seen.has(p)) continue;
+    seen.add(p);
+    const idx = m2.index ?? 0;
+    const context = combined.slice(Math.max(0, idx - 30), idx + m2[0].length + 20);
+    ANNOTATED_PATH_RE.lastIndex = 0;
+    const hasValidAnnoNearby = ANNOTATED_PATH_RE.test(context);
+    if (!hasValidAnnoNearby && !fs.existsSync(path.join(grokRoot, p.replace(/^\.\//, '')))) {
+      errors.push(`Backticked path \`${p}\` does not exist on disk / git HEAD and carries no valid forward-ref annotation. Every backticked path/symbol in ACs/Verifies/Scope must be verified with git ls-files/git grep before emission.`);
+    }
+  }
+  if (/##\s*ac_shape_smells/i.test(combined) && !/"smells"\s*:\s*\[/i.test(combined)) {
+    warnings.push('ac_shape_smells section present but missing expected machine-readable JSON { "smells": [...] } shape');
+  }
+  const passed = errors.length === 0;
+  return { errors, warnings, passed, checkedTokens: checked };
+}
 
 // Minimal shims for callers that still reference the old names (from the partial port era).
 // Full implementations live in the sibling (../pickle-rick-claude) and prior dist/; these prevent immediate crash

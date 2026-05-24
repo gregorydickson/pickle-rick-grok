@@ -280,7 +280,12 @@ export class ManagerRitual {
     // Critical for real 50-tix self-dogfood: rollbacks/gates must hit the pickle tree, not the sessions/ metadata dir.
     const workingDir = ctxWorkingDir || this.sm.getWorkingDirSafe(this.sessionDir);
     const currentHead = getGitHead(workingDir) || '';
-    const gitProgress = !preSha || preSha !== currentHead || ((workerResult?.artifactsWritten?.length ?? 0) > 0);
+    // Separate "target repo code changed" from "research produced diagnostic artifacts".
+    // The mercy "no-evidence theater skip" must be able to fire when research wrote only
+    // its research_*.md (no code mutation in workingDir) — exactly the honest EMISSION_THEATER case.
+    const codeProgress = !preSha || preSha !== currentHead;
+    const hasSessionArtifact = (workerResult?.artifactsWritten?.length ?? 0) > 0;
+    const gitProgress = codeProgress || hasSessionArtifact; // keep for rollback/gate decisions
     if (gitProgress) {
       try { this.sm.recordProgress(this.sessionDir, `ritual git/artifact delta (${phase || 'phase'})`); } catch {}
     }
@@ -316,7 +321,7 @@ export class ManagerRitual {
         if (ra && (ra.status === 'blocked' || ra.status === 'deferred')) {
           try { await this.sm.appendPhase(this.sessionDir, ticketId, phase, artifactPath); } catch (e) { console.warn('[ritual] append non-fatal'); }
           const sessId = path.basename(this.sessionDir);
-          const isPureResearchTheaterNoEvidence = ra.status === 'blocked' && /EMISSION_THEATER/i.test(String(ra.reason || '')) && !gitProgress;
+          const isPureResearchTheaterNoEvidence = ra.status === 'blocked' && /EMISSION_THEATER/i.test(String(ra.reason || '')) && !codeProgress;
           if (isPureResearchTheaterNoEvidence) {
             // P0 resilience: treat research Verify theater block + lack of evidence (no commits since pre-set) as terminal skipped
             // for *this ticket only*. Does not freeze campaign, does not count in meta.blocked for PAUSED, does not block EPIC/phase done.
@@ -443,7 +448,7 @@ export class ManagerRitual {
         const content = fs.readFileSync(artifactPath, 'utf8');
         const ra = extractReadinessAssessment(content);
         if (ra && (ra.status === 'blocked' || ra.status === 'deferred')) {
-          const isPureResearchTheaterNoEvidence = ra.status === 'blocked' && /EMISSION_THEATER/i.test(String(ra.reason || '')) && !gitProgress;
+          const isPureResearchTheaterNoEvidence = ra.status === 'blocked' && /EMISSION_THEATER/i.test(String(ra.reason || '')) && !codeProgress;
           if (isPureResearchTheaterNoEvidence) {
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
 
