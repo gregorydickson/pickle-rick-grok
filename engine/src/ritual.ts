@@ -300,10 +300,13 @@ export class ManagerRitual {
   ): Promise<{ effectiveStatus: string }> {
     const sessId = path.basename(this.sessionDir);
 
-    // Always the locked path (sibling discipline; eliminates the previous racy fallback)
-    const st = this.sm.loadState(this.sessionDir);
-    const t = (st.tickets || []).find((x: any) => x.id === ticketId);
-    const isHardening = isHardeningTicket(t, ticketId);
+    // Protection decision uses the *fresh* ticketId from the call site (stable 'H-*' prefix
+    // or explicit isHardening flag via isHardeningTicket). The id-based check is sufficient
+    // for all emitted healers and is race-free (no load of potentially-stale t needed here).
+    // The subsequent markTicketSkipped (when not hardening) is serialized inside SessionManager
+    // via withFileLock. Removed previous unlocked loadState (the "always locked path" comment
+    // was aspirational post-extraction). Matches claude pickle-utils mark discipline + id-stable checks.
+    const isHardening = isHardeningTicket(null, ticketId);
 
     if (isHardening) {
       console.error(`[ritual] HARDENING TICKET ${ticketId} hit pure research theater no-evidence skip — FORCING BLOCKED instead of skipped to preserve healing path (gitProgress=${gitProgress}, preSha=${preSha}, artifacts=${(workerResult as any)?.artifactsWritten?.length || 0})`);
@@ -370,10 +373,10 @@ export class ManagerRitual {
             // for *this ticket only*. Does not freeze campaign, does not count in meta.blocked for PAUSED, does not block EPIC/phase done.
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra); // keep ra + suggested for forensics/citadel/closer
 
-            // Single canonical path (extracted helper). Always locked loadState; hardening never skipped.
-            // Credited to the two subagents that kept re-auditing the dupe + racy fallback.
+            // Single canonical path (extracted helper). Protection decision now uses fresh caller ticketId
+            // (H-* stable via isHardeningTicket); no unlocked load inside handler. See handlePure...
             const res = await this.handlePureResearchTheaterNoEvidence(ra, codeProgress, ticketId, phase, gitProgress, preSha, workerResult);
-            var effectiveStatus = res.effectiveStatus;  // var to allow the later assignment in the shared note path
+            const effectiveStatus = res.effectiveStatus;
           } else {
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
             var effectiveStatus = ra.status;
@@ -487,7 +490,7 @@ export class ManagerRitual {
           if (isPureResearchTheaterNoEvidence) {
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
 
-            // Single canonical path (the extracted helper). No more dupe, always locked sm.loadState.
+            // Single canonical path (the extracted helper). Protection via fresh ticketId (see handler).
             await this.handlePureResearchTheaterNoEvidence(ra, codeProgress, ticketId, phase, gitProgress, preSha, workerResult);
             // research_*.md + phasesCompleted preserved for forensics/self-prd/closer
           } else {
