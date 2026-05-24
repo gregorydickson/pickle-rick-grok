@@ -42,9 +42,10 @@ export async function runSelfImprovementLoopCloser(campaignSessionDir: string, t
   fs.mkdirSync(path.dirname(result.reliabilityBacklogPath), { recursive: true });
   fs.writeFileSync(result.reliabilityBacklogPath, result.backlogMarkdown, 'utf8');
 
-  // If theater hardening triggered in ingest, log it here too for closer visibility (Rick: belt + suspenders)
+  // If theater/gate hardening triggered in ingest, log it here too for closer visibility (Rick: belt + suspenders)
+  // Gate debt (from new post-synth readiness gate) is now high-prio input to the self-loop per synthesis PRD task 2.
   if (result.verifyTheaterDetected) {
-    console.log(`[loop-closer] VERIFY THEATER REJECTED in ${campaignSessionDir} — ${result.hardeningTicketsEmitted || 0} H-VERIFY auto side-effected (self-healing engaged)`);
+    console.log(`[loop-closer] VERIFY THEATER / READINESS_GATE DEBT in ${campaignSessionDir} — ${result.hardeningTicketsEmitted || 0} H-VERIFY/refine-hardening auto side-effected (self-healing engaged; gate report feeds next self-PRD)`);
   }
 
   Activity.selfImprovementLoopClosed(campaignSessionDir, result.closedCount, {

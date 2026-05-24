@@ -97,20 +97,24 @@ async function main() {
   const failed = (state.tickets || []).filter((t: any) => t.status === 'failed');
   const blocked = (state.tickets || []).filter((t: any) => t.status === 'blocked');
   const deferred = (state.tickets || []).filter((t: any) => t.status === 'deferred');
+  const skipped = (state.tickets || []).filter((t: any) => t.status === 'skipped');
 
-  console.log(`Tickets: ${progress.total} total, ${progress.done} done, ${progress.failed} failed, ${progress.remaining} remaining/pending`);
+  console.log(`Tickets: ${progress.total} total, ${progress.done} done, ${progress.failed} failed, ${progress.skipped || 0} skipped, ${progress.remaining} remaining/pending`);
   if (blocked.length > 0) {
     console.log(`Blocked (readiness): ${blocked.map((t: any) => t.id).join(', ')}`);
   }
   if (deferred.length > 0) {
     console.log(`Deferred (readiness): ${deferred.map((t: any) => t.id).join(', ')}`);
   }
+  if (skipped.length > 0) {
+    console.log(`Skipped (research theater no-evidence terminals): ${skipped.map((t: any) => t.id).join(', ')} — non-blocking; heal via H-VERIFY/manual resume`);
+  }
   if (failed.length > 0) {
     console.log('\nFailed tickets:');
     failed.forEach((t: any) => console.log(`  ${t.id} — ${t.title?.slice(0, 60) || ''}...`));
     console.log('\nRecommended:');
     console.log(`  npx tsx engine/src/bin/recover.ts ${sessionDir} --reset-failed`);
-  } else if (blocked.length === 0 && deferred.length === 0) {
+  } else if (blocked.length === 0 && deferred.length === 0 && failed.length === 0) {
     console.log('\nNo failed tickets. Session looks healthy for a fresh mux-runner launch.');
   }
 }

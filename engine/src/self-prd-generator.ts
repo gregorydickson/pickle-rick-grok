@@ -32,6 +32,7 @@ import { safeRead } from './lib/phase-utils.js';
 import { emitRefinedTickets, type TicketSpec } from './lib/ticket-emitter.js';
 import { detectVerifyTheater, analyzeSessionForVerifyTheater } from './lib/pipeline-preflight.js';
 import { summarizeReadiness } from './lib/pipeline-preflight.js';
+import { runReadinessGateOnSession } from './lib/readiness-gate.js';  // post-synth gate findings now feed emission-debt self-heal (synthesis PRD + task 2)
 
 const GROK_CRITICAL_FILES = [
   'engine/src/bin/orchestrator.ts',
@@ -747,6 +748,51 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
       console.warn('[self-prd] verify-theater auto-emit non-fatal (safe):', e?.message || e);
       lines.push('- Verify theater scan error (non-fatal, no spam)');
     }
+
+    // === STRENGTHENED CLOSER/SELF-LOOP FOR EMISSION DEBT (task 2 + synthesis PRD) ===
+    // Clusters of findings from the *new* post-synthesis readiness gate (machinability + path/forward-ref hygiene)
+    // or researcher artifacts are now explicitly high-priority signals. They trigger (or strongly prioritize)
+    // refine-hardening / H-VERIFY (including H-REFINE-GATE-* work) in this ingest's backlog section + the
+    // next self-PRD generator run + reliability-backlog. The gate report is first-class input alongside
+    // analyzeSessionForVerifyTheater + citadel EMISSION_THEATER auditor.
+    // This closes the "closer did not strongly auto-gen theater-hardening from emission findings" gap.
+    try {
+      const gateReportPath = path.join(campaignSessionDir, 'readiness-gate-report.md');
+      if (fs.existsSync(gateReportPath)) {
+        const gateContent = safeRead(gateReportPath);
+        const gateBlocking = /blocking|BLOCK|path_not_found|forward_ref_malformed|annotation_format|machinability_low|verify_theater/i.test(gateContent);
+        const gateDebt = /EMISSION_DEBT|hasEmissionDebt|readiness-gate/i.test(gateContent) || gateBlocking;
+        if (gateDebt) {
+          verifyTheaterDetected = true; // reuse the self-heal channel (now covers gate too)
+          lines.push('- Post-synthesis readiness gate report detected with emission debt / hygiene violations (path/forward-ref + machinability). Treated as HIGH-PRIORITY refine-hardening signal per synthesis PRD.');
+          // If not already emitting H-VERIFY this pass, ensure the canonical ones (which now target gate surfaces too via updated createHVerify + emitter gate)
+          const stateNow2 = ((): any => { try { return JSON.parse(fs.readFileSync(path.join(campaignSessionDir, 'state.json'), 'utf8')); } catch { return null; } })();
+          const hasGateHealer = (stateNow2?.tickets || []).some((t: any) => /H-VERIFY|H-REFINE-GATE/i.test(t.id || ''));
+          if (!hasGateHealer && !checkRecentVerifyTheaterReject(root)) {
+            // Re-use the factory (it self-validates); the gate report itself documents the exact new surfaces to harden (readiness-gate.ts + wires in emitter/SKILL + forward-ref regex).
+            const extraGateSpecs = createHVerifyHardeningSpecs(root).filter((s: any) => /gate|refine|emission/i.test((s.justification || '') + s.id));
+            const specsToEmit = extraGateSpecs.length ? extraGateSpecs : createHVerifyHardeningSpecs(root).slice(0, 1);
+            for (const s of specsToEmit) {
+              const vj = (s.acceptanceCriteria || []).map((a: any) => a.verify || '').join('\n');
+              if (detectVerifyTheater(vj).isTheatrical) continue;
+            }
+            const emit2 = await emitRefinedTickets(campaignSessionDir, specsToEmit, {
+              generatedBy: 'self-prd-generator (gate debt HIGH-PRIORITY refine-hardening via readiness-gate findings)',
+              grokRoot: root,
+              emitActivity: true,
+              updateStateToImplementing: false,
+            });
+            hardeningTicketsEmitted += emit2.hardeningCount || specsToEmit.length;
+            lines.push(`- Gate debt cluster → auto-prioritized + emitted ${emit2.hardeningCount || specsToEmit.length} refine-hardening/H-VERIFY side-effect(s) for next self-PRD + reliability backlog`);
+          } else {
+            lines.push('- Gate debt present but healer/idempotent guard already satisfied (strong prioritization noted in backlog)');
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn('[self-prd] gate-debt scan non-fatal:', e?.message || e);
+      lines.push('- Gate debt scan error (non-fatal)');
+    }
   }
 
   if (closed === 0) closed = 1;
@@ -754,7 +800,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
   const prev = safeRead(backlogPath);
   const today = new Date().toISOString().slice(0, 10);
   const ref = campaignSessionDir ? path.basename(campaignSessionDir) : 'self-pipeline';
-  const section = `\n\n## Campaign ${today} — ${ref}\n**Loop Closer Ingest** — closed=${closed}\n${lines.map(l => `  ${l}`).join('\n')}\n- reliability-backlog updated. Next generator run targets strictly remaining gaps.\n${verifyTheaterDetected ? '- H-VERIFY self-heal engaged (see Activity + tickets/)' : ''}\n`;
+  const section = `\n\n## Campaign ${today} — ${ref}\n**Loop Closer Ingest** — closed=${closed}\n${lines.map(l => `  ${l}`).join('\n')}\n- reliability-backlog updated. Next generator run targets strictly remaining gaps.\n${verifyTheaterDetected ? '- H-VERIFY / refine-hardening self-heal engaged (theater + new readiness-gate path/forward-ref/machinability debt; see Activity + tickets/ + readiness-gate-report.md)' : ''}\n`;
 
   const header = prev ? '' : '# Reliability Backlog (Grok Self-Improvement Living)\n\nOwner: Final Self-Improvement Loop Closer\nPurpose: Delta memory. PRDs shrink. Metrics rise.\n';
   const md = (prev || header) + section;
@@ -767,11 +813,12 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
     backlogMarkdown: md,
     closedCount: closed,
     openCount: Math.max(0, 10 - closed),
-    summary: `Closed ${closed}. Backlog at ${backlogPath}${hardeningTicketsEmitted ? ` + ${hardeningTicketsEmitted} H-VERIFY` : ''}`,
+    summary: `Closed ${closed}. Backlog at ${backlogPath}${hardeningTicketsEmitted ? ` + ${hardeningTicketsEmitted} H-VERIFY` : ''}${verifyTheaterDetected ? ' + gate-debt hardening prioritized' : ''}`,
     reliabilityBacklogPath: backlogPath,
     verifyTheaterDetected,
     hardeningTicketsEmitted,
     theaterAnalysis,
+    gateDebtScanned: true,  // signals that new readiness-gate findings are now first-class in closer/self-loop
   };
 }
 

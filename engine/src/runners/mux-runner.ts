@@ -239,11 +239,12 @@ This aborts BEFORE any orchestrator/ritual/worker spawn. No more 200-ticket ghos
     console.log(`[mux-runner] Provenance: prd=${seal.prdPath} seal=${seal.ticketManifestHash ? 'present' : 'none'}`);
   }
 
-  // Surface new readiness statuses (blocked/deferred) for meta PRDs
+  // Surface new readiness statuses (blocked/deferred/skipped) for meta PRDs
   const blocked = (state.tickets || []).filter((t: any) => t.status === 'blocked');
   const deferred = (state.tickets || []).filter((t: any) => t.status === 'deferred');
-  if (blocked.length || deferred.length) {
-    console.log(`[mux-runner] Readiness statuses present — blocked: ${blocked.map((t: any)=>t.id).join(', ') || 'none'}, deferred: ${deferred.map((t: any)=>t.id).join(', ') || 'none'}`);
+  const skipped = (state.tickets || []).filter((t: any) => t.status === 'skipped');
+  if (blocked.length || deferred.length || skipped.length) {
+    console.log(`[mux-runner] Readiness statuses present — blocked: ${blocked.map((t: any)=>t.id).join(', ') || 'none'}, deferred: ${deferred.map((t: any)=>t.id).join(', ') || 'none'}, skipped: ${skipped.map((t: any)=>t.id).join(', ') || 'none'}`);
   }
 
   // === RECOVERY (first-class core feature) ===
@@ -251,7 +252,7 @@ This aborts BEFORE any orchestrator/ritual/worker spawn. No more 200-ticket ghos
   // they are perfectly healthy to re-execute with the corrected worker spawner / prompt handling.
   // --recover-failed (or calling the standalone recover.ts tool) puts them back to 'pending'
   // with a clean phasesCompleted list so the 8-phase ritual starts fresh.
-  // Note: blocked/deferred are *not* auto-reset; they require explicit research readiness fixes first.
+  // Note: blocked/deferred/skipped (research theater terminals) are *not* auto-reset; they require explicit research readiness fixes first (or manual status edit + resume per contract).
   if (options.recoverFailed) {
     const recovered = await sm.resetAllFailedTickets(sessionDir);
     if (recovered.length > 0) {

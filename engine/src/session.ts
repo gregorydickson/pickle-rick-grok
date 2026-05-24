@@ -10,7 +10,7 @@
  * - Atomic JSON writes (tmp+rename)
  * - Persistent campaign-status.json for external monitors, tmux, gt/linear bots
  * - PID claim guard + stale lock recovery for reboot/resume safety
- * - countRemainingTickets, markInProgress, clearCurrent, etc.
+ * - countRemainingTickets, markInProgress, clearCurrent, markTicketSkipped (research theater auto-skip resilience), etc.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -246,6 +246,27 @@ export class SessionManager {
   }
 
   /**
+   * Mark ticket as skipped (terminal non-blocking state for epic/phase completion).
+   * Strengthens research-boundary resilience: pure EMISSION_THEATER RA blocks with no git evidence
+   * (no commits since preSha at research start) are auto-skipped with clear reason so one early
+   * theatrical Verify cannot freeze the queue or trigger META PAUSED.
+   * Readiness (incl. suggestedPrereqs for forensics) is preserved; status override to skipped.
+   * Healing via H-VERIFY hardening tickets (manual or closer-generated) or edit status+resume.
+   */
+  async markTicketSkipped(sessionDir: string, ticketId: string, reason?: string): Promise<void> {
+    const lockPath = getStateLock(sessionDir);
+    await withFileLock(lockPath, () => {
+      const state = this.loadState(sessionDir);
+      const t = state.tickets.find(x => x.id === ticketId);
+      if (t) {
+        t.status = 'skipped';
+        if (reason) t.skipReason = reason;
+      }
+      this.writeState(sessionDir, state);
+    });
+  }
+
+  /**
    * Per-ticket stall/timeout-repeat isolation (P1).
    * Increments stallCount on the ticket (persisted in state.json), records last* RCA fields,
    * bumps campaign-status note for monitors. Returns the new count.
@@ -443,7 +464,7 @@ export class SessionManager {
   }
 
   /** Rich progress for 50+ ticket runs and external monitors. */
-  countRemainingTickets(sessionDir: string): { total: number; remaining: number; done: number; failed: number; blocked?: number; deferred?: number } {
+  countRemainingTickets(sessionDir: string): { total: number; remaining: number; done: number; failed: number; blocked?: number; deferred?: number; skipped?: number } {
     try {
       const state = this.loadState(sessionDir);
       const ts = state.tickets || [];
@@ -451,10 +472,11 @@ export class SessionManager {
       const failed = ts.filter(t => t.status === 'failed').length;
       const blocked = ts.filter(t => t.status === 'blocked').length;
       const deferred = ts.filter(t => t.status === 'deferred').length;
+      const skipped = ts.filter(t => t.status === 'skipped').length;
       const remaining = ts.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
-      return { total: ts.length, remaining, done, failed, blocked, deferred };
+      return { total: ts.length, remaining, done, failed, blocked, deferred, skipped };
     } catch {
-      return { total: 0, remaining: 0, done: 0, failed: 0, blocked: 0, deferred: 0 };
+      return { total: 0, remaining: 0, done: 0, failed: 0, blocked: 0, deferred: 0, skipped: 0 };
     }
   }
 
@@ -493,9 +515,9 @@ export class SessionManager {
 
       return {
         ...meta,
-        progress,
+        progress: progress as any,
         pauseReason,
-      };
+      } as any; // exactOptionalPropertyTypes + ReturnType + concrete count() shape (skipped always present) compat; pre-existing pattern for optionals in progress
     } catch (e: any) {
       return {
         executable: [],
@@ -503,7 +525,7 @@ export class SessionManager {
         promoted: [],
         blocked: [],
         nextHardening: [],
-        progress: { total: 0, remaining: 0, done: 0, failed: 0, blocked: 0, deferred: 0 },
+        progress: { total: 0, remaining: 0, done: 0, failed: 0, blocked: 0, deferred: 0, skipped: 0 },
         pauseReason: `compute failed: ${e?.message || e}`,
       };
     }

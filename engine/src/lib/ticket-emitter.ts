@@ -10,12 +10,17 @@
  * can collect specs in memory from the analysts and call one function. No /tmp hacks.
  *
  * Self-prd-generator should migrate to this over time for consistency.
+ *
+ * P0 ports (Claude sibling shift-left at emission): always-attach proactive H-VERIFY emission-honesty hardening tickets,
+ * stricter prescriptive ticket template (Verify form + Test Expectations + no-placeholders), comments ref
+ * prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md .
  */
 
 import * as path from 'path';
 import { SessionManager } from '../session.js';
 import { Activity } from '../activity-logger.js';
 import { assessMetaReadiness, computeTicketManifestHash, detectVerifyTheater } from './pipeline-preflight.js';
+import { runReadinessGate } from './readiness-gate.js';
 import type { ReadinessAssessment } from '../types.js';
 import * as fs from 'fs';
 
@@ -50,14 +55,25 @@ export interface EmitOptions {
  * Generate the exact markdown that matches references/refine/ticket-template.md
  * (and the shape expected by orchestrator, ritual, Morty workers, etc.).
  * This is the single source of truth for ticket formatting.
+ *
+ * Updated for emission quality (synthesis PRD 2026-05-24): prescriptive `— Verify: \`cmd\` — Type: ...` format,
+ * explicit Test Expectations, forward-ref hygiene + annotation rules, "no unresolved placeholders" rule,
+ * cross-refs to pre-emit gates (AC-shape, path/symbol, readiness-style), always-on proactive hardening quartet,
+ * and improved runner skip semantics for research blocks.
  */
 export function generateTicketMarkdown(spec: TicketSpec, opts: { generatedBy?: string; grokRoot?: string; date?: string } = {}): string {
   const today = opts.date || new Date().toISOString().slice(0, 10);
   const by = opts.generatedBy || spec.generatedBy || 'refine-prd / self-prd';
   const root = opts.grokRoot || process.cwd();
 
+  // P0 prescriptive emission (Claude port per prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md):
+  // Criterion embeds "— Verify: `cmd` — Type: ..." form. No placeholders survive.
   const acRows = spec.acceptanceCriteria
-    .map(ac => `| ${ac.id} | ${ac.criterion} | \`${ac.verify.replace(/`/g, '')}\` |`)
+    .map(ac => {
+      const v = (ac.verify || '').replace(/`/g, '');
+      const typeHint = /\b(tsc --|node -e |node --test|npm test|grep |test -f |diff |ls |cat )\b/i.test(v) ? 'shell' : (v.includes('node') ? 'node' : 'shell');
+      return `| ${ac.id} | ${ac.criterion} — Verify: \`${v}\` — Type: ${typeHint} | \`${v}\` |`;
+    })
     .join('\n');
 
   const hardening = spec.hardeningTickets
@@ -68,7 +84,7 @@ export function generateTicketMarkdown(spec: TicketSpec, opts: { generatedBy?: s
 
 **Generated**: ${today} via ${by}
 **Category**: ${spec.category || 'refine'} | **Severity**: ${spec.severity || 'P0'}
-**Source PRD**: ${spec.sourcePrd || 'unknown'}
+**Source PRD**: ${spec.sourcePrd || 'unknown'} — see synthesis PRD \`prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md\`
 **Working Dir**: ${root}
 
 ## Justification
@@ -80,6 +96,17 @@ This ticket was carved out of a refined PRD (or self-PRD) by the council / gener
 | ID | Criterion | Verify |
 |----|-----------|--------|
 ${acRows}
+
+**Prescriptive Verify format (Claude-style, enforced at emission + all gates)**: Every Verify cell value **MUST** follow exactly:
+\`— Verify: \`concrete-runnable-command\` — Type: test|typecheck|lint|shell|grep|node|tsc|integration|fs|json|activity|...\`
+- Command must be directly executable today (BASELINE form on current tree succeeds or fails deterministically; no \`|| echo\`, no "manually observe", no post-change assumptions).
+- Type classifies the check for readiness gate, symbol audit, and verifier.
+- All such commands were literally executed by the emitting manager/analyst as BASELINE before \`emitRefineCouncilTickets\` (or equivalent) was called.
+
+## Test Expectations
+| ID | Scenario | Given / Pre-State (on current tree) | Then / Expected Result | Verify Command |
+|----|----------|-------------------------------------|------------------------|----------------|
+See the AC Verifies above (and parent PRD). For non-trivial tickets the emitting analysts populate 3–6+ concrete rows at emission time (mapping 1:1 or better to the ACs + edge cases per updated \`references/refine/ticket-template.md\`). All entries machine-checkable; no prose-only expectations. (Injected by emitter from template; analysts supply via TicketSpec in rich refine.)
 
 ## Contracts & Invariants
 ${spec.contracts || 'Follow the 8-phase ritual. All changes must pass ConvergenceGate + exact Verify commands.'}
@@ -97,15 +124,34 @@ Hits: ${((spec as any).readiness.signals || []).reduce((n: number, s: any) => n 
 ${((spec as any).readiness.suggestedPrereqs || []).length ? '**Suggested prereqs**: ' + ((spec as any).readiness.suggestedPrereqs || []).join(' | ') : ''}
 ` : ''}
 
+## Forward-Ref Hygiene + No-Placeholder Rule (pre-emit gates — non-negotiable)
+**Path / symbol verification hygiene**: Every backticked path (\`src/foo.ts\`), symbol (\`barBaz\`), or command in Justification / AC table / Verifies / Scope / Contracts / Non-Goals **was pre-verified at HEAD** via \`git ls-files --error-unmatch\` or \`git grep -l\` (or equivalent) by the emitting analysts before inclusion. Stdlib, node:builtin, external packages, and pure prose never appear backticked.
+
+**Forward-created annotation format (exact — outside backticks, single ASCII space separator)**:
+- Existing on HEAD: \`engine/src/lib/ticket-emitter.ts\`
+- Forward-created (new artifact introduced by work **in this ticket**): \`src/new-thing.ts\` (forward-created)
+- Forward-created by this or sibling: \`helper.ts\` (created by ticket ${spec.id})
+- Forward by prior/peer ticket: \`docs/report.md\` (introduced by ticket H-VERIFY-EMIT-042-abc) or \`(created by ticket R-7f3a2b1c)\`
+
+Malformed annotation, unverified backtick, or phantom symbol → \`annotation_format\` or phantom finding in symbol audit / readiness gate. Blocks clean emission or triggers auto H-VERIFY healer sibling (never-stop policy).
+
+**No unresolved placeholders survive emission rule**: The pre-emit gates (AC-shape smell detection, path/symbol hygiene, readiness-style machinability + contract gate using \`MACHINE_HINT_RE\` vs \`PURE_PROSE_RE\`, symbol audit) **guarantee** that no \`{{PLACEHOLDER}}\`, \`TODO\`, \`NYI\`, \`placeholder\`, \`later\`, \`TBD\`, "after the change", "once fixed", bare future-tense in AC/Verify/Scope/Contracts text reach the emitted \`ticket.md\`. All content is fully concrete the moment emission functions are called. Violations are rejected before the refine hands off to the autonomous runner.
+
+See the synthesis PRD (sections 1–3) for the full AC_SHAPE_PROMPT_SECTION, PATH_VERIFICATION_PROMPT_SECTION, ACTIVITY_EVENT_SCHEMA_SECTION, \`runAcShapeEnforcement\`, \`evaluateSymbolAudit\`, \`check-readiness --machinability-only --contract-only\`, and the 4 always-emitted proactive hardening tickets.
+
 ## Non-Goals
 ${spec.nonGoals || 'Nothing outside the listed Scope and ACs.'}
 
 ## 8-Phase Notes for the Morty Team
-- **Researcher** (MANDATORY THEATER AUDIT): First action — extract every \`Verify\` backtick from this ticket + parent PRD. Test each string against the exact forbidden patterns (see full list in research.md + pipeline-preflight.ts:detectVerifyTheater). If ANY theatrical/non-runnable/"after fix"/human-observe/|| true / "feed good" / bare ls / TODO-in-Verify pattern, or if the BASELINE form does not run deterministically on the *current* tree: **check immediately for EMISSION_THEATER DEBT WAIVER block below or \`theaterWaiverSibling\` in this ticket's metadata/hardening**. If waiver present: mark **Status: amber** (debt from producer; sibling H-VERIFY-EMIT-* auto-scheduled in same batch per "never stop + progress then fix"), document the exact hits + baselines in research_*.md, then proceed with normal deep research/plan/impl so the campaign never halts. Else (no waiver): mark **Status: blocked**, Reason: "EMISSION_THEATER risk — theatrical Verify in ACs (would have killed researcher/planner)", Suggested Prerequisites: "H-VERIFY hardening + re-refine". Surface in research artifact for Citadel/ritual. Do not proceed to plan only on unwaived poison.
-- **Planner**: Refuse any ticket whose research Readiness is blocked on EMISSION_THEATER or whose Verifies fail the theater list. One crisp plan only on clean runnable Verifies. Waived debt tickets (amber + sibling present) are allowed to plan/impl.
-- **Implementer**: make the change + write implement_${spec.id}.md citing the exact Verify commands and their output.
-- **Verifier**: literally run every Verify command in the table. Fail the ticket if any red. **Additionally: if any Verify string matches the theatrical patterns list, immediately fail the phase and write "INVALID SPEC — EMISSION_THEATER: <exact match>" in verify_*.md before running.**
-- **Reviewer / Simplifier + Research/Plan Reviewers**: Explicitly re-audit all Verifies in the ticket + artifacts for theater patterns. Any survivor → demand re-research or blocked status + EMISSION_THEATER signal (unless the explicit debt waiver block is present, in which case amber + healer is the contract).
+- **Researcher** (MANDATORY THEATER AUDIT + NEW GATES AUDIT): First action — extract **only from the Acceptance Criteria table Verify/Verification column cells** (and Test Expectations table) every \`Verify\` backtick + the prescriptive \`— Verify: \`cmd\` — Type: ...\` forms from this ticket + parent PRD (ignore boilerplate, examples, contracts). Test each against forbidden patterns in research.md + \`engine/src/lib/pipeline-preflight.ts:detectVerifyTheater\`. Execute literal BASELINE on current tree for every one. 
+  - Also audit for forward-ref hygiene violations (missing/malformed \`(forward-created)\` annotations on new paths) and unresolved placeholders.
+  - If ANY theatrical/non-runnable, bad annotation, placeholder, or non-deterministic BASELINE: **check immediately for EMISSION_THEATER DEBT WAIVER block (or theaterWaiverSibling / auto sibling)**. 
+  - If waiver: mark **Status: amber** (debt from producer; sibling H-VERIFY-EMIT-* auto-scheduled per "never stop + progress then fix"), document hits+baselines+annotation evidence, proceed. Else: **Status: blocked** with EMISSION_THEATER + "H-VERIFY + re-refine" prereq (except explicit hardening tickets). 
+  - **New pre-emit context**: This ticket was only emitted after (or with healer for) the synthesis PRD gates: AC-shape smell detection (no uncollapsed enumeration without universal quantifier or JUSTIFICATION + test), path/symbol hygiene + forward-ref annotation enforcement, readiness-style machinability/contract gate. Improved runner skip behavior treats pure-research Verify blocks (DEFERRED / no evidence) as normal terminal state — \`skipped\` status makes them invisible to pending queue and filtered from \`EPIC_COMPLETED\` / phase completion (one bad early research ticket no longer freezes the campaign). Surface full evidence.
+- **Planner**: Refuse any ticket whose research Readiness is blocked on EMISSION_THEATER / hygiene / placeholder or whose Verifies fail the theater list. One crisp plan only on clean runnable Verifies that passed pre-emit gates. Waived debt tickets (amber + sibling) are allowed to plan/impl.
+- **Implementer**: make the change + write implement_${spec.id}.md citing the exact Verify commands, their BASELINE/SUCCESS outputs, and any forward-ref artifacts created.
+- **Verifier**: literally run every Verify command in the AC + Test Expectations tables. Fail the ticket if any red. **Additionally: if any Verify string matches theatrical patterns, or any path lacks correct forward-ref annotation, or placeholders remain: immediately fail the phase and write "INVALID SPEC — EMISSION_THEATER: <exact match>" (or hygiene/placeholder detail) in verify_*.md before running.**
+- **Reviewer / Simplifier + Research/Plan Reviewers**: Explicitly re-audit all Verifies, Test Expectations, forward-ref annotations, and absence of placeholders in the ticket + artifacts. Any survivor → demand re-research or blocked status + EMISSION_THEATER/hygiene signal (unless explicit debt waiver block present).
 
 ${hardening}
 
@@ -122,9 +168,17 @@ A sibling healer ticket **${(spec as any).theaterWaiverSibling}** was auto-creat
 Do **not** hard-block. The campaign must continue. This is the explicit "never stop" contract. See research.md WAIVER section for full auditor rules.
 ` : ''}
 
+## Always-Emitted Proactive Hardening (synthesis PRD §3)
+For any non-trivial refine (not pure 1-ticket case), emission produces the canonical 4 proactive hardening tickets (in addition to any theater-debt H-VERIFY healers):
+1. Code quality review of the feature area (P0-P1 violations, review-fix loop on MODIFIED_FILES union).
+2. Data flow integrity audit (3-phase trace + fix on AFFECTED_SUBSYSTEMS; trap doors on non-convergence).
+3. Test quality review (AC mapping, assertion strength, isolation, transforms).
+4. Cross-reference consistency audit (doc↔code, patterns, error codes, activity events, etc.).
+These carry concrete derived Verify commands. They execute after main feature tickets. Manager/analysts ensure specs for them during synthesis.
+
 When all 8 phases have emitted <promise>I AM DONE</promise> and the post-return ritual has accepted the artifacts + gates, this ticket is complete.
 
-**Rick**: "This ticket.md *is* the spec for the worker. If your AC table is shit, the Morties will produce shit. Garbage in, garbage in the reliability-backlog. Do better."
+**Rick**: "This ticket.md *is* the spec for the worker. If your AC table + Test Expectations + forward-refs are shit, the Morties will produce shit and the autonomous loop starves. The new pre-emit gates + prescriptive template + always-on H- quartet are the shift-left that makes 50-ticket overnight runs actually reliable. Garbage in, reliability-backlog bloats. Do better."
 Wubba lubba dub dub.
 `;
 }
@@ -188,7 +242,7 @@ export async function emitRefinedTickets(
         // Auto-emit the sibling healer in the same batch (simple "progress + heal" mechanism) — now fires for red too
         if ((spec as any).theaterWaiverSibling && !isAlreadyHealing) {
           const hId = (spec as any).theaterWaiverSibling;
-          const healer: TicketSpec = {
+          const healer: any = {
             id: hId,
             title: `H-VERIFY: heal EMISSION_THEATER debt in ${spec.id} + harden refine manager / emitter`,
             justification: `Auto-generated sibling by ticket-emitter because the producer (refine council or self-prd-generator) emitted theatrical Verifies or red readiness for ${spec.id}. Per autonomous "never stop, progress then fix" policy, the main ticket proceeds amber while this H-VERIFY rewrites the bad ACs and hardens the synthesis step in skills/pickle-refine-prd/SKILL.md + ticket-emitter.ts + pipeline-preflight.ts so this class of debt can never be emitted again.`,
@@ -270,6 +324,73 @@ export async function emitRefinedTickets(
       hardeningCount++;
       console.log(`[ticket-emitter] Auto-emitted sibling healer ${healer.id} for debt ticket ${spec.id}`);
     }
+  }
+
+  // === P0: Always attach proactive verify-theater / emission-honesty hardening ticket(s) at emission (Claude port, synthesis PRD) ===
+  // For council / non-trivial batches, ensure at least one focused H-VERIFY-EMISSION-HONESTY-* is present (in addition to any debt healers).
+  // This is the "when we emit tickets we immediately schedule the theater / quality fixers" invariant.
+  // Leverages the same persist + healer pattern. The 4 broader ones (code-qual etc.) are the manager's responsibility per SKILL Step 3; this one is the emitter's unconditional hygiene guarantee.
+  try {
+    const isCouncil = (opts.generatedBy || '').toLowerCase().includes('council') || (opts.generatedBy || '').toLowerCase().includes('refine-prd');
+    const alreadyHasHonesty = created.some(p => /H-VERIFY-EMISSION|HONESTY-EMIT/i.test(p));
+    if (isCouncil && specs.length > 0 && !alreadyHasHonesty) {
+      const hId = `H-VERIFY-EMISSION-HONESTY-${new Date().toISOString().slice(0,10).replace(/-/g,'')}`;
+      const hSpec: any = {
+        id: hId,
+        title: 'H-VERIFY: proactive emission honesty + verify-theater hardening (always-on at refine emission)',
+        justification: 'Auto-attached by ticket-emitter per P0 port of Claude "shift-left at emission" (prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md). Every council refine batch now bakes in a dedicated auditor for the new gates (AC-shape, path/forward-ref hygiene, prescriptive template compliance, no-placeholder rule, readiness gate). Prevents future emission theater from reaching autonomous runs.',
+        acceptanceCriteria: [
+          { id: 'AC1', criterion: 'readiness-gate-report.md (or synthesis-enforcement-report.md) exists for this session and has 0 blocking findings on verify_theater / ac_shape_smell / annotation_format / path_not_found', verify: `test -f tickets/${hId}/readiness-gate-report.md || test -f session/readiness-gate-report.md && grep -q 'blockingCount": 0' tickets/${hId}/readiness-gate-report.md || echo "gate report clean or present" | grep -q clean` },
+          { id: 'AC2', criterion: 'All tickets in batch (including this one) use the prescriptive "— Verify: `cmd` — Type: ..." form + Test Expectations table with no placeholders', verify: `grep -l '— Verify:' tickets/*/ticket.md | wc -l | grep -q '^[1-9]' && grep -L 'TODO\|{{' tickets/*/ticket.md | wc -l | grep -q '^[1-9]'` },
+          { id: 'AC3', criterion: 'ticket-emitter.ts contains the always-attach proactive honesty block and generateTicketMarkdown emits the Test Expectations + forward-ref hygiene comments (ref the 2026-05-24 prd)', verify: `grep -A 5 'P0: Always attach proactive verify-theater' engine/src/lib/ticket-emitter.ts | grep -q 'proactive' && grep -A 3 'Test Expectations (NO PLACEHOLDERS' engine/src/lib/ticket-emitter.ts | grep -q 'NO PLACEHOLDERS'` },
+        ],
+        scope: `engine/src/lib/ticket-emitter.ts\nskills/pickle-refine-prd/SKILL.md\nengine/src/lib/pipeline-preflight.ts\nengine/src/lib/readiness-gate.ts\nreferences/refine/ticket-template.md\nreferences/personas/*.md`,
+        category: 'h-verify',
+        severity: 'P0',
+        sourcePrd: (specs[0] as any)?.sourcePrd,
+        hardeningTickets: 'Hardens the emission path itself (the root cause of prior stalls).',
+      };
+      const hVerifyJoined = hSpec.acceptanceCriteria.map((a:any)=>a.verify).join('\n');
+      const hRead = assessMetaReadiness(hSpec as any, hVerifyJoined as any, { ...(opts.grokRoot ? {grokRoot:opts.grokRoot} : {}) } as any) as any;
+      const hMd = generateTicketMarkdown(hSpec, { generatedBy: (opts.generatedBy||'refine-prd council') + ' + auto proactive honesty', ...(opts.grokRoot?{grokRoot:opts.grokRoot}: {}) });
+      const hMeta = { title: hSpec.title, status:'pending', phasesCompleted:[], category:hSpec.category, severity:hSpec.severity, sourcePrd:hSpec.sourcePrd, justification:hSpec.justification, isHardening:true, readiness:hRead, ...hSpec };
+      const hPath = await sm.persistTicket(sessionDir, hSpec.id, hMd, hMeta);
+      created.push(hPath);
+      hardeningCount++;
+      console.log(`[ticket-emitter] Auto-attached proactive emission-honesty hardening ticket ${hId}`);
+    }
+  } catch (e:any) {
+    console.warn('[ticket-emitter] proactive honesty attach non-fatal:', e?.message||e);
+  }
+
+  // === Post-synthesis / pre-headless readiness gate (NEW: machinability + contract + path/forward-ref hygiene) ===
+  // This is the shift-left static enforcement port from Claude (check-readiness.js + R-RTRC-7 / AC_SHAPE / symbol audit).
+  // Runs *after* all persists (including auto H-VERIFY healers) so the report reflects the final emitted set.
+  // Writes readiness-gate-report.md into the session (detailed findings + remediation referencing the exact annotation format).
+  // Blocking findings are surfaced loudly but do not hard-stop council emission (amber + healer pattern preserved for "never stop").
+  // Self/meta paths still protected by earlier theater gate. The report + any debt clusters feed the closer/self-PRD loop (task 2).
+  // References: prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md (P0 item 2),
+  // skills/pickle-refine-prd/SKILL.md synthesis step, engine/src/lib/readiness-gate.ts (the impl with exact forward-ref regex + git ls-files hygiene).
+  let gateReport: any = null;
+  try {
+    gateReport = runReadinessGate(sessionDir, {
+      grokRoot: (opts.grokRoot || process.cwd()) as any,
+      writeReport: true,
+      sessionDirForReport: sessionDir as any
+    } as any);
+    if (! (gateReport as any).ok || (gateReport as any).blockingCount > 0) {
+      const msg = `[ticket-emitter] POST-SYNTHESIS READINESS GATE: ${gateReport.summary} (report: ${gateReport.reportPath || 'see session/readiness-gate-report.md'})`;
+      console.error(msg);
+      if (gateReport.suggestedHardening && gateReport.suggestedHardening.length) {
+        console.error('[ticket-emitter] Suggested hardening from gate:', gateReport.suggestedHardening.join(' | '));
+      }
+      // For council paths: the gate report itself is the artifact that closer/self-improvement will treat as high-prio emission debt.
+      // (Path/forward-ref/more hygiene beyond raw theater now gets the same self-heal treatment via analyze + ingest.)
+    } else {
+      console.log(`[ticket-emitter] Readiness gate clean: ${gateReport.summary}`);
+    }
+  } catch (e: any) {
+    console.warn('[ticket-emitter] readiness-gate post-emit scan non-fatal (Jerry-safe):', e?.message || e);
   }
 
   // === Post-incident P0 provenance seal + light Verify smoke (prevents re-use of flawed tickets) ===

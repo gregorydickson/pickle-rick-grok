@@ -315,19 +315,31 @@ export class ManagerRitual {
         const ra = extractReadinessAssessment(content);
         if (ra && (ra.status === 'blocked' || ra.status === 'deferred')) {
           try { await this.sm.appendPhase(this.sessionDir, ticketId, phase, artifactPath); } catch (e) { console.warn('[ritual] append non-fatal'); }
-          await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
           const sessId = path.basename(this.sessionDir);
+          const isPureResearchTheaterNoEvidence = ra.status === 'blocked' && /EMISSION_THEATER/i.test(String(ra.reason || '')) && !gitProgress;
+          if (isPureResearchTheaterNoEvidence) {
+            // P0 resilience: treat research Verify theater block + lack of evidence (no commits since pre-set) as terminal skipped
+            // for *this ticket only*. Does not freeze campaign, does not count in meta.blocked for PAUSED, does not block EPIC/phase done.
+            await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra); // keep ra + suggested for forensics/citadel/closer
+            await this.sm.markTicketSkipped(this.sessionDir, ticketId, `auto-skipped: research EMISSION_THEATER (no evidence/commits since preSha at boundary) — ${String(ra.reason || '').slice(0, 140)}; terminal per contract; heal via H-VERIFY or manual resume`);
+            Activity.ticketSkipped(sessId, ticketId, `research theater no-evidence: ${String(ra.reason || '').slice(0, 80)}`);
+          } else {
+            await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
+          }
+          const effectiveStatus = isPureResearchTheaterNoEvidence ? 'skipped' : ra.status;
           this.sm.updateCampaignStatusSync(this.sessionDir, {
-            note: `RESEARCH ${ra.status.toUpperCase()}: ${ticketId} @ ${phase} — honest RA: ${ra.reason || 'blocked/deferred per EMISSION_THEATER or similar'} (artifact + phasesCompleted preserved; non-fatal, no planner path; P0 research honesty rule)`,
-            lastPhaseResult: { ticketId, phase, bestEffort: true, status: ra.status },
+            note: `RESEARCH ${effectiveStatus.toUpperCase()}: ${ticketId} @ ${phase} — honest RA: ${ra.reason || 'blocked/deferred per EMISSION_THEATER or similar'} (artifact + phasesCompleted preserved; ${isPureResearchTheaterNoEvidence ? 'auto-skipped (no-evidence resilience)' : 'non-fatal, no planner path; P0 research honesty rule'})`,
+            lastPhaseResult: { ticketId, phase, bestEffort: true, status: effectiveStatus },
           } as any);
-          Activity.convergenceIteration('ritual', sessId, phase, `research_${ra.status}`, undefined, undefined);
-          try { (Activity as any).ticketReadinessBlocked?.(sessId, ticketId, ra.status); } catch {}
+          Activity.convergenceIteration('ritual', sessId, phase, (effectiveStatus === 'skipped' ? undefined : `research_${effectiveStatus}`) as any, undefined, undefined);
+          if (!isPureResearchTheaterNoEvidence) {
+            try { (Activity as any).ticketReadinessBlocked?.(sessId, ticketId, ra.status); } catch {}
+          }
           return {
             valid: true,
             hasPromise,
-            researchBlocked: true,
-            blockedStatus: ra.status,
+            researchBlocked: !isPureResearchTheaterNoEvidence,
+            blockedStatus: effectiveStatus,
             circuitTripped: false,
             rolledBack: false,
             restoredPaths: [],
@@ -420,8 +432,16 @@ export class ManagerRitual {
         const content = fs.readFileSync(artifactPath, 'utf8');
         const ra = extractReadinessAssessment(content);
         if (ra && (ra.status === 'blocked' || ra.status === 'deferred')) {
-          await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
-          // status flipped inside; research_*.md + phasesCompleted preserved for forensics/self-prd/closer
+          const isPureResearchTheaterNoEvidence = ra.status === 'blocked' && /EMISSION_THEATER/i.test(String(ra.reason || '')) && !gitProgress;
+          if (isPureResearchTheaterNoEvidence) {
+            await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
+            await this.sm.markTicketSkipped(this.sessionDir, ticketId, `auto-skipped: research EMISSION_THEATER (no evidence/commits since preSha at boundary) — ${String(ra.reason || '').slice(0, 140)}; terminal per contract; heal via H-VERIFY or manual resume`);
+            const sId = path.basename(this.sessionDir);
+            Activity.ticketSkipped(sId, ticketId, `research theater no-evidence: ${String(ra.reason || '').slice(0, 80)}`);
+          } else {
+            await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
+          }
+          // status (skipped or blocked/deferred) set; research_*.md + phasesCompleted preserved for forensics/self-prd/closer
         }
       } catch (e: any) {
         console.warn('[ritual] research readiness extract non-fatal:', e?.message || e);

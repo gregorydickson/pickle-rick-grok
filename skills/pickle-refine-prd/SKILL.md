@@ -1,7 +1,7 @@
 ---
 name: pickle-refine-prd
 description: Run the large native agent team (Requirements + Codebase + Risk analysts) for parallel multi-cycle refinement + atomic ticket decomposition. This is the ONLY step allowed to use rich spawn_subagent teams instead of headless grok -p. Updates the original PRD **in place** by default (rich ACs, Verifies, hardening section) and emits session-owned tickets/. Sidecar `prd_refined.md` is opt-in only.
-version: 3.1.0-grok-p0-dispatch-stamped-session
+version: 3.2.0-grok-emission-quality-template-gates-2026-05-24
 triggers:
   - pickle-refine-prd
   - refine prd
@@ -10,6 +10,7 @@ triggers:
 references:
   - path: ../../references/refine/refine-contract.md
   - path: ../../references/refine/ticket-template.md
+  - path: ../../prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md
   - path: ../../references/personas/requirements-analyst.md
   - path: ../../references/personas/codebase-analyst.md
   - path: ../../references/personas/risk-analyst.md
@@ -76,10 +77,10 @@ spawn_subagent({
   subagent_type: "general-purpose",
   persona: "requirements-analyst",
   fork_context: false,
-  prompt: `You are the Requirements Analyst. Read the original PRD and the prd-template. Explore the codebase. Produce your first-round analysis per your persona contract. The other two analysts will see this.`
+  prompt: `You are the Requirements Analyst. Read the original PRD and the prd-template. Explore the codebase. Produce your first-round analysis per your persona contract (including the AC_SHAPE_PROMPT_SECTION, PATH_VERIFICATION_PROMPT_SECTION, ACTIVITY_EVENT_SCHEMA_SECTION, and Ticket Complexity Classification at the end of the persona file). Emit the ac_shape_smells JSON, verify every backtick with git before emitting it, use exact activity event names, and classify ticket complexity. The other two analysts will see this.`
 })
 
-// Analyst 2 + 3 similarly with "codebase-analyst" and "risk-analyst"
+// Analyst 2 + 3 similarly with "codebase-analyst" and "risk-analyst" (pass them the full persona sections too)
 ```
 
 Capture their outputs (the tool returns the full transcript + final text).
@@ -97,8 +98,21 @@ After the analysts are quiet:
    - This is now the canonical and preferred behavior. "Refine this PRD" means upgrade the artifact the user gave you.
    - Follow the exact structure of `../../references/prd-template.md`
    - Every single requirement row **must** have a real, runnable Verification column.
-   - **THEATER AUDIT (non-negotiable before emit)**: For every proposed Verify in the AC/Verification tables, run the equivalent of `detectVerifyTheater` (from engine/src/lib/pipeline-preflight.ts) + mentally execute a BASELINE form on current tree. If ANY || true, | cat, invented path, future-tense, "after fix", bare observation, non-deterministic, or non-runnable-today pattern: either rewrite the Verify to explicit BASELINE (runnable today, asserts the gap) vs SUCCESS, or explicitly attach a sibling H-VERIFY-* healer ticket in the specs you will emit. Do not emit poison that would hard-stop the autonomous campaign.
-   - Add a "Hardening Tickets" section at the bottom if the Risk/Codebase analysts surfaced material new surfaces.
+   - **THEATER AUDIT + PRE-EMIT GATES (non-negotiable before emit, per synthesis PRD `prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md`)**: For every proposed Verify in the AC/Verification tables (and Test Expectations), run the equivalent of `detectVerifyTheater` (from engine/src/lib/pipeline-preflight.ts) + mentally execute a BASELINE form on current tree. Enforce the new prescriptive Verify format (`— Verify: \`cmd\` — Type: ...`), Test Expectations table, forward-ref hygiene (exact `(forward-created)` / `(created by ticket ...)` annotation outside backticks, one space, pre-verified via git), and "no unresolved placeholders survive emission" rule. 
+     - The emission must also satisfy (or attach explicit healer siblings for) the pre-emit gates: AC-shape smell detection (endpoint enumeration without universal quantifier collapsed to parametrized or justified+tested), path/symbol hygiene + symbol audit, readiness-style machinability/contract gate (`isMachineCheckable`, `MACHINE_HINT_RE` vs `PURE_PROSE_RE`, forward-ref parsing).
+     - **Post-synthesis enforcement (manager must execute before calling emit or sealing)**:
+       1. Parse every `## ac_shape_smells` JSON block from the three analysts' final round outputs (use regex or node -e to extract the object after the heading).
+       2. Call `evaluateAcShapeEnforcement` (from engine/src/lib/pipeline-preflight.ts) on the collected smells array. If !passed, reject the smelly ACs: force a re-round with the analysts or rewrite with proper collapse/justification before proceeding.
+       3. Run `scanAnalystOutputsForUnverifiedPaths` (same module) + the full `runReadinessGate` (from readiness-gate.ts) on the combined analyst outputs + your draft TicketSpec[] + manifest text. Any errors (esp. malformed forward-ref annotations, unverified backticked paths without git proof in transcripts, annotation_format findings) are severe: block synthesis, surface the exact violating tokens + required fix format, do not emit until clean (or waived with explicit H- healer sibling in the same batch).
+       Emit clear errors in your thinking + write a `synthesis-enforcement-report.md` under session with the violations. Only clean or explicitly healed output reaches `emitRefineCouncilTickets`.
+     - If ANY theatrical/non-runnable, bad annotation, placeholder, or non-deterministic pattern: either rewrite to clean concrete BASELINE/SUCCESS or explicitly attach sibling H-VERIFY-* healer(s) in the specs you will emit. Do not emit poison that would hard-stop the autonomous campaign.
+   - **Always-emitted proactive hardening tickets (synthesis PRD §3)**: For non-trivial refines (anything beyond a trivial 1-ticket case), **always emit the canonical 4** (in addition to any theater-debt H-VERIFY healers):
+     1. Code quality review of the feature area (P0-P1 violations, review-fix loop on MODIFIED_FILES union).
+     2. Data flow integrity audit (3-phase trace + fix on AFFECTED_SUBSYSTEMS; trap doors on non-convergence).
+     3. Test quality review (AC mapping, assertion strength, isolation, transforms).
+     4. Cross-reference consistency audit (doc↔code, patterns, error codes, activity events, etc.).
+     These are synthesized with concrete derived Verify commands from the tech stack analysis in earlier analyst steps. They are the proactive "schedule the fixers at emission time."
+   - Add / ensure a "Hardening Tickets" section at the bottom (and produce the 4 + any risk-driven extras in the TicketSpec array passed to the emitter).
    - The file on disk is upgraded in place. No extra `prd_refined.md` sprawl.
 
 **Legacy / opt-in sidecar mode**: Only if the user explicitly says "produce a separate prd_refined.md" (or passes a flag in future), emit an additional sidecar file. Default is always in-place.
@@ -124,6 +138,31 @@ const result = await emitRefineCouncilTickets(sessionDir, specs, {
 console.log(`Emitted ${result.count} tickets (${result.hardeningCount} hardening)`);
 ```
 
+**Post-Emit Readiness Gate (NEW — the post-synthesis static gate, mandatory before sealing for headless)**:
+After the emitter returns, *immediately* run the full machinability + contract + path/forward-ref hygiene gate (the thing that would have caught the GitNexus stall at source):
+```ts
+import { runReadinessGate } from './engine/src/lib/readiness-gate.js';
+// or the CLI: npx tsx engine/src/bin/check-readiness.ts --session ${sessionDir}
+
+const gate = runReadinessGate(sessionDir, {
+  grokRoot: discoveredRoot,
+  writeReport: true,
+  sessionDirForReport: sessionDir
+});
+if (!gate.ok || gate.blockingCount > 0) {
+  console.error('READINESS GATE BLOCKED — detailed report written to readiness-gate-report.md');
+  console.error(gate.summary);
+  console.error('Suggested:', gate.suggestedHardening.join(' | '));
+  // For council: do NOT emit REFINEMENT_COMPLETE / do not auto-chain headless yet.
+  // Emit a healer H-REFINE-GATE-* if needed (emitter already did for basic theater), re-synth analysts with full injected hygiene prompts, or surface for manual.
+  // The report artifact is the contract for closer/self-improvement (see task 2).
+  throw new Error('Bad refine output — gate report in session dir. Fix before headless.');
+}
+console.log('Gate clean:', gate.summary, 'Report:', gate.reportPath);
+```
+
+The emitter itself (emitRefineCouncilTickets) now also runs this gate post-persist (see ticket-emitter.ts) and always produces the report artifact. The explicit call here makes the manager own the "refuse synthesis on bad output" contract from the Claude port + synthesis PRD.
+
 `emitRefineCouncilTickets` (and the lower-level `emitRefinedTickets` + `generateTicketMarkdown`) is the single source of truth. It:
 - Produces markdown that exactly follows `references/refine/ticket-template.md`
 - Calls `persistTicket` for each
@@ -138,14 +177,16 @@ After all tickets:
 - Update `state.tickets` array + `state.step = 'implementing'`
 - `sm.writeState(sessionDir, state)`
 
-Rules for good tickets:
+Rules for good tickets (updated per synthesis PRD + prescriptive template):
 - One focused change (ideally < 5 files, < 45 min for an implementer Morty)
-- 4–8 AC rows with **runnable** Verify commands (shell, node -e, tsc, grep -c, specific test, etc.)
+- 4–8 AC rows using the **prescriptive Verify format** (`— Verify: \`concrete-cmd\` — Type: test|typecheck|...`) + explicit **Test Expectations table** (or equivalent mapping); all runnable, pre-baselined, theater-free.
 - Explicit Scope list (the exact paths the implementer is allowed to touch)
 - Clear Justification paragraph
-- If the analysts flagged risk on a subsystem, emit a matching hardening ticket (anatomy + szechuan) as an extra ticket with "H-" prefix or in a later pass
+- Forward-ref hygiene + no unresolved placeholders (enforced by pre-emit gates in emission)
+- **Always** include the 4 proactive hardening tickets (see Step 3) for non-trivial work + any analyst-flagged risk ones (anatomy + szechuan etc.) as H- prefixed. The emitter (`emitRefineCouncilTickets`) + updated `references/refine/ticket-template.md` now bake in the full discipline.
+- If the analysts flagged risk on a subsystem, emit a matching hardening ticket (anatomy + szechuan) as an extra ticket with "H-" prefix or in a later pass (the 4 are mandatory baseline)
 
-Example ticket id pattern: `001-add-foo-bar`, `H-010-anatomy-ritual-after-x`
+Example ticket id pattern: `001-add-foo-bar`, `H-010-anatomy-ritual-after-x`, `H-VERIFY-EMIT-...` (auto healers)
 
 ## Step 5: Persist + Emit Events (Critical for Metrics & Pipeline Handoff)
 
@@ -189,10 +230,13 @@ The next (auto-launched) invocation will hit the now-legal sealed prior (real ti
 ## Hard Rules You Must Never Violate
 - **Never** use `grok -p` or `WorkerSpawner` for the analyst work in this skill. This is the deliberate large-team exception.
 - Every analyst spawn must have `fork_context: false`.
-- Every ticket must have machine-checkable Verify commands (the Requirements Analyst's whole reason for existing).
-- Hardening tickets are mandatory for any change that touches the meta surfaces (ritual, session, citadel, orchestrator, git_safety, self-*).
+- Every ticket must have machine-checkable Verify commands **in the new prescriptive format** (`— Verify: \`cmd\` — Type: ...`) + Test Expectations + forward-ref hygiene + zero unresolved placeholders (the Requirements Analyst's whole reason for existing). The canonical emitter and template now enforce this shape.
+- **Refine output (updated PRD + emitted tickets) MUST pass the new pre-emit gates** (AC-shape smell detection, path/symbol verification hygiene with exact forward-ref annotation format, readiness-style machinability + contract + symbol audit) or carry explicit healer siblings, per the emission quality synthesis PRD `prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md`. This is required for reliable autonomous runs at 50+ ticket scale.
+- Always emit the 4 proactive hardening tickets (code-qual, dataflow, test-qual, xref-consistency) for non-trivial cases + theater H-VERIFY healers (see Step 3). Hardening tickets are mandatory for any change that touches the meta surfaces (ritual, session, citadel, orchestrator, git_safety, self-*).
 - Scope lists in tickets must be brutally honest — the ConvergenceGate will later punish violations.
 - The original PRD (now updated in place) must be good enough that Citadel and the next self-PRD generator are happy with it. If a sidecar was explicitly requested, the `prd_refined.md` must also satisfy the same bar.
+- **Post-synthesis readiness gate must pass with 0 blocking findings** (machinability + path/forward-ref hygiene per readiness-gate.ts + synthesis PRD). The report artifact + any debt must be in the session before <promise>REFINEMENT_COMPLETE</promise> or auto-chain to headless. Bad output is caught here, not 12h later in researcher.
+- The improved runner skip behavior for research Verify blocks (pure DEFERRED/no-evidence cases treated as normal terminal `skipped` state, filtered from epic completion) is now a supported path; emission quality prevents the poison that used to cause total stalls.
 
 ## Why Only This Step Gets the Big Native Team
 See the top of `../../references/refine/refine-contract.md`.  

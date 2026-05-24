@@ -23,7 +23,7 @@ export interface Ticket {
   description: string;
   acceptanceCriteria: string[];
   priority: 'P0' | 'P1' | 'P2' | 'P3';
-  status: 'pending' | 'in_progress' | 'done' | 'failed' | 'blocked' | 'deferred';
+  status: 'pending' | 'in_progress' | 'done' | 'failed' | 'blocked' | 'deferred' | 'skipped';
   createdAt: string;
   updatedAt?: string;
   tags?: string[];
@@ -48,6 +48,7 @@ export interface CampaignProgress {
   remaining: number;
   blocked?: number;
   deferred?: number;
+  skipped?: number;
   [key: string]: any;
 }
 

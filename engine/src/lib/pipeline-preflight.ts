@@ -28,6 +28,8 @@ const RUNNABLE_VERIFY_RE = /\b(npx |node -e |node --|grep |test -f |ls |find |di
 /** Detects common "theatrical" / non-deterministic / always-pass patterns inside Verify command strings.
  *  These are the exact anti-patterns that let R-META-DEEPEN-001 (and self-prd pads) emit tickets
  *  whose ACs could never be proven by a Verifier Morty on the current tree.
+ *  Extended by the post-synthesis readiness-gate.ts (machinability + path/forward-ref) which calls this + adds Claude R-RTRC hygiene.
+ *  See prds/claude-to-grok-ports-...-2026-05-24.md + ticket-emitter integration.
  */
 const VERIFY_THEATER_RE: RegExp[] = [
   /\|\|\s*(true|echo\s|cat\s|:\s*;\s*true)/i,
@@ -587,6 +589,53 @@ export function summarizeReadiness(tickets: any[]): string | null {
 export function isLegalToBypassRefine(report: PreflightReport, explicitNoRefine = true): boolean {
   if (!explicitNoRefine) return false;
   return !!(report.hasRealMaterializedTickets && report.ticketManifestHashMatch && (report.ticketCountOnDisk || 0) > 0 && !report.isZombie);
+}
+
+// === P0 Shift-left emission quality ports from Claude sibling (see prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md) ===
+// These enable post-synthesis enforcement in refine manager (SKILL.md) + prompt sections for analysts.
+// AC-shape smell detection, path/symbol verification hygiene (with exact forward-ref annotation), activity schema discipline.
+
+/** evaluateAcShapeEnforcement: rejects endpoint-enumeration / repeated-predicate smells lacking parametrized collapse (e.g. describe.each) OR explicit justification + acceptance test. */
+export function evaluateAcShapeEnforcement(smells: Array<{type?: string; location?: string; requires_justification?: boolean; justification?: string; collapsed?: boolean; description?: string; [k: string]: any}> = []): { passed: boolean; violations: string[]; details: string } {
+  const violations: string[] = [];
+  for (const s of smells) {
+    const t = String(s.type || s.description || '').toLowerCase();
+    const isEnumSmell = /endpoint.*enumeration|enumeration|repeated-predicate|no-universal|ac_shape.*smell/i.test(t) || (s.requires_justification === true);
+    if (isEnumSmell && !s.collapsed && !(s.justification && String(s.justification).trim().length > 5)) {
+      violations.push(`AC shape smell ${s.type || 'endpoint_enumeration'} @ ${s.location || 'unknown'}: must collapse to parametrized (describe.each etc) or include explicit // JUSTIFICATION: + acceptance test`);
+    }
+  }
+  return { passed: violations.length === 0, violations, details: violations.length ? violations.join(' | ') : 'AC shapes clean (no un-justified enumeration smells)' };
+}
+
+const FORWARD_REF_ANNOTATION_RE = /\s\(forward-created\)|\s\(created by ticket [A-Za-z0-9-]{3,20}\)|\s\(introduced by ticket [^\)]{3,30}\)/;
+
+/** scanAnalystOutputsForUnverifiedPaths + forward-ref annotation format check (lightweight; full git verification is prompt-enforced on analysts via PATH_VERIFICATION_PROMPT_SECTION). */
+export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, ticketManifestOrTicketsText = ''): { errors: string[]; warnings: string[]; passed: boolean; checkedTokens: number } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const combined = `${analystOutputs || ''}\n${ticketManifestOrTicketsText || ''}`;
+  const backtickRe = /`([^\s`]+?(?:\.(?:ts|js|md|json|tsx|jsx)|:[0-9]+|[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z]))`/g;
+  let m: RegExpExecArray | null;
+  let checked = 0;
+  while ((m = backtickRe.exec(combined)) !== null) {
+    const tok = (m[1] || '').trim();
+    if (!tok || tok.length < 3) continue;
+    // skip obvious stdlib / node built-ins (never backtick per rule)
+    if (/^(fs|path|os|child_process|crypto|util|stream|http|https|node:|[A-Z][a-z]+Error)\b/.test(tok)) continue;
+    checked++;
+    const contextAfter = combined.substring(m.index + m[0].length, Math.min(combined.length, m.index + m[0].length + 80));
+    const hasForwardMention = /forward|created by|introduced by|new file|will (create|emit|add)/i.test(combined.substring(Math.max(0, m.index - 40), m.index + 120));
+    if (hasForwardMention && !FORWARD_REF_ANNOTATION_RE.test(contextAfter)) {
+      errors.push(`Forward-ref hygiene violation for \`${tok}\`: annotation must be exactly one ASCII space followed by (forward-created) or (created by ticket <hash>) or (introduced by ticket ...). Found near: ${contextAfter.slice(0,40)}`);
+    }
+  }
+  // Light ac_shape_smells structural check
+  if (/##\s*ac_shape_smells/i.test(combined) && !/"smells"\s*:\s*\[/i.test(combined)) {
+    warnings.push('ac_shape_smells section present but missing expected machine-readable JSON { "smells": [...] } shape');
+  }
+  const passed = errors.length === 0;
+  return { errors, warnings, passed, checkedTokens: checked };
 }
 
 export type { ReadinessAssessment };

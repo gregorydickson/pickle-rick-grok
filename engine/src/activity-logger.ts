@@ -17,6 +17,7 @@ export type ActivityEventType =
   | 'ticket_started'
   | 'ticket_completed'
   | 'ticket_failed'
+  | 'ticket_skipped'
   | 'phase_completed'
   | 'phase_failed'
   | 'convergence_iteration'
@@ -160,6 +161,18 @@ export const Activity = {
     const evt: any = {
       ts: new Date().toISOString(),
       event: 'ticket_failed' as const,
+      source: 'orchestrator',
+      session: sessionId,
+      ticket: ticketId,
+    };
+    if (reason) evt.details = { reason };
+    logActivity(evt);
+  },
+
+  ticketSkipped(sessionId: string, ticketId: string, reason?: string) {
+    const evt: any = {
+      ts: new Date().toISOString(),
+      event: 'ticket_skipped' as const,
       source: 'orchestrator',
       session: sessionId,
       ticket: ticketId,

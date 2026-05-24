@@ -275,15 +275,20 @@ export async function runOrchestrator(
       emitProgress(`phase ${phase} COMPLETE`, ticket.id, phase);
       sm.recordProgress(sessionDir, `phase advance ${phase} for ${ticket.id}`);
 
-      // META-READINESS (final gate integration): research RA may have flipped to blocked/deferred inside ritual.
+      // META-READINESS (final gate integration): research RA may have flipped to blocked/deferred/skipped inside ritual.
       // Halt further phases for *this* ticket (research artifact + phasesCompleted up to research preserved; ticket not failed/done).
+      // Skipped (pure research theater no-evidence auto-skip) is terminal for the ticket but does not freeze campaign/EPIC.
       // Top-level status filter + dep check already protect other tickets. This closes the "honest research punished" RCA.
       const liveAfter = sm.loadState(sessionDir);
       const liveT = liveAfter.tickets.find((t: any) => t.id === ticket.id);
       const liveStatus = liveT?.status;
-      if (liveStatus === 'blocked' || liveStatus === 'deferred') {
-        console.log(`  [orchestrator] ${ticket.id} RA signaled ${liveStatus} after ${phase} — halting remaining phases (signal for closer/self-PRD intact)`);
-        try { (Activity as any).ticketReadinessBlocked?.(state.sessionId || 'unknown', ticket.id, liveStatus); } catch {}
+      if (liveStatus === 'blocked' || liveStatus === 'deferred' || liveStatus === 'skipped') {
+        console.log(`  [orchestrator] ${ticket.id} RA signaled ${liveStatus} after ${phase} — halting remaining phases (signal for closer/self-PRD intact; skipped=research theater terminal, non-blocking)`);
+        if (liveStatus === 'skipped') {
+          try { Activity.ticketSkipped(state.sessionId || 'unknown', ticket.id, 'research theater no-evidence auto-skip at boundary'); } catch {}
+        } else {
+          try { (Activity as any).ticketReadinessBlocked?.(state.sessionId || 'unknown', ticket.id, liveStatus); } catch {}
+        }
         return; // from runTicket; outer loop proceeds to next ticket
       }
 

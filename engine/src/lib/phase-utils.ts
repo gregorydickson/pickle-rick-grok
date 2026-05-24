@@ -292,7 +292,8 @@ export function topologicalSort(tickets: TicketRef[]): TicketRef[] {
 
 /**
  * Pure: tickets whose dependencies are satisfied (or external) and are themselves runnable.
- * Excludes done/failed/blocked/deferred. Seed doneIds with already-completed for multi-pass ready queue.
+ * Excludes done/failed/blocked/deferred/skipped. Seed doneIds with already-completed for multi-pass ready queue.
+ * skipped (research theater no-evidence terminals) do not block ready queue or EPIC_COMPLETED.
  */
 export function getReadyTickets(
   tickets: TicketRef[],
@@ -302,7 +303,7 @@ export function getReadyTickets(
   tickets.forEach(t => { if (t.status === 'done') done.add(t.id); });
 
   const inSet = new Set(tickets.map(t => t.id));
-  const blockedStatuses = ['done', 'failed', 'blocked', 'deferred'];
+  const blockedStatuses = ['done', 'failed', 'blocked', 'deferred', 'skipped'];
 
   return tickets.filter(t => {
     const st = (t.status || 'pending') as string;
@@ -318,6 +319,7 @@ export function getReadyTickets(
  * suggestedPrerequisites. This is the "rescue path" the R-META researcher writes
  * when it detects EMISSION_THEATER or similar; the scheduler must promote them
  * even when static .dependencies would otherwise keep them unrunnable.
+ * Note: 'skipped' (research theater terminals) are excluded here; their healing is manual/H-VERIFY or closer post-run.
  */
 export function getPromotedHardeningTickets(tickets: any[]): any[] {
   const blocked = tickets.filter((t: any) => t.status === 'blocked' || t.status === 'deferred');
@@ -344,6 +346,7 @@ export function getPromotedHardeningTickets(tickets: any[]): any[] {
  * Normal ready tickets (via getReadyTickets) + any RA-promoted hardening siblings.
  * The orchestrator while-loop uses this to keep making progress instead of
  * exiting after the first blocked researcher in a mixed R-META + H-* batch.
+ * Skipped research blocks (no-evidence EMISSION_THEATER) are filtered by getReady and do not appear in .blocked for pause.
  */
 export function getExecutableTicketsForSelfMeta(
   tickets: any[],
