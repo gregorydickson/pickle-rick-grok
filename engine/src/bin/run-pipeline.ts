@@ -159,6 +159,18 @@ async function main() {
   const defaultCwd = process.cwd();
   const createWorkingDir = explicitTargetInput ? path.resolve(explicitTargetInput) : defaultCwd;
 
+  // P0 source-only enforcement (duplicate of bin/grok-pipeline wrapper refusal).
+  // Direct `npx tsx ~/.grok/.../run-pipeline.ts` (or any path containing the deployed tree)
+  // or a cwd/target inside ~/.grok/pickle-rick-grok must be fatal. The wrapper protects the
+  // common persona natural-dispatch path; this closes the bypass vector for legacy scripts,
+  // direct tsx, or hallucinated commands. Sibling "NEVER edit deployed" discipline.
+  const invokedPath = process.argv[1] || '';
+  if (invokedPath.includes('/.grok/pickle-rick-grok') || createWorkingDir.includes('/.grok/pickle-rick-grok')) {
+    console.error('FATAL: Refusing to dispatch from (or targeting) a deployed ~/.grok/pickle-rick-grok tree.');
+    console.error('Source-only mutation rule. cd to your real git clone and use bin/grok-pipeline (or explicit --target to the source root).');
+    process.exit(1);
+  }
+
   if (bareSessionInput) {
     sessionDir = path.resolve(bareSessionInput);
     if (!fs.existsSync(sessionDir) || !fs.existsSync(path.join(sessionDir, 'state.json'))) {

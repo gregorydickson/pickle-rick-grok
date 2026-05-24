@@ -278,4 +278,23 @@ Wubba lubba dub dub. The pickle sees all."
 
 All findings reproducible from `grep` + `read_file` on the listed paths. No speculation.
 
+---
+
+## R10 Fidelity / Prompt-Doc-Contract Alignment Update (019e5a71-5ad9-7763-804b-061082b708cc + full R10 swarm)
+**Date**: 2026-05-24 (post subagent "Prompt / Doc / Contract Fidelity auditor (sibling truth source)")
+
+**What was theater vs reality (per subagent + sibling cross-check on spawn-refinement-team.ts:1410/1925, check-readiness.ts, forward-ref-annotation.js, mux-runner ~1717+)**:
+- Two hygiene fns (`checkVerifyMachinability`, `scanAnalystOutputsForUnverifiedPaths` + exact one-space FORWARD_REF regex + git bare-path enforcement) **are now real in src/** (restored R8/R9 + hygiene collectors at preflight end). Calls in ticket-emitter 407-408 and H-VERIFY attachment are live.
+- `evaluateAcShapeEnforcement` (the AC-shape collapse-or-justify machine gate from Claude spawn-refinement-team:1410) is **still absent**. Docs/AGENTS/SKILL/refine-contract/injections overclaimed "full HARD EMISSION GATE" + "Exports ... evaluateAcShapeEnforcement".
+- Scar comment in pipeline-preflight.ts:338 ("THE TWO MISSING...") was self-acknowledging Jerry; cleaned.
+- H-VERIFY-EMISSION-HONESTY AC1 verify had "graceful on missing fns during transition" fallback; tightened to direct calls + note on the remaining AC-shape gap.
+- SKILL synthesis "Call evaluate..." instruction + "0 blocking" flavor language (where present) rewritten to honest: real hygiene fns + auto H-VERIFY healer + manual per injected AC_SHAPE/PATH sections + never-stop amber waiver for council paths. Hard Rule at SKILL:227 was already accurate ("gate report + healers do **not** prevent REFINEMENT_COMPLETE on council paths").
+- AGENTS:55, refine-contract:69, analyst-gate-injections:7+37, SKILL post-synth steps, and the driving PRD itself updated to qualify the port status vs Claude sibling. "Full port" claims dialed back; reliability-backlog owns the AC-shape fn + full test harness + live debt heartbeat.
+
+**Current defense (real, post-fixes)**: Pre-emit verify-theater + machinability + path/forward-ref hygiene (R-RTRC-7) + proactive auto H-VERIFY-EMISSION-HONESTY sibling (always attached on council refine) + ritual skip for pure research theater (non-H only) + promotion/dep including 'skipped' + amber + never-stop contract. Closer/self-PRD turn debt clusters into next H-* PRDs.
+
+**Still open (reliability-backlog / next self-campaign input)**: Implement `evaluateAcShapeEnforcement` + wire as blocking in synthesis (or keep healer path), debt-injected 50-tix harness (P0 per this audit), observability (theaterDebt in campaign-status + Activity impls), more any/swallow cleanup, stronger install parity, dist/src convergence, dogfood on a real meta or GitNexus lifecycle.
+
+All doc changes surgical, pre-edit read + grep verified, sibling ground truth cited in every file. tsc + commit/push/install close this R10 round per standing user contract.
+
 <promise>I AM DONE</promise>

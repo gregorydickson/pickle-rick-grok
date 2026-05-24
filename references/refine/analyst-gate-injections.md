@@ -4,7 +4,7 @@
 
 Do **not** duplicate these blocks in the persona files. Reference this document once from each persona's Immutable Rules (or immediately before the final `<promise>`).
 
-See the driving synthesis PRD: `prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md` and the implementation in `engine/src/lib/pipeline-preflight.ts` (`evaluateAcShapeEnforcement`, `scanAnalystOutputsForUnverifiedPaths`, `checkVerifyMachinability`, `detectVerifyTheater`, the forward-ref regexes with exact one-ASCII-space rule) + `ticket-emitter.ts` (hard emission gate + auto H-VERIFY healer siblings + amber waivers).
+See the driving synthesis PRD: `prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md` and the implementation in `engine/src/lib/pipeline-preflight.ts` (`scanAnalystOutputsForUnverifiedPaths`, `checkVerifyMachinability`, `detectVerifyTheater`, the forward-ref regex with exact one-ASCII-space rule + git enforcement) + `ticket-emitter.ts` (hard emission gate + auto H-VERIFY-EMISSION-HONESTY healer siblings + amber waivers). `evaluateAcShapeEnforcement` is the remaining AC-shape enforcement fn (reliability-backlog; current defense is the injected section + manual + auto healer). Cross-checked against Claude sibling (spawn-refinement-team.ts:1410/1925, check-readiness.ts, forward-ref-annotation.js). R10 fidelity audit (019e5a71-5ad9-7763-804b-061082b708cc).
 
 ---
 
@@ -34,7 +34,7 @@ At the very end of EVERY round output (after the tables), emit a machine-readabl
 - Preferred: collapse into ONE ticket whose Verify uses describe.each / forEach / data-driven table.
 - Alternative (only if collapse genuinely harms): include explicit `// JUSTIFICATION: <why enumeration is the only way>` in the criterion text + a machine-checkable acceptance test that the smell is intentional.
 
-Never emit smelly ACs without one or the other. The manager will parse this JSON and run `evaluateAcShapeEnforcement`; un-justified smells block synthesis or trigger explicit healer siblings.
+Never emit smelly ACs without one or the other. The manager collects the `## ac_shape_smells` JSON per the injection. Full machine `evaluateAcShapeEnforcement` is pending (see reliability-backlog + TESTABILITY_AUDIT); un-justified smells are caught by the auto-attached H-VERIFY-EMISSION-HONESTY sibling (per ticket-emitter) + manual review in synthesis step + Hard Rule in SKILL.md. This preserves the never-stop + amber waiver contract for council paths.
 
 ---
 

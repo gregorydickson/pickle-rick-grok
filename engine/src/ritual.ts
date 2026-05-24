@@ -273,6 +273,49 @@ export class ManagerRitual {
     this.sessionDir = sessionDir;
     this.sm = new SessionManager();
   }
+
+  /**
+   * Single canonical handler for the research-theater mercy skip path (extracted from the two
+   * duplicate sites that previously existed in performPostReturn).
+   *
+   * Always uses the locked `sm.loadState` path (no racy unlocked fs.readFileSync fallback).
+   * Hardening tickets (H-* or isHardening) are forced to blocked + loud error (never auto-skipped).
+   * Non-hardening pure EMISSION_THEATER (no codeProgress since preSha) become terminal 'skipped'
+   * so one theatrical Verify cannot freeze the campaign or starve dependents.
+   *
+   * Called from both the early research-rescue block and the meta-readiness block.
+   * Future observability (richer Activity payloads, theaterDebt heartbeat) lives here.
+   *
+   * Credited to subagents 019e5a71-3f48-7080-ad21-0c2bc3c487f4 and 019e5a71-5ad8-7cc0-bedf-82c3cff52f25
+   * (resilience + testability auditors) + sibling mux-runner + pickle-utils patterns.
+   */
+  private async handlePureResearchTheaterNoEvidence(
+    ra: any,
+    codeProgress: boolean,
+    ticketId: string,
+    phase: string,
+    gitProgress: boolean,
+    preSha: string | undefined,
+    workerResult: any
+  ): Promise<{ effectiveStatus: string }> {
+    const sessId = path.basename(this.sessionDir);
+
+    // Always the locked path (sibling discipline; eliminates the previous racy fallback)
+    const st = this.sm.loadState(this.sessionDir);
+    const t = (st.tickets || []).find((x: any) => x.id === ticketId);
+    const isHardening = isHardeningTicket(t, ticketId);
+
+    if (isHardening) {
+      console.error(`[ritual] HARDENING TICKET ${ticketId} hit pure research theater no-evidence skip — FORCING BLOCKED instead of skipped to preserve healing path (gitProgress=${gitProgress}, preSha=${preSha}, artifacts=${(workerResult as any)?.artifactsWritten?.length || 0})`);
+      Activity.ticketReadinessBlocked?.(sessId, ticketId, 'blocked (hardening protected from auto-skip)');
+      return { effectiveStatus: 'blocked' };
+    } else {
+      await this.sm.markTicketSkipped(this.sessionDir, ticketId, `auto-skipped: research EMISSION_THEATER (no evidence/commits since preSha at boundary) — ${String(ra.reason || '').slice(0, 140)}; terminal per contract; heal via H-VERIFY or manual resume`);
+      Activity.ticketSkipped(sessId, ticketId, `research theater no-evidence: ${String(ra.reason || '').slice(0, 80)}`);
+      return { effectiveStatus: 'skipped' };
+    }
+  }
+
   async performPostReturn(ctx: any): Promise<any> {
     const { workerResult, ticketId, phase, preSha, expectedArtifact, autoRollbackOnGateFail = false, autoRollbackOnCircuitTrip = false, workingDir: ctxWorkingDir } = ctx;
     // Resolve the *target repo* working dir for all git ops (the tree being edited by workers).
@@ -327,22 +370,14 @@ export class ManagerRitual {
             // for *this ticket only*. Does not freeze campaign, does not count in meta.blocked for PAUSED, does not block EPIC/phase done.
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra); // keep ra + suggested for forensics/citadel/closer
 
-            // Guard from agent review (019e5a48-f028...): never auto-skip hardening tickets.
-            // Hardening work (including H-VERIFY healers for emission debt) must remain visible and runnable.
-            const st = this.sm.loadState ? this.sm.loadState(this.sessionDir) : (() => { try { return JSON.parse(fs.readFileSync(path.join(this.sessionDir, 'state.json'), 'utf8')); } catch { return { tickets: [] }; } })(); 
-            const t = (st.tickets || []).find((x: any) => x.id === ticketId);
-            const isHardening = isHardeningTicket(t, ticketId);
-            if (isHardening) {
-              console.error(`[ritual] HARDENING TICKET ${ticketId} hit pure research theater no-evidence skip — FORCING BLOCKED instead of skipped to preserve healing path (gitProgress=${gitProgress}, preSha=${preSha}, artifacts=${(workerResult as any)?.artifactsWritten?.length || 0})`);
-              Activity.ticketReadinessBlocked?.(sessId, ticketId, 'blocked (hardening protected from auto-skip)');
-            } else {
-              await this.sm.markTicketSkipped(this.sessionDir, ticketId, `auto-skipped: research EMISSION_THEATER (no evidence/commits since preSha at boundary) — ${String(ra.reason || '').slice(0, 140)}; terminal per contract; heal via H-VERIFY or manual resume`);
-              Activity.ticketSkipped(sessId, ticketId, `research theater no-evidence: ${String(ra.reason || '').slice(0, 80)}`);
-            }
+            // Single canonical path (extracted helper). Always locked loadState; hardening never skipped.
+            // Credited to the two subagents that kept re-auditing the dupe + racy fallback.
+            const res = await this.handlePureResearchTheaterNoEvidence(ra, codeProgress, ticketId, phase, gitProgress, preSha, workerResult);
+            var effectiveStatus = res.effectiveStatus;  // var to allow the later assignment in the shared note path
           } else {
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
+            var effectiveStatus = ra.status;
           }
-          const effectiveStatus = isPureResearchTheaterNoEvidence ? 'skipped' : ra.status;
           this.sm.updateCampaignStatusSync(this.sessionDir, {
             note: `RESEARCH ${effectiveStatus.toUpperCase()}: ${ticketId} @ ${phase} — honest RA: ${ra.reason || 'blocked/deferred per EMISSION_THEATER or similar'} (artifact + phasesCompleted preserved; ${isPureResearchTheaterNoEvidence ? 'auto-skipped (no-evidence resilience)' : 'non-fatal, no planner path; P0 research honesty rule'})`,
             lastPhaseResult: { ticketId, phase, bestEffort: true, status: effectiveStatus },
@@ -452,22 +487,12 @@ export class ManagerRitual {
           if (isPureResearchTheaterNoEvidence) {
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
 
-            // Guard from agent review (019e5a48-f028...): never auto-skip hardening tickets (duplicate extraction site).
-            const st2 = this.sm.loadState ? this.sm.loadState(this.sessionDir) : (() => { try { return JSON.parse(fs.readFileSync(path.join(this.sessionDir, 'state.json'), 'utf8')); } catch { return { tickets: [] }; } })(); 
-            const t2 = (st2.tickets || []).find((x: any) => x.id === ticketId);
-            const isHardening2 = isHardeningTicket(t2, ticketId);
-            const sId = path.basename(this.sessionDir);
-            if (isHardening2) {
-              console.error(`[ritual] HARDENING TICKET ${ticketId} hit pure research theater no-evidence skip (2nd site) — FORCING BLOCKED (gitProgress=${gitProgress})`);
-              Activity.ticketReadinessBlocked?.(sId, ticketId, 'blocked (hardening protected)');
-            } else {
-              await this.sm.markTicketSkipped(this.sessionDir, ticketId, `auto-skipped: research EMISSION_THEATER (no evidence/commits since preSha at boundary) — ${String(ra.reason || '').slice(0, 140)}; terminal per contract; heal via H-VERIFY or manual resume`);
-              Activity.ticketSkipped(sId, ticketId, `research theater no-evidence: ${String(ra.reason || '').slice(0, 80)}`);
-            }
+            // Single canonical path (the extracted helper). No more dupe, always locked sm.loadState.
+            await this.handlePureResearchTheaterNoEvidence(ra, codeProgress, ticketId, phase, gitProgress, preSha, workerResult);
+            // research_*.md + phasesCompleted preserved for forensics/self-prd/closer
           } else {
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
           }
-          // status (skipped or blocked/deferred) set; research_*.md + phasesCompleted preserved for forensics/self-prd/closer
         }
       } catch (e: any) {
         console.warn('[ritual] research readiness extract non-fatal:', e?.message || e);

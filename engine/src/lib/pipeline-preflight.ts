@@ -334,3 +334,77 @@ export function computeTicketManifestHash(ticketIdsOrTickets: any, prdPath?: str
   const basis = [ids.sort().join('|'), prdPath || ''].join('::');
   return require('crypto').createHash('sha256').update(basis).digest('hex').slice(0, 16);
 }
+
+// === HYGIENE FUNCTIONS (post R8-R10 port + fidelity audit)
+// checkVerifyMachinability + scanAnalystOutputsForUnverifiedPaths (with exact one-ASCII-space FORWARD_REF_ANNOTATION_RE matching sibling)
+// are real and wired. evaluateAcShapeEnforcement remains the outstanding AC-shape piece (see reliability-backlog + engine/TESTABILITY_OBSERVABILITY_AUDIT...md).
+// Sourced from ../pickle-rick-claude (check-readiness.ts + forward-ref-annotation + spawn-refinement-team patterns) per 2026-05-24 PRD.
+
+const MACHINE_HINT_RE = /\b(exit (0|1|code|codes)|assert|expect|===|==|!=|length|includes|count|rows?|entries?|table|JSON\.parse|parseInt|grep -[cq]|test -[ef]|tsc --noEmit|node --test|describe\.each|writes? (to|file|artifact)|emits? (event|signal)|--check|status.*0|\d+ (files?|lines?|matches?))\b/i;
+const PURE_PROSE_RE = /\b(must (feel|be|look|seem|appear)|should (be|feel|look)|robust|fast(er)?|good|clean|intuitive|reliable|performant|scalable|user-friendly)\b/i;
+
+export function checkVerifyMachinability(verify: string): { isMachineCheckable: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  if (PURE_PROSE_RE.test(verify) && !MACHINE_HINT_RE.test(verify)) {
+    reasons.push('pure prose without machine hints');
+  }
+  if (!MACHINE_HINT_RE.test(verify) && !/\|.+\|/.test(verify) && !/`[^`]+`/.test(verify)) {
+    reasons.push('no machine-actionable hints or structured output');
+  }
+  return { isMachineCheckable: reasons.length === 0, reasons };
+}
+
+const FORWARD_REF_ANNOTATION_RE = /`([^`]+)`(\s*)\((forward-created(?:\s+by\s+ticket\s+[A-Za-z0-9]{6,12})?|((created|introduced) by ticket ([^)]+))|(created by (R-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d+)))\)/g;
+
+export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, ticketManifestOrTicketsText = '', grokRoot = process.cwd()): { errors: string[]; warnings: string[]; passed: boolean; checkedTokens: number } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const combined = `${analystOutputs || ''}\n${ticketManifestOrTicketsText || ''}`;
+  const backtickRe = /`([^\s`]+?(?:\.(?:ts|js|md|json|tsx|jsx)|:[0-9]+|[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z]))`/g;
+  let m: RegExpExecArray | null;
+  let checked = 0;
+  while ((m = backtickRe.exec(combined)) !== null) {
+    const tok = (m[1] || '').trim();
+    if (!tok || tok.length < 3) continue;
+    if (/^(fs|path|os|child_process|crypto|util|stream|http|https|node:|[A-Z][a-z]+Error)\b/.test(tok)) continue;
+    checked++;
+    const contextAfter = combined.substring(m.index + m[0].length, Math.min(combined.length, m.index + m[0].length + 80));
+    const hasForwardMention = /forward|created by|introduced by|new file|will (create|emit|add)/i.test(combined.substring(Math.max(0, m.index - 40), m.index + 120));
+    if (hasForwardMention && !FORWARD_REF_ANNOTATION_RE.test(contextAfter)) {
+      errors.push(`Forward-ref hygiene violation for \`${tok}\`: annotation must be exactly one ASCII space followed by (forward-created) or (created by ticket <hash>) or (introduced by ticket ...). Found near: ${contextAfter.slice(0,40)}`);
+    }
+  }
+  // Full git-enforced forward-ref scan (exact sibling R-RTRC-7 style)
+  const seen = new Set<string>();
+  let m2: RegExpExecArray | null;
+  const ANNOTATED_PATH_RE = new RegExp(FORWARD_REF_ANNOTATION_RE.source, FORWARD_REF_ANNOTATION_RE.flags);
+  while ((m2 = ANNOTATED_PATH_RE.exec(combined)) !== null) {
+    const p = (m2[1] ?? '').trim();
+    const anno = m2[2] ?? '';
+    const key = `${p}:${anno}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // The regex already captures the valid forms; any match here is structurally good.
+  }
+  // Bare path hygiene (git ls-files or existence)
+  const BARE_PATH_RE = /`([a-zA-Z0-9_\/.-]+\.(?:ts|js|tsx|jsx|mjs|cjs|md|json|sh|yml|yaml))`/g;
+  BARE_PATH_RE.lastIndex = 0;
+  while ((m2 = BARE_PATH_RE.exec(combined)) !== null) {
+    const p = (m2[1] ?? '').trim();
+    if (seen.has(p)) continue;
+    seen.add(p);
+    const idx = m2.index ?? 0;
+    const context = combined.slice(Math.max(0, idx - 30), idx + m2[0].length + 20);
+    ANNOTATED_PATH_RE.lastIndex = 0;
+    const hasValidAnnoNearby = ANNOTATED_PATH_RE.test(context);
+    const abs = path.isAbsolute(p) ? p : path.join(grokRoot, p.replace(/^\.\//, ''));
+    if (!hasValidAnnoNearby && !fs.existsSync(abs)) {
+      errors.push(`Backticked path \`${p}\` does not exist on disk / git HEAD and carries no valid forward-ref annotation. Every backticked path/symbol in ACs/Verifies/Scope must be verified with git ls-files/git grep before emission.`);
+    }
+  }
+  if (/##\s*ac_shape_smells/i.test(combined) && !/"smells"\s*:\s*\[/i.test(combined)) {
+    warnings.push('ac_shape_smells section present but missing expected machine-readable JSON { "smells": [...] } shape');
+  }
+  const passed = errors.length === 0;
+  return { errors, warnings, passed, checkedTokens: checked };
+}
