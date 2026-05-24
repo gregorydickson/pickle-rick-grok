@@ -300,7 +300,7 @@ export function getReadyTickets(
   doneIds: Set<string> = new Set()
 ): TicketRef[] {
   const done = new Set(doneIds);
-  tickets.forEach(t => { if (t.status === 'done') done.add(t.id); });
+  tickets.forEach(t => { if (t.status === 'done' || t.status === 'skipped') done.add(t.id); });
 
   const inSet = new Set(tickets.map(t => t.id));
   const blockedStatuses = ['done', 'failed', 'blocked', 'deferred', 'skipped'];
@@ -319,10 +319,10 @@ export function getReadyTickets(
  * suggestedPrerequisites. This is the "rescue path" the R-META researcher writes
  * when it detects EMISSION_THEATER or similar; the scheduler must promote them
  * even when static .dependencies would otherwise keep them unrunnable.
- * Note: 'skipped' (research theater terminals) are excluded here; their healing is manual/H-VERIFY or closer post-run.
+ * Note: 'skipped' (research theater terminals) are now included here so RA-suggested healers from mercy-skipped debt tickets can be promoted (R9 resilience fix). Their direct execution is still filtered by getReady.
  */
 export function getPromotedHardeningTickets(tickets: any[]): any[] {
-  const blocked = tickets.filter((t: any) => t.status === 'blocked' || t.status === 'deferred');
+  const blocked = tickets.filter((t: any) => t.status === 'blocked' || t.status === 'deferred' || t.status === 'skipped');
   const suggested = new Set<string>();
   for (const b of blocked) {
     const r = (b as any).readiness || {};
@@ -366,4 +366,8 @@ export function getExecutableTicketsForSelfMeta(
   const blocked = tickets.filter((t: any) => t.status === 'blocked' || t.status === 'deferred');
   const nextHardening = promoted.map((t: any) => t.id);
   return { executable, normalReady, promoted: extra, blocked, nextHardening };
+}
+
+export function isHardeningTicket(t: any, id?: string): boolean {
+  return !!(t?.isHardening || String(id || t?.id || '').toUpperCase().startsWith('H-'));
 }

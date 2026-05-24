@@ -403,7 +403,7 @@ export async function runOrchestrator(
         const liveState = sm.loadState(sessionDir);
         const unsatisfied = deps.filter((d: string) => {
           const dt = liveState.tickets.find((tt: any) => tt.id === d);
-          return dt && dt.status !== 'done';
+          return dt && !['done', 'skipped'].includes(dt.status);
         });
         const isPromoted = (meta.promoted || []).some((p: any) => p.id === nextTicket.id) || (meta.nextHardening || []).includes(nextTicket.id);
         if (unsatisfied.length > 0 && !isPromoted) {

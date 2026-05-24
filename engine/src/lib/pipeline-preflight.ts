@@ -326,3 +326,11 @@ function readPrdSourceMeta(sessionDir: string): any {
   } catch {}
   return null;
 }
+
+export function computeTicketManifestHash(ticketIdsOrTickets: any, prdPath?: string): string {
+  const ids = Array.isArray(ticketIdsOrTickets) && typeof ticketIdsOrTickets[0] === 'string'
+    ? ticketIdsOrTickets
+    : (ticketIdsOrTickets || []).map((t: any) => t.id || t).filter(Boolean);
+  const basis = [ids.sort().join('|'), prdPath || ''].join('::');
+  return require('crypto').createHash('sha256').update(basis).digest('hex').slice(0, 16);
+}

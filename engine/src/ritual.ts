@@ -17,7 +17,7 @@ import { CircuitBreaker } from './circuit.js';
 import { getGitHead, getChangedPaths, safeRollback } from './git_safety.js';
 import { Activity } from './activity-logger.js';
 import type { ReadinessAssessment } from './types.js';
-import { getTicketStallLimit, getExpectedArtifactName, getExpectedDoneMarkerName, hasPhaseDoneMarker, findDoneMarkersForTicket, getPhaseRoleFromStem } from './lib/phase-utils.js';
+import { getTicketStallLimit, getExpectedArtifactName, getExpectedDoneMarkerName, hasPhaseDoneMarker, findDoneMarkersForTicket, getPhaseRoleFromStem, isHardeningTicket } from './lib/phase-utils.js';
 import { extractWorkerOutputText } from './workers.js';
 
 export function hasPromiseToken(output: string): boolean {
@@ -329,9 +329,9 @@ export class ManagerRitual {
 
             // Guard from agent review (019e5a48-f028...): never auto-skip hardening tickets.
             // Hardening work (including H-VERIFY healers for emission debt) must remain visible and runnable.
-            const st = ((): any => { try { return this.sm.loadState ? this.sm.loadState(this.sessionDir) : JSON.parse(fs.readFileSync(path.join(this.sessionDir, 'state.json'), 'utf8')); } catch { return { tickets: [] }; } })();
+            const st = this.sm.loadState ? this.sm.loadState(this.sessionDir) : (() => { try { return JSON.parse(fs.readFileSync(path.join(this.sessionDir, 'state.json'), 'utf8')); } catch { return { tickets: [] }; } })(); 
             const t = (st.tickets || []).find((x: any) => x.id === ticketId);
-            const isHardening = !!(t?.isHardening || String(ticketId || '').toUpperCase().startsWith('H-'));
+            const isHardening = isHardeningTicket(t, ticketId);
             if (isHardening) {
               console.error(`[ritual] HARDENING TICKET ${ticketId} hit pure research theater no-evidence skip — FORCING BLOCKED instead of skipped to preserve healing path (gitProgress=${gitProgress}, preSha=${preSha}, artifacts=${(workerResult as any)?.artifactsWritten?.length || 0})`);
               Activity.ticketReadinessBlocked?.(sessId, ticketId, 'blocked (hardening protected from auto-skip)');
@@ -453,9 +453,9 @@ export class ManagerRitual {
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
 
             // Guard from agent review (019e5a48-f028...): never auto-skip hardening tickets (duplicate extraction site).
-            const st2 = ((): any => { try { return this.sm.loadState ? this.sm.loadState(this.sessionDir) : JSON.parse(fs.readFileSync(path.join(this.sessionDir, 'state.json'), 'utf8')); } catch { return { tickets: [] }; } })();
+            const st2 = this.sm.loadState ? this.sm.loadState(this.sessionDir) : (() => { try { return JSON.parse(fs.readFileSync(path.join(this.sessionDir, 'state.json'), 'utf8')); } catch { return { tickets: [] }; } })(); 
             const t2 = (st2.tickets || []).find((x: any) => x.id === ticketId);
-            const isHardening2 = !!(t2?.isHardening || String(ticketId || '').toUpperCase().startsWith('H-'));
+            const isHardening2 = isHardeningTicket(t2, ticketId);
             const sId = path.basename(this.sessionDir);
             if (isHardening2) {
               console.error(`[ritual] HARDENING TICKET ${ticketId} hit pure research theater no-evidence skip (2nd site) — FORCING BLOCKED (gitProgress=${gitProgress})`);
