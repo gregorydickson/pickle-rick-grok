@@ -181,6 +181,19 @@ export const Activity = {
     logActivity(evt);
   },
 
+  ticketReadinessBlocked(sessionId: string, ticketId: string, status?: string, details?: any) {
+    const evt: any = {
+      ts: new Date().toISOString(),
+      event: 'ticket_readiness_blocked' as const,
+      source: 'ritual',
+      session: sessionId,
+      ticket: ticketId,
+    };
+    if (status) evt.status = status;
+    if (details) evt.details = details;
+    logActivity(evt);
+  },
+
   phaseCompleted(sessionId: string, ticketId: string, phase: string, durationMs?: number) {
     const evt: any = {
       ts: new Date().toISOString(),

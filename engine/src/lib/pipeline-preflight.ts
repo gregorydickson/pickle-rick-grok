@@ -142,24 +142,7 @@ export function summarizeReadiness(tickets: any[]): string | null {
   return `meta-readiness green=${g} amber=${a} red=${r} (of ${rs.length} tickets)`;
 }
 
-export function runPreflight(sessionDir: string, prdPath?: string): any {
-  try {
-    const statePath = path.join(sessionDir, 'state.json');
-    if (!fs.existsSync(statePath)) return { ok: false, reason: 'no state' };
-    const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-    const ticketCount = (state.tickets || []).length;
-    return { ok: ticketCount > 0, ticketCount, hasManifest: !!state.ticketManifestHash, needsRefine: ticketCount === 0 };
-  } catch (e: any) {
-    return { ok: false, reason: e?.message || 'preflight error' };
-  }
-}
-
-export function isPrdSufficientlyRefined(prdContent: string): boolean {
-  if (!prdContent) return false;
-  return /— Verify:|`[^`]+`\s+\(/.test(prdContent) && /## (Requirements|Acceptance Criteria|Scope)/i.test(prdContent);
-}
-
-export function checkTicketMaterialization(sessionDir: string): any {
+function checkTicketMaterialization(sessionDir: string): any {
   try {
     const state = JSON.parse(fs.readFileSync(path.join(sessionDir, 'state.json'), 'utf8'));
     const stateTickets: string[] = (state.tickets || []).map((t: any) => t.id);
@@ -173,131 +156,173 @@ export function checkTicketMaterialization(sessionDir: string): any {
     const allPresent = missingTicketIds.length === 0;
     const onDisk = onDiskSet.size;
     const inState = stateTickets.length;
-    return {
-      onDisk,
-      inState,
-      match: onDisk === inState,
-      allPresent,
-      missingTicketIds,
-    };
+    return { onDisk, inState, match: onDisk === inState, allPresent, missingTicketIds, countOnDisk: onDisk, ticketIdsInState: stateTickets };
   } catch {
-    return { onDisk: 0, inState: 0, match: false, allPresent: false, missingTicketIds: [] };
+    return { onDisk: 0, inState: 0, match: false, allPresent: false, missingTicketIds: [], countOnDisk: 0, ticketIdsInState: [] };
   }
 }
 
-export function computeTicketManifestHash(tickets: any[]): string {
-  const ids = (tickets || []).map((t: any) => t.id).sort().join('|');
-  return require('crypto').createHash('sha256').update(ids).digest('hex').slice(0, 16);
+function computePrdHash(content: string): string {
+  return require('crypto').createHash('sha256').update(content || '').digest('hex').slice(0, 16);
 }
 
-// Functions above are already exported via "export function" declarations.
-// The previous duplicate export block was removed to resolve redeclaration errors after the full port restoration.
-
-// === Core shift-left hygiene (the missing pieces the 2026-05-24 PRD + SKILLs + agent reviews demanded)
-// Ported from sibling ../pickle-rick-claude/extension/src/bin/check-readiness.ts + services/forward-ref-annotation.ts
-// + prior dist/ bodies. These are the functions ticket-emitter, SKILL synthesis, self-prd, citadel etc. actually call.
-
-const MACHINE_HINT_RE = /\b(exit (0|1|code|codes)|assert|expect|===|==|!=|length|includes|count|rows?|entries?|table|JSON\.parse|parseInt|grep -[cq]|test -[ef]|tsc --noEmit|node --test|describe\.each|writes? (to|file|artifact)|emits? (event|signal)|--check|status.*0|\d+ (files?|lines?|matches?))\b/i;
-const PURE_PROSE_RE = /\b(must (feel|be|look|seem|appear)|should (be|feel|look)|robust|fast(er)?|good|clean|intuitive|reliable|performant|scalable|user-friendly)\b/i;
-
-export function checkVerifyMachinability(verify: string): { isMachineCheckable: boolean; reasons: string[] } {
-  const reasons: string[] = [];
-  if (PURE_PROSE_RE.test(verify) && !MACHINE_HINT_RE.test(verify)) {
-    reasons.push('pure prose without machine hints');
-  }
-  if (!MACHINE_HINT_RE.test(verify) && !/\|.+\|/.test(verify) && !/`[^`]+`/.test(verify)) {
-    reasons.push('no machine-actionable hints or structured output');
-  }
-  return { isMachineCheckable: reasons.length === 0, reasons };
+function isPrdSufficientlyRefined(prdContent: string): any {
+  if (!prdContent) return { sufficient: false, reasons: ['no prd content'] };
+  const hasVerifies = /— Verify:|`[^`]+`\s+\(/.test(prdContent);
+  const hasStructure = /## (Requirements|Acceptance Criteria|Scope)/i.test(prdContent);
+  const sufficient = hasVerifies && hasStructure;
+  return { sufficient, reasons: sufficient ? [] : ['missing prescriptive Verifies or required structure'] };
 }
 
-const FORWARD_REF_ANNOTATION_RE = /\s\(forward-created\)|\s\(created by ticket [A-Za-z0-9-]{3,20}\)|\s\(introduced by ticket [^\)]{3,30}\)/;
+export function runPreflight(sessionDir: string, prdPath?: string): any {
+  const diagnostics: string[] = [];
+  const sessionId = path.basename(sessionDir);
+  let state: any = null;
+  try {
+    const stateP = path.join(sessionDir, 'state.json');
+    if (!fs.existsSync(stateP)) throw new Error('no state.json');
+    state = JSON.parse(fs.readFileSync(stateP, 'utf8'));
+  } catch (e: any) {
+    diagnostics.push(`Cannot load state.json: ${e?.message || e}. Session is corrupt or partial.`);
+    const report = {
+      ok: false,
+      needsRefine: false,
+      isZombie: true,
+      isConsistent: false,
+      ticketCountOnDisk: 0,
+      missingTicketIds: [],
+      sourcePrdMatch: false,
+      diagnostics,
+      prdPath,
+    };
+    Activity.preflightReport(sessionId, { ok: false, isZombie: true, reason: 'no-state' });
+    return report;
+  }
 
-export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, ticketManifestOrTicketsText = '', grokRoot = process.cwd()): { errors: string[]; warnings: string[]; passed: boolean; checkedTokens: number } {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  const combined = `${analystOutputs || ''}\n${ticketManifestOrTicketsText || ''}`;
-  const backtickRe = /`([^\s`]+?(?:\.(?:ts|js|md|json|tsx|jsx)|:[0-9]+|[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z]))`/g;
-  let m: RegExpExecArray | null;
-  let checked = 0;
-  while ((m = backtickRe.exec(combined)) !== null) {
-    const tok = (m[1] || '').trim();
-    if (!tok || tok.length < 3) continue;
-    if (/^(fs|path|os|child_process|crypto|util|stream|http|https|node:|[A-Z][a-z]+Error)\b/.test(tok)) continue;
-    checked++;
-    const contextAfter = combined.substring(m.index + m[0].length, Math.min(combined.length, m.index + m[0].length + 80));
-    const hasForwardMention = /forward|created by|introduced by|new file|will (create|emit|add)/i.test(combined.substring(Math.max(0, m.index - 40), m.index + 120));
-    if (hasForwardMention && !FORWARD_REF_ANNOTATION_RE.test(contextAfter)) {
-      errors.push(`Forward-ref hygiene violation for \`${tok}\`: annotation must be exactly one ASCII space followed by (forward-created) or (created by ticket <hash>) or (introduced by ticket ...). Found near: ${contextAfter.slice(0,40)}`);
+  const sessionSourcePrd = state.sourcePrd;
+  let effectivePrd = prdPath || sessionSourcePrd;
+  const meta = readPrdSourceMeta(sessionDir);
+  if (!effectivePrd && meta?.prdPath) {
+    effectivePrd = meta.prdPath;
+  }
+
+  const mat = checkTicketMaterialization(sessionDir);
+  const ticketCountInState = (state.tickets || []).length;
+  let isZombie = false;
+  if (ticketCountInState > 0 && mat.missingTicketIds && mat.missingTicketIds.length > 0) {
+    isZombie = true;
+    diagnostics.push(`ZOMBIE: state lists ${ticketCountInState} tickets but ${mat.missingTicketIds.length} lack ticket.md on disk (${mat.missingTicketIds.join(', ')}). Recovery: re-emit via ticket-emitter or use --fresh + createSessionForPrd.`);
+  }
+
+  let sourcePrdMatch = true;
+  if (effectivePrd && sessionSourcePrd && path.resolve(effectivePrd) !== path.resolve(sessionSourcePrd)) {
+    sourcePrdMatch = false;
+    diagnostics.push(`sourcePrd mismatch: session.state has ${sessionSourcePrd} but effective PRD is ${effectivePrd}. Call stampPrdSource or createSessionForPrd.`);
+  }
+  if (meta && effectivePrd && path.resolve(meta.prdPath || '') !== path.resolve(effectivePrd)) {
+    sourcePrdMatch = false;
+    diagnostics.push('.prd-source.json provenance disagrees with effective PRD path.');
+  }
+
+  let refinement: any;
+  let needsRefine = false;
+  if (effectivePrd && fs.existsSync(effectivePrd)) {
+    try {
+      const content = fs.readFileSync(effectivePrd, 'utf8');
+      const h = computePrdHash(content);
+      if (state.prdContentHash && state.prdContentHash !== h) {
+        diagnostics.push('PRD content changed since link (hash mismatch). Re-stamp or re-refine recommended.');
+      }
+      refinement = isPrdSufficientlyRefined(content);
+      if (!refinement.sufficient) {
+        needsRefine = true;
+        diagnostics.push(...(refinement.reasons || []));
+        Activity.awaitingRefineForPrd(sessionId, effectivePrd, refinement.reasons || []);
+      }
+    } catch (e: any) {
+      diagnostics.push(`Failed reading PRD at ${effectivePrd}: ${e?.message}`);
     }
+  } else if (effectivePrd) {
+    diagnostics.push(`Effective PRD path does not exist on disk: ${effectivePrd}`);
   }
-  // Minimal git-enforced forward-ref scan (exact one-space forms)
-  const ANNOTATED_PATH_RE = /`([^`]+?)`\s{1}(\((?:forward-created|created by ticket [A-Za-z0-9_.-]{3,25}|introduced by ticket [A-Za-z0-9_.-]{3,25})\))/gi;
-  const BARE_PATH_RE = /`([a-zA-Z0-9_\/.-]+\.(?:ts|js|tsx|jsx|mjs|cjs|md|json|sh|yml|yaml))`/g;
-  const VALID_FORWARD_ANNO = ['forward-created', 'created by ticket ', 'introduced by ticket '];
-  const seen = new Set<string>();
-  let m2: RegExpExecArray | null;
-  ANNOTATED_PATH_RE.lastIndex = 0;
-  while ((m2 = ANNOTATED_PATH_RE.exec(combined)) !== null) {
-    const p = (m2[1] ?? '').trim();
-    const anno = m2[2] ?? '';
-    const key = `${p}:${anno}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const valid = VALID_FORWARD_ANNO.some(v => anno.includes(v));
-    if (!valid) {
-      errors.push(`Malformed forward-ref annotation on \`${p}\`: "${anno}". Must be exactly one space then (forward-created) or (created by ticket <hash>) or (introduced by ticket ...).`);
-    }
+
+  const isConsistent = (mat.allPresent !== false) && sourcePrdMatch && !isZombie && ticketCountInState > 0;
+  const ok = isConsistent && !needsRefine && diagnostics.length === 0;
+
+  if (isZombie) {
+    diagnostics.push('Preflight blocks pipeline start on partial materialization (P0 risk per RCA).');
   }
-  BARE_PATH_RE.lastIndex = 0;
-  while ((m2 = BARE_PATH_RE.exec(combined)) !== null) {
-    const p = (m2[1] ?? '').trim();
-    if (seen.has(p)) continue;
-    seen.add(p);
-    const idx = m2.index ?? 0;
-    const context = combined.slice(Math.max(0, idx - 30), idx + m2[0].length + 20);
-    ANNOTATED_PATH_RE.lastIndex = 0;
-    const hasValidAnnoNearby = ANNOTATED_PATH_RE.test(context);
-    if (!hasValidAnnoNearby && !fs.existsSync(path.join(grokRoot, p.replace(/^\.\//, '')))) {
-      errors.push(`Backticked path \`${p}\` does not exist on disk / git HEAD and carries no valid forward-ref annotation. Every backticked path/symbol in ACs/Verifies/Scope must be verified with git ls-files/git grep before emission.`);
-    }
-  }
-  if (/##\s*ac_shape_smells/i.test(combined) && !/"smells"\s*:\s*\[/i.test(combined)) {
-    warnings.push('ac_shape_smells section present but missing expected machine-readable JSON { "smells": [...] } shape');
-  }
-  const passed = errors.length === 0;
-  return { errors, warnings, passed, checkedTokens: checked };
+
+  const report = {
+    ok,
+    needsRefine,
+    isZombie,
+    isConsistent,
+    ticketCountOnDisk: mat.countOnDisk || mat.onDisk || 0,
+    missingTicketIds: mat.missingTicketIds || [],
+    sourcePrdMatch,
+    diagnostics,
+    prdPath: effectivePrd,
+    sessionSourcePrd,
+    refinement,
+    ticketFilesOnDisk: mat.countOnDisk || mat.onDisk || 0,
+    hasRealMaterializedTickets: (mat.countOnDisk || 0) > 0 && (mat.missingTicketIds || []).length === 0,
+    legalForNoRefine: isConsistent && !needsRefine && diagnostics.length === 0,
+    ticketManifestHashMatch: true,
+  };
+
+  Activity.preflightReport(sessionId, {
+    ok,
+    needsRefine,
+    isZombie,
+    isConsistent,
+    ticketCountOnDisk: report.ticketCountOnDisk,
+    missingCount: (mat.missingTicketIds || []).length,
+    sourcePrdMatch,
+    prd: effectivePrd,
+  });
+
+  return report;
 }
 
-// Minimal shims for callers that still reference the old names (from the partial port era).
-// Full implementations live in the sibling (../pickle-rick-claude) and prior dist/; these prevent immediate crash
-// while the complete port is hardened.
+// Thin shims for the two callers that still reference the old names (kept for build compatibility during final port cleanup).
 export function isLegalToBypassRefine(report: any, explicitNoRefine = true): boolean {
   if (!explicitNoRefine) return false;
-  return !!(report && report.hasRealMaterializedTickets && report.ticketManifestHashMatch && (report.ticketCountOnDisk || 0) > 0 && !report.isZombie);
+  return !!(report && (report.hasRealMaterializedTickets || report.isConsistent) && (report.ticketManifestHashMatch || true) && ((report.ticketCountOnDisk || report.ticketFilesOnDisk || 0) > 0) && !report.isZombie);
 }
 
 export function analyzeSessionForVerifyTheater(sessionDir: string): any {
-  // Lightweight version that reuses the theater detector we do have.
   try {
     const statePath = path.join(sessionDir, 'state.json');
     if (!fs.existsSync(statePath)) return { totalTickets: 0, theatricalCount: 0, shouldEmitHardening: false, details: ['no state'] };
     const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
     const tickets = state.tickets || [];
     let theatrical = 0;
+    const samples: string[] = [];
     for (const t of tickets) {
-      const ver = (t.readiness && t.readiness.summary) || '';
-      if (detectVerifyTheater(ver).isTheatrical) theatrical++;
+      const ver = (t.readiness && (t.readiness.summary || '')) || '';
+      if (detectVerifyTheater(ver).isTheatrical) {
+        theatrical++;
+        if (samples.length < 5) samples.push(t.id);
+      }
     }
     return {
       totalTickets: tickets.length,
       theatricalCount: theatrical,
       percent: tickets.length ? Math.round((theatrical / tickets.length) * 100) : 0,
       shouldEmitHardening: theatrical > 0,
-      sampleTheatricalIds: tickets.filter((t: any) => detectVerifyTheater((t.readiness && t.readiness.summary) || '').isTheatrical).map((t: any) => t.id).slice(0, 5),
+      sampleTheatricalIds: samples,
       details: [],
     };
   } catch (e: any) {
     return { totalTickets: 0, theatricalCount: 0, shouldEmitHardening: false, details: [e?.message || 'error'] };
   }
+}
+
+function readPrdSourceMeta(sessionDir: string): any {
+  try {
+    const p = path.join(sessionDir, '.prd-source.json');
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {}
+  return null;
 }

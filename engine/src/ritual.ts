@@ -349,7 +349,7 @@ export class ManagerRitual {
           } as any);
           Activity.convergenceIteration('ritual', sessId, phase, (effectiveStatus === 'skipped' ? undefined : `research_${effectiveStatus}`) as any, undefined, undefined);
           if (!isPureResearchTheaterNoEvidence) {
-            try { (Activity as any).ticketReadinessBlocked?.(sessId, ticketId, ra.status); } catch {}
+            Activity.ticketReadinessBlocked?.(sessId, ticketId, ra.status, { reason: ra.reason });
           }
           return {
             valid: true,
