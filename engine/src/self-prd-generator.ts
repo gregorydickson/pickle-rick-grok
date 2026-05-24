@@ -768,7 +768,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
           const stateNow2 = ((): any => { try { return JSON.parse(fs.readFileSync(path.join(campaignSessionDir, 'state.json'), 'utf8')); } catch { return null; } })();
           const hasGateHealer = (stateNow2?.tickets || []).some((t: any) => /H-VERIFY|H-REFINE-GATE/i.test(t.id || ''));
           if (!hasGateHealer && !checkRecentVerifyTheaterReject(root)) {
-            // Re-use the factory (it self-validates); the gate report itself documents the exact new surfaces to harden (readiness-gate.ts + wires in emitter/SKILL + forward-ref regex).
+            // Re-use the factory (it self-validates); the gate report / preflight diagnostics document the exact new surfaces to harden (pipeline-preflight.ts + wires in emitter/SKILL + forward-ref hygiene per the 2026-05-24 synthesis PRD port from the Claude sibling).
             const extraGateSpecs = createHVerifyHardeningSpecs(root).filter((s: any) => /gate|refine|emission/i.test((s.justification || '') + s.id));
             const specsToEmit = extraGateSpecs.length ? extraGateSpecs : createHVerifyHardeningSpecs(root).slice(0, 1);
             for (const s of specsToEmit) {
