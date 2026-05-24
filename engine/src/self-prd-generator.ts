@@ -32,7 +32,6 @@ import { safeRead } from './lib/phase-utils.js';
 import { emitRefinedTickets, type TicketSpec } from './lib/ticket-emitter.js';
 import { detectVerifyTheater, analyzeSessionForVerifyTheater } from './lib/pipeline-preflight.js';
 import { summarizeReadiness } from './lib/pipeline-preflight.js';
-import { runReadinessGateOnSession } from './lib/readiness-gate.js';  // post-synth gate findings now feed emission-debt self-heal (synthesis PRD + task 2)
 
 const GROK_CRITICAL_FILES = [
   'engine/src/bin/orchestrator.ts',

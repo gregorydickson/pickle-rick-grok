@@ -247,9 +247,24 @@ export async function emitRefinedTickets(
             title: `H-VERIFY: heal EMISSION_THEATER debt in ${spec.id} + harden refine manager / emitter`,
             justification: `Auto-generated sibling by ticket-emitter because the producer (refine council or self-prd-generator) emitted theatrical Verifies or red readiness for ${spec.id}. Per autonomous "never stop, progress then fix" policy, the main ticket proceeds amber while this H-VERIFY rewrites the bad ACs and hardens the synthesis step in skills/pickle-refine-prd/SKILL.md + ticket-emitter.ts + pipeline-preflight.ts so this class of debt can never be emitted again.`,
             acceptanceCriteria: [
-              { id: 'AC1', criterion: `The debt ticket ${spec.id} no longer contains theatrical || true / | cat / non-deterministic Verify strings`, verify: `grep -E '\\|\\| true| \\| cat |/tmp/test-.*-session' tickets/${spec.id}/ticket.md | wc -l | grep -q '^0$'` },
-              { id: 'AC2', criterion: 'skills/pickle-refine-prd/SKILL.md Step 3/4 synthesis now runs detectVerifyTheater + literal BASELINE execution on every Verify before calling emitRefineCouncilTickets', verify: `grep -A 20 'for every verify in the TicketSpec' skills/pickle-refine-prd/SKILL.md | grep -q 'detectVerifyTheater\|BASELINE'` },
-              { id: 'AC3', criterion: 'ticket-emitter forces healer sibling + amber for ANY theatrical/red from council (not just direct theater or meta)', verify: `grep -A 5 'council/normal path' engine/src/lib/ticket-emitter.ts | grep -q 'theaterWaiverSibling'` },
+              { id: 'AC1', criterion: `The debt ticket ${spec.id} no longer contains theatrical || true / | cat / non-deterministic Verify strings`, verify: `node -e '
+  const fs = require("fs");
+  const content = fs.readFileSync("tickets/${spec.id}/ticket.md", "utf8");
+  if (/\\|\\| true| \\| cat |\\/tmp\\/test-.*-session/.test(content)) process.exit(1);
+  console.log("AC1 OK: debt ticket free of theatrical patterns");
+'` },
+              { id: 'AC2', criterion: 'skills/pickle-refine-prd/SKILL.md Step 3/4 synthesis now runs detectVerifyTheater + literal BASELINE execution on every Verify before calling emitRefineCouncilTickets', verify: `node -e '
+  const fs=require("fs");
+  const t=fs.readFileSync("skills/pickle-refine-prd/SKILL.md","utf8");
+  if(!/for every verify in the TicketSpec[\\s\\S]{0,400}?(detectVerifyTheater|BASELINE)/.test(t)) process.exit(1);
+  console.log("AC2 OK: SKILL synthesis runs detectVerifyTheater + BASELINE");
+'` },
+              { id: 'AC3', criterion: 'ticket-emitter forces healer sibling + amber for ANY theatrical/red from council (not just direct theater or meta)', verify: `node -e '
+  const fs=require("fs");
+  const t=fs.readFileSync("engine/src/lib/ticket-emitter.ts","utf8");
+  if(!/council\\/normal path[\\s\\S]{0,200}?theaterWaiverSibling/.test(t)) process.exit(1);
+  console.log("AC3 OK: emitter forces sibling + amber for council theatrical/red");
+'` },
             ],
             scope: `skills/pickle-refine-prd/SKILL.md\nengine/src/lib/ticket-emitter.ts\nreferences/phases/research.md\nreferences/refine/refine-contract.md\nengine/src/lib/pipeline-preflight.ts\ntickets/${spec.id}/ticket.md`,
             nonGoals: 'Do not change the hard block for clean non-debt tickets.',
@@ -341,13 +356,25 @@ export async function emitRefinedTickets(
         justification: 'Auto-attached by ticket-emitter per P0 port of Claude "shift-left at emission" (prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md). Every council refine batch now bakes in a dedicated auditor for the new gates (AC-shape, path/forward-ref hygiene, prescriptive template compliance, no-placeholder rule, readiness gate). Prevents future emission theater from reaching autonomous runs.',
         acceptanceCriteria: [
           { id: 'AC1', criterion: 'preflight + hygiene scan on emitted batch has 0 blocking findings (machinability, forward-ref annotation format, path_not_found, ac_shape, verify_theater)', verify: `node -e '
-            const p = require("./engine/src/lib/pipeline-preflight.js");
-            const hygiene = p.scanAnalystOutputsForUnverifiedPaths("", "dummy text for gate self-check");
-            const mach = p.checkVerifyMachinability("node -e \"console.log(42)\"");
-            console.log("hygiene errors=" + hygiene.errors.length + " machinability=" + mach.isMachineCheckable);
-          ' | grep -q "errors=0"` },
-          { id: 'AC2', criterion: 'All tickets in batch (including this one) use the prescriptive "— Verify: `cmd` — Type: ..." form + Test Expectations table with no placeholders', verify: `grep -l '— Verify:' tickets/*/ticket.md | wc -l | grep -q '^[1-9]' && grep -L 'TODO\|{{' tickets/*/ticket.md | wc -l | grep -q '^[1-9]'` },
-          { id: 'AC3', criterion: 'ticket-emitter.ts contains the always-attach proactive honesty block and generateTicketMarkdown emits the Test Expectations + forward-ref hygiene comments (ref the 2026-05-24 prd)', verify: `grep -A 5 'P0: Always attach proactive verify-theater' engine/src/lib/ticket-emitter.ts | grep -q 'proactive' && grep -A 3 'Test Expectations (NO PLACEHOLDERS' engine/src/lib/ticket-emitter.ts | grep -q 'NO PLACEHOLDERS'` },
+  const p = require("./engine/src/lib/pipeline-preflight.js");
+  const hygiene = p.scanAnalystOutputsForUnverifiedPaths("", "dummy text for gate self-check");
+  const mach = p.checkVerifyMachinability("node -e \\"console.log(42)\\"");
+  console.log("hygiene errors=" + hygiene.errors.length + " machinability=" + mach.isMachineCheckable);
+  if (hygiene.errors.length !== 0) process.exit(1);
+'` },
+          { id: 'AC2', criterion: 'All tickets in batch (including this one) use the prescriptive "— Verify: `cmd` — Type: ..." form + Test Expectations table with no placeholders', verify: `node -e '
+  const fs=require("fs"),p=require("path"); let good=0;
+  try {
+    const dirs=fs.readdirSync("tickets").filter(d=>fs.statSync(p.join("tickets",d)).isDirectory());
+    for(const d of dirs){ const f=p.join("tickets",d,"ticket.md"); if(fs.existsSync(f)){ const c=fs.readFileSync(f,"utf8"); if(/— Verify:/.test(c) && !/TODO|{{/.test(c)) good++; } }
+  }catch(e){}
+  if(good<1)process.exit(1); console.log("AC2 OK: "+good+" prescriptive tickets");
+'` },
+          { id: 'AC3', criterion: 'ticket-emitter.ts contains the always-attach proactive honesty block and generateTicketMarkdown emits the Test Expectations + forward-ref hygiene comments (ref the 2026-05-24 prd)', verify: `node -e '
+  const fs=require("fs"); const t=fs.readFileSync("engine/src/lib/ticket-emitter.ts","utf8");
+  if(!/P0: Always attach proactive verify-theater[\\s\\S]{0,300}?proactive/.test(t) || !/Test Expectations[\\s\\S]{0,100}?NO PLACEHOLDERS/.test(t)) process.exit(1);
+  console.log("AC3 OK: emitter + markdown have honesty block + expectations hygiene");
+'` },
         ],
         scope: `engine/src/lib/ticket-emitter.ts\nskills/pickle-refine-prd/SKILL.md\nengine/src/lib/pipeline-preflight.ts\nreferences/refine/ticket-template.md\nreferences/personas/*.md`,
         category: 'h-verify',
@@ -356,7 +383,8 @@ export async function emitRefinedTickets(
         hardeningTickets: 'Hardens the emission path itself (the root cause of prior stalls).',
       };
       const hVerifyJoined = hSpec.acceptanceCriteria.map((a:any)=>a.verify).join('\n');
-      const hRead = assessMetaReadiness(hSpec as any, hVerifyJoined as any, { ...(opts.grokRoot ? {grokRoot:opts.grokRoot} : {}) } as any) as any;
+      // FIX: correct arg order (scope string first, then verifyContent). hSpec has .scope.
+      const hRead = assessMetaReadiness((hSpec.scope || ''), hVerifyJoined, { ...(opts.grokRoot ? {grokRoot:opts.grokRoot} : {}) });
       const hMd = generateTicketMarkdown(hSpec, { generatedBy: (opts.generatedBy||'refine-prd council') + ' + auto proactive honesty', ...(opts.grokRoot?{grokRoot:opts.grokRoot}: {}) });
       const hMeta = { title: hSpec.title, status:'pending', phasesCompleted:[], category:hSpec.category, severity:hSpec.severity, sourcePrd:hSpec.sourcePrd, justification:hSpec.justification, isHardening:true, readiness:hRead, ...hSpec };
       const hPath = await sm.persistTicket(sessionDir, hSpec.id, hMd, hMeta);
@@ -374,8 +402,9 @@ export async function emitRefinedTickets(
   // No separate report file (reuses existing preflight diagnostics + the auto-attached H-VERIFY-EMISSION-HONESTY ticket).
   try {
     const allText = specs.map(s => `${s.justification || ''} ${s.acceptanceCriteria.map(a => `${a.criterion} ${a.verify}`).join(' ')} ${s.scope || ''}`).join('\n');
-    const hygiene = preflight.scanAnalystOutputsForUnverifiedPaths('', allText, opts.grokRoot || process.cwd());
-    const badMach = specs.flatMap(s => s.acceptanceCriteria.map(ac => ({ id: ac.id, m: preflight.checkVerifyMachinability(ac.verify || '') }))).filter(x => !x.m.isMachineCheckable);
+    // FIX: use directly imported named functions (no "preflight." namespace; was ReferenceError before)
+    const hygiene = scanAnalystOutputsForUnverifiedPaths('', allText, opts.grokRoot || process.cwd());
+    const badMach = specs.flatMap(s => s.acceptanceCriteria.map(ac => ({ id: ac.id, m: checkVerifyMachinability(ac.verify || '') }))).filter(x => !x.m.isMachineCheckable);
     if (hygiene.errors.length || badMach.length) {
       console.error(`[ticket-emitter] emission quality: ${hygiene.errors.length} hygiene errors + ${badMach.length} low-machinability (see preflight + auto H-VERIFY-EMISSION-HONESTY ticket)`);
     }
