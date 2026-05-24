@@ -321,8 +321,19 @@ export class ManagerRitual {
             // P0 resilience: treat research Verify theater block + lack of evidence (no commits since pre-set) as terminal skipped
             // for *this ticket only*. Does not freeze campaign, does not count in meta.blocked for PAUSED, does not block EPIC/phase done.
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra); // keep ra + suggested for forensics/citadel/closer
-            await this.sm.markTicketSkipped(this.sessionDir, ticketId, `auto-skipped: research EMISSION_THEATER (no evidence/commits since preSha at boundary) — ${String(ra.reason || '').slice(0, 140)}; terminal per contract; heal via H-VERIFY or manual resume`);
-            Activity.ticketSkipped(sessId, ticketId, `research theater no-evidence: ${String(ra.reason || '').slice(0, 80)}`);
+
+            // Guard from agent review (019e5a48-f028...): never auto-skip hardening tickets.
+            // Hardening work (including H-VERIFY healers for emission debt) must remain visible and runnable.
+            const st = ((): any => { try { return this.sm.loadState ? this.sm.loadState(this.sessionDir) : JSON.parse(fs.readFileSync(path.join(this.sessionDir, 'state.json'), 'utf8')); } catch { return { tickets: [] }; } })();
+            const t = (st.tickets || []).find((x: any) => x.id === ticketId);
+            const isHardening = !!(t?.isHardening || String(ticketId || '').toUpperCase().startsWith('H-'));
+            if (isHardening) {
+              console.error(`[ritual] HARDENING TICKET ${ticketId} hit pure research theater no-evidence skip — FORCING BLOCKED instead of skipped to preserve healing path (gitProgress=${gitProgress}, preSha=${preSha}, artifacts=${(workerResult as any)?.artifactsWritten?.length || 0})`);
+              Activity.ticketReadinessBlocked?.(sessId, ticketId, 'blocked (hardening protected from auto-skip)');
+            } else {
+              await this.sm.markTicketSkipped(this.sessionDir, ticketId, `auto-skipped: research EMISSION_THEATER (no evidence/commits since preSha at boundary) — ${String(ra.reason || '').slice(0, 140)}; terminal per contract; heal via H-VERIFY or manual resume`);
+              Activity.ticketSkipped(sessId, ticketId, `research theater no-evidence: ${String(ra.reason || '').slice(0, 80)}`);
+            }
           } else {
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
           }
@@ -435,9 +446,19 @@ export class ManagerRitual {
           const isPureResearchTheaterNoEvidence = ra.status === 'blocked' && /EMISSION_THEATER/i.test(String(ra.reason || '')) && !gitProgress;
           if (isPureResearchTheaterNoEvidence) {
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
-            await this.sm.markTicketSkipped(this.sessionDir, ticketId, `auto-skipped: research EMISSION_THEATER (no evidence/commits since preSha at boundary) — ${String(ra.reason || '').slice(0, 140)}; terminal per contract; heal via H-VERIFY or manual resume`);
+
+            // Guard from agent review (019e5a48-f028...): never auto-skip hardening tickets (duplicate extraction site).
+            const st2 = ((): any => { try { return this.sm.loadState ? this.sm.loadState(this.sessionDir) : JSON.parse(fs.readFileSync(path.join(this.sessionDir, 'state.json'), 'utf8')); } catch { return { tickets: [] }; } })();
+            const t2 = (st2.tickets || []).find((x: any) => x.id === ticketId);
+            const isHardening2 = !!(t2?.isHardening || String(ticketId || '').toUpperCase().startsWith('H-'));
             const sId = path.basename(this.sessionDir);
-            Activity.ticketSkipped(sId, ticketId, `research theater no-evidence: ${String(ra.reason || '').slice(0, 80)}`);
+            if (isHardening2) {
+              console.error(`[ritual] HARDENING TICKET ${ticketId} hit pure research theater no-evidence skip (2nd site) — FORCING BLOCKED (gitProgress=${gitProgress})`);
+              Activity.ticketReadinessBlocked?.(sId, ticketId, 'blocked (hardening protected)');
+            } else {
+              await this.sm.markTicketSkipped(this.sessionDir, ticketId, `auto-skipped: research EMISSION_THEATER (no evidence/commits since preSha at boundary) — ${String(ra.reason || '').slice(0, 140)}; terminal per contract; heal via H-VERIFY or manual resume`);
+              Activity.ticketSkipped(sId, ticketId, `research theater no-evidence: ${String(ra.reason || '').slice(0, 80)}`);
+            }
           } else {
             await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
           }
