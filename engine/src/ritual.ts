@@ -1,8 +1,9 @@
 /**
  * ritual.ts — post-worker phase result handling (production path for 50-tix campaigns)
  *
- * Shrinking coordinator for performPostReturn + research mercy paths (theater skip + H-* protection).
- * Long-term direction: continue splitting toward claude-style flat focused services (see overcomplexity agent reports + szechuan god-class detector).
+ * Coordinator for performPostReturn + research mercy paths. Research rescue logic progressively extracted
+ * (handlePureResearchTheaterNoEvidence + handleResearchBlockedOrDeferred) toward claude-style flat services.
+ * See szechuan god-class detector + prior overcomplexity swarm reports.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -273,8 +274,6 @@ export class ManagerRitual {
    * Single canonical handler for the research-theater mercy skip path.
    * Hardening tickets (H-* or isHardening) are forced to blocked + loud error (never auto-skipped).
    * Non-hardening pure EMISSION_THEATER (no codeProgress since preSha) become terminal 'skipped'.
-   *
-   * Future: continue splitting remaining research rescue logic out of performPostReturn.
    */
   private async handlePureResearchTheaterNoEvidence(
     ra: any,
@@ -303,6 +302,33 @@ export class ManagerRitual {
       await this.sm.markTicketSkipped(this.sessionDir, ticketId, `auto-skipped: research EMISSION_THEATER (no evidence/commits since preSha at boundary) — ${String(ra.reason || '').slice(0, 140)}; terminal per contract; heal via H-VERIFY or manual resume`);
       Activity.ticketSkipped(sessId, ticketId, `research theater no-evidence: ${String(ra.reason || '').slice(0, 80)}`);
       return { effectiveStatus: 'skipped' };
+    }
+  }
+
+  /**
+   * Common orchestration for research blocked/deferred (including EMISSION_THEATER mercy path).
+   * Extracted from the two sites in performPostReturn to shrink the god method and
+   * continue the splitting direction noted in the class comments + szechuan god-class detector.
+   */
+  private async handleResearchBlockedOrDeferred(
+    ra: any,
+    ticketId: string,
+    phase: string,
+    artifactPath: string,
+    codeProgress: boolean,
+    gitProgress: boolean,
+    preSha: string | undefined,
+    workerResult: any
+  ): Promise<{ effectiveStatus: string; wasPureTheater: boolean }> {
+    const isPureResearchTheaterNoEvidence = ra.status === 'blocked' && /EMISSION_THEATER/i.test(String(ra.reason || '')) && !codeProgress;
+
+    if (isPureResearchTheaterNoEvidence) {
+      await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
+      const res = await this.handlePureResearchTheaterNoEvidence(ra, codeProgress, ticketId, phase, gitProgress, preSha, workerResult);
+      return { effectiveStatus: res.effectiveStatus, wasPureTheater: true };
+    } else {
+      await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
+      return { effectiveStatus: ra.status, wasPureTheater: false };
     }
   }
 
@@ -347,6 +373,7 @@ export class ManagerRitual {
     // cleanly halt remaining phases for the ticket.
     // This is the P0 resilience rule for honest research: EMISSION_THEATER theater audit, unsatisfiable ACs, etc. must never
     // produce zombie in_progress tickets or starve the self-PRD/closer loop. The artifact + RA always wins for research.
+    // (Common logic extracted to handleResearchBlockedOrDeferred to shrink this method.)
     if (ticketId && phase && /research/i.test(phase) && artifactPath && fs.existsSync(artifactPath)) {
       try {
         const content = fs.readFileSync(artifactPath, 'utf8');
@@ -354,20 +381,11 @@ export class ManagerRitual {
         if (ra && (ra.status === 'blocked' || ra.status === 'deferred')) {
           try { await this.sm.appendPhase(this.sessionDir, ticketId, phase, artifactPath); } catch (e) { console.warn('[ritual] append non-fatal'); }
           const sessId = path.basename(this.sessionDir);
-          const isPureResearchTheaterNoEvidence = ra.status === 'blocked' && /EMISSION_THEATER/i.test(String(ra.reason || '')) && !codeProgress;
-          if (isPureResearchTheaterNoEvidence) {
-            // P0 resilience: treat research Verify theater block + lack of evidence (no commits since pre-set) as terminal skipped
-            // for *this ticket only*. Does not freeze campaign, does not count in meta.blocked for PAUSED, does not block EPIC/phase done.
-            await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra); // keep ra + suggested for forensics/citadel/closer
 
-            // Single canonical path (extracted helper). Protection decision now uses fresh caller ticketId
-            // (H-* stable via isHardeningTicket); no unlocked load inside handler. See handlePure...
-            const res = await this.handlePureResearchTheaterNoEvidence(ra, codeProgress, ticketId, phase, gitProgress, preSha, workerResult);
-            const effectiveStatus = res.effectiveStatus;
-          } else {
-            await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
-            var effectiveStatus = ra.status;
-          }
+          const rescue = await this.handleResearchBlockedOrDeferred(ra, ticketId, phase, artifactPath, codeProgress, gitProgress, preSha, workerResult);
+          const effectiveStatus = rescue.effectiveStatus;
+          const isPureResearchTheaterNoEvidence = rescue.wasPureTheater;
+
           this.sm.updateCampaignStatusSync(this.sessionDir, {
             note: `RESEARCH ${effectiveStatus.toUpperCase()}: ${ticketId} @ ${phase} — honest RA: ${ra.reason || 'blocked/deferred per EMISSION_THEATER or similar'} (artifact + phasesCompleted preserved; ${isPureResearchTheaterNoEvidence ? 'auto-skipped (no-evidence resilience)' : 'non-fatal, no planner path; P0 research honesty rule'})`,
             lastPhaseResult: { ticketId, phase, bestEffort: true, status: effectiveStatus },
@@ -473,16 +491,9 @@ export class ManagerRitual {
         const content = fs.readFileSync(artifactPath, 'utf8');
         const ra = extractReadinessAssessment(content);
         if (ra && (ra.status === 'blocked' || ra.status === 'deferred')) {
-          const isPureResearchTheaterNoEvidence = ra.status === 'blocked' && /EMISSION_THEATER/i.test(String(ra.reason || '')) && !codeProgress;
-          if (isPureResearchTheaterNoEvidence) {
-            await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
-
-            // Single canonical path (the extracted helper). Protection via fresh ticketId (see handler).
-            await this.handlePureResearchTheaterNoEvidence(ra, codeProgress, ticketId, phase, gitProgress, preSha, workerResult);
-            // research_*.md + phasesCompleted preserved for forensics/self-prd/closer
-          } else {
-            await this.sm.updateTicketReadiness(this.sessionDir, ticketId, ra);
-          }
+          const rescue = await this.handleResearchBlockedOrDeferred(ra, ticketId, phase, artifactPath, codeProgress, gitProgress, preSha, workerResult);
+          // (meta path does not short-circuit; continues to gate/circuit below)
+          // research_*.md + phasesCompleted preserved for forensics/self-prd/closer
         }
       } catch (e: any) {
         console.warn('[ritual] research readiness extract non-fatal:', e?.message || e);
