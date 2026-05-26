@@ -35,6 +35,7 @@ The system should be capable of:
 - Root discovery must always resolve to this tree (fixed).
 - Arch-deepener self-mutation guards (FORBIDDEN_SELF_MUT).
 - Specific known issues: szechuan bare catches, aux bin type debt, preflight edge cases on meta PRDs.
+- Install hygiene still thinner than Claude sibling (no active-bundle guard, no MD5 parity on key files, no flock/schemaVersion/semver downgrade audit — see fresh dispatch agent 019e64d4-f0a7-7ca2-8767-561b795b9c12 + claude install.sh:228-372 for the full R-ITS-* protections we have not yet ported). The lightweight pgrep guard added in this cycle mitigates the most common skew case.
 - 2026-05 dispatch UX: "run a pipeline on <prd>" (natural phrase) has automatic dispatch via persona + bin/grok-pipeline. Plain form now smartly prefers the latest legal sealed council session (post first /pickle-refine-prd) so the command reliably leads to a running autonomous campaign. See references/agents-append.md (updated sealed-prior policy) + dispatch-contract.md.
 
 ## Dispatch UX (2026-05-21 addition)

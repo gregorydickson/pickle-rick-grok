@@ -19,6 +19,29 @@ if [ ! -d "$GROK_DIR" ]; then
     exit 1
 fi
 
+# Lightweight active-bundle / concurrent guard (inspired by Claude sibling's
+# R-ITS-5-MIN / active-session protection — see fresh dispatch agent report
+# 019e64d4-f0a7-7ca2-8767-561b795b9c12 + claude install.sh:228-246).
+# Prevents mid-campaign install skew while a headless orchestrator holds old
+# code/state in memory. Not as heavy as Claude's flock + MD5 parity + schema
+# probe, but catches the common "I ran install while a 50-tix run was live" case.
+if pgrep -f "run-pipeline|mux-runner|orchestrator.*pickle" > /dev/null 2>&1; then
+    echo "⚠️  WARNING: Detected running Pickle Rick orchestrator process(es)."
+    echo "   Installing now risks version skew, state corruption, or mid-campaign breakage."
+    echo "   (Claude sibling refuses hard with ACTIVE-BUNDLE GUARD + parity.)"
+    echo "   Strongly recommended: stop all campaigns (or wait for clean shutdown) before re-running install."
+    if [[ "${1:-}" != "--force" ]]; then
+        read -p "Continue anyway? This is a bad idea. [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Aborted. Stop campaigns and re-run."
+            exit 1
+        fi
+    else
+        echo "   --force supplied; proceeding at your own risk."
+    fi
+fi
+
 echo "→ Installing core (engine + references) to $PICKLE_HOME"
 mkdir -p "$PICKLE_HOME"
 rsync -a --delete \
