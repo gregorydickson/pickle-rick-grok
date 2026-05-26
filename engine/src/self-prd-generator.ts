@@ -46,6 +46,9 @@ const GROK_CRITICAL_FILES = [
   'engine/src/gate.ts',
   'engine/src/circuit.ts',
   'engine/src/workers.ts',
+  'engine/src/lib/forward-ref-annotation.ts',
+  'engine/src/lib/ac-shape.ts',
+  'AGENTS.md',
   'skills/pickle-pipeline/SKILL.md',
   'skills/pickle-rick/SKILL.md',
 ];
@@ -59,6 +62,8 @@ const META_WIRING_FILES = [
   'engine/src/index.ts',
   'engine/src/ritual.ts',
   'engine/src/citadel.ts',
+  'engine/src/lib/forward-ref-annotation.ts',
+  'AGENTS.md',
 ];
 
 interface GapFinding {
