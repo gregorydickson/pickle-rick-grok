@@ -1,13 +1,8 @@
 /**
- * ritual.ts — ManagerRitual (full production port)
- * Single source for post-worker phase validation, state, gate, circuit, rollback.
+ * ritual.ts — post-worker phase result handling (production path for 50-tix campaigns)
  *
- * HARDENED for 50-ticket overnight:
-// Meta self-improvement wiring visibility: integrates with self-prd-generator + runSelfImprovementLoopCloser as first-class meta-phases (ritual/persist contracts for 50-tix self campaigns)
- * - artifactDir now defaults to canonical SessionManager 'tickets/<id>' layout
- * - All git ops (getGitHead, changedPaths, safeRollback) use the *target workingDir*
- *   resolved from ctx or SessionState (not the session metadata dir). Gate already did this;
- *   ritual was the last holdout. Now real self-dogfood git rollbacks will hit the correct tree.
+ * Shrinking coordinator for performPostReturn + research mercy paths (theater skip + H-* protection).
+ * Long-term direction: continue splitting toward claude-style flat focused services (see overcomplexity agent reports + szechuan god-class detector).
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -275,19 +270,11 @@ export class ManagerRitual {
   }
 
   /**
-   * Single canonical handler for the research-theater mercy skip path (extracted from the two
-   * duplicate sites that previously existed in performPostReturn).
-   *
-   * Always uses the locked `sm.loadState` path (no racy unlocked fs.readFileSync fallback).
+   * Single canonical handler for the research-theater mercy skip path.
    * Hardening tickets (H-* or isHardening) are forced to blocked + loud error (never auto-skipped).
-   * Non-hardening pure EMISSION_THEATER (no codeProgress since preSha) become terminal 'skipped'
-   * so one theatrical Verify cannot freeze the campaign or starve dependents.
+   * Non-hardening pure EMISSION_THEATER (no codeProgress since preSha) become terminal 'skipped'.
    *
-   * Called from both the early research-rescue block and the meta-readiness block.
-   * Future observability (richer Activity payloads, theaterDebt heartbeat) lives here.
-   *
-   * Credited to subagents 019e5a71-3f48-7080-ad21-0c2bc3c487f4 and 019e5a71-5ad8-7cc0-bedf-82c3cff52f25
-   * (resilience + testability auditors) + sibling mux-runner + pickle-utils patterns.
+   * Future: continue splitting remaining research rescue logic out of performPostReturn.
    */
   private async handlePureResearchTheaterNoEvidence(
     ra: any,

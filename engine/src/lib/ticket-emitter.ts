@@ -19,7 +19,7 @@
 import * as path from 'path';
 import { SessionManager } from '../session.js';
 import { Activity } from '../activity-logger.js';
-import { assessMetaReadiness, computeTicketManifestHash, detectVerifyTheater, scanAnalystOutputsForUnverifiedPaths, checkVerifyMachinability } from './pipeline-preflight.js';
+import { assessMetaReadiness, computeTicketManifestHash, detectVerifyTheater, scanAnalystOutputsForUnverifiedPaths, checkVerifyMachinability, runAcShapeEnforcement, evaluateAcShapeEnforcement } from './pipeline-preflight.js';
 // Post-synthesis emission quality now unified in pipeline-preflight (no parallel gate module).
 import type { ReadinessAssessment } from '../types.js';
 import * as fs from 'fs';
@@ -355,13 +355,14 @@ export async function emitRefinedTickets(
         title: 'H-VERIFY: proactive emission honesty + verify-theater hardening (always-on at refine emission)',
         justification: 'Auto-attached by ticket-emitter per P0 port of Claude "shift-left at emission" (prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md). Every council refine batch now bakes in a dedicated auditor for the new gates (AC-shape, path/forward-ref hygiene, prescriptive template compliance, no-placeholder rule, readiness gate). Prevents future emission theater from reaching autonomous runs.',
         acceptanceCriteria: [
-          { id: 'AC1', criterion: 'preflight + hygiene scan on emitted batch has 0 blocking findings (machinability, forward-ref annotation format, path_not_found, ac_shape, verify_theater). Note: full evaluateAcShapeEnforcement pending (see reliability-backlog); current defense is the two real hygiene fns + auto H-VERIFY auditor.', verify: `node -e '
+          { id: 'AC1', criterion: 'preflight + hygiene scan on emitted batch has 0 blocking findings (machinability, forward-ref annotation format, path_not_found, ac_shape via runAcShapeEnforcement, verify_theater). The hard AC-shape gate (evaluateAcShapeEnforcement + run*) is now ported and wired (per 2026-05-24 PRD + swarm agents).', verify: `node -e '
   const p = require("./engine/src/lib/pipeline-preflight.js");
   const hygiene = p.scanAnalystOutputsForUnverifiedPaths("", "dummy");
   const mach = p.checkVerifyMachinability("node -e \\"console.log(42)\\"");
-  console.log("hygiene errors=" + (hygiene.errors||[]).length + " machinability=" + mach.isMachineCheckable);
-  if ((hygiene.errors||[]).length !== 0) process.exit(1);
-  console.log("AC1 OK (hygiene + machinability real; ac_shape enforcement pending)");
+  const ac = p.runAcShapeEnforcement({ac_shape_smells: [], tickets: []});
+  console.log("hygiene errors=" + (hygiene.errors||[]).length + " machinability=" + mach.isMachineCheckable + " ac_shape=" + ac);
+  if ((hygiene.errors||[]).length !== 0 || ac !== 0) process.exit(1);
+  console.log("AC1 OK (full gates including ac_shape enforcement active)");
 '` },
           { id: 'AC2', criterion: 'All tickets in batch (including this one) use the prescriptive "— Verify: `cmd` — Type: ..." form + Test Expectations table with no placeholders', verify: `node -e '
   const fs=require("fs"),p=require("path"); let good=0;
@@ -388,17 +389,17 @@ export async function emitRefinedTickets(
       const hRead = assessMetaReadiness((hSpec.scope || ''), hVerifyJoined, { ...(opts.grokRoot ? {grokRoot:opts.grokRoot} : {}) });
       const hMd = generateTicketMarkdown(hSpec, { generatedBy: (opts.generatedBy||'refine-prd council') + ' + auto proactive honesty', ...(opts.grokRoot?{grokRoot:opts.grokRoot}: {}) });
 
-      // === Tranche 2 (from emission/plan/overcomp/broad/self swarm agents + claude spawn-refinement-team:1410): hard AC-shape gate now active
-      // Call the newly ported evaluate/run. Violations here trigger the H-VERIFY honesty sibling (no amber waiver for AC-shape on council paths).
+      // AC-shape hard gate call (ported from claude spawn-refinement-team:1410 per multiple swarm agents).
+      // Currently limited by data model (real ac_shape_smells from analysts not yet plumbed into TicketSpec[]).
+      // Full enforcement + hard exit(2) behavior lives in the SKILL manager (Step 3/4) + this call.
       try {
-        const acManifest = { ac_shape_smells: [], tickets: specs }; // analysts emit ## ac_shape_smells JSON; SKILL + preflight collect it. Full wiring in SKILL Step 3.
-        const acStatus = preflight.runAcShapeEnforcement(acManifest);
+        const acManifest = { ac_shape_smells: [], tickets: specs };
+        const acStatus = runAcShapeEnforcement(acManifest);
         if (acStatus !== 0) {
-          // Hard gate hit — the honesty H-VERIFY (or dedicated H-VERIFY-AC-SHAPE) will be the healer. Manager must fix or explicitly justify in next cycle.
-          console.error('[ticket-emitter] AC-shape hard gate fired (violations). H-VERIFY-EMISSION-HONESTY sibling will audit/repair. No amber for this class on council/meta.');
+          console.error('[ticket-emitter] AC-shape hard gate fired (violations). H-VERIFY-EMISSION-HONESTY sibling will audit/repair. No amber for this class on council/meta paths.');
         }
       } catch (e: any) {
-        console.warn('[ticket-emitter] ac-shape gate non-fatal during emit:', e?.message || e);
+        console.error('[ticket-emitter] AC-shape gate error during emit (investigate):', e?.message || e);
       }
       const hMeta = { title: hSpec.title, status:'pending', phasesCompleted:[], category:hSpec.category, severity:hSpec.severity, sourcePrd:hSpec.sourcePrd, justification:hSpec.justification, isHardening:true, readiness:hRead, ...hSpec };
       const hPath = await sm.persistTicket(sessionDir, hSpec.id, hMd, hMeta);
