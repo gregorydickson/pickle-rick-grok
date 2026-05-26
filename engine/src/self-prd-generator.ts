@@ -137,7 +137,7 @@ function loadBacklogState(root: string): { closedCategories: Set<string>; campai
   const txt = safeRead(p);
   const closed = new Set<string>();
   const recent = txt.slice(-4000);
-  const known = ['ritual-coverage', 'persistence', 'citadel-depth', 'meta-loop', 'signal-resilience', 'self-feedback', 'observability', 'ticket-exec', 'pipeline-meta', 'self-clean'];
+  const known = ['ritual-coverage', 'persistence', 'citadel-depth', 'meta-loop', 'signal-resilience', 'self-feedback', 'observability', 'ticket-exec', 'pipeline-meta', 'self-clean', 'self-loop-ingestion', 'dedicated-module-observability'];
   known.forEach(c => {
     if (new RegExp(c.replace('-', '[-_]?') + '.*?(closed|addressed|fixed|ingested|progress|delta)', 'i').test(recent)) closed.add(c);
   });
@@ -327,7 +327,44 @@ function scanForGaps(grokRoot: string, bl?: ReturnType<typeof loadBacklogState>)
 
   // filter to remaining (backlog drives the "exact" target)
   const remaining = findings.filter(f => !backlog.closedCategories.has(f.category));
-  return remaining.slice(0, 20);
+
+  // === SWARM3 self-loop P0 fix: dynamic discovery of recent fidelity debt artifacts ===
+  // (new dedicated modules + tests + docs/closer handoff + citadel reports + sessions)
+  // This makes the generator actually see its own recent ports/swarm work instead of relying only on static whitelist.
+  const fidelityDirs = ['engine/tests', 'docs', 'sessions'];
+  const fidelityKeywords = /forward-ref-annotation|ac-shape-gate|closer-ticket-manager-handoff|dedicated.module|self-loop-ingestion|SWARM[0-9]|fidelity.debt|port.*2026-05/i;
+  let fidelityDebtFound = false;
+  for (const d of fidelityDirs) {
+    const dir = path.join(base, d);
+    if (fs.existsSync(dir)) {
+      try {
+        const files = fs.readdirSync(dir, { recursive: true }) as string[];
+        for (const f of files) {
+          if (/\.(ts|md|json)$/.test(f)) {
+            const content = safeRead(path.join(dir, f));
+            if (content && fidelityKeywords.test(content)) {
+              fidelityDebtFound = true;
+              break;
+            }
+          }
+        }
+      } catch {}
+    }
+    if (fidelityDebtFound) break;
+  }
+  if (fidelityDebtFound && !backlog.closedCategories.has('self-loop-ingestion')) {
+    findings.push({
+      id: 'GAP-SELF-LOOP-INGESTION',
+      category: 'self-loop-ingestion',
+      description: 'Self-loop (generator/closer) lacks dynamic ingestion of recent fidelity debt (new dedicated modules + tests + honest docs + citadel/anatomy/szechuan signals). Static whitelist + shallow backlog regex only. Blocks canonical self-improvement.',
+      evidence: ['recent fidelity artifacts (forward-ref/ac-shape tests, closer handoff, citadel reports) present but not turned into R-META gaps'],
+      severity: 'P0',
+      suggestedVerification: 'node -e "console.log(require(\'./self-prd-generator\').generateSelfPrd(process.cwd(), {full:true, dry:true}).structuredSeeds.filter(s => /self-loop|dedicated|forward-ref/i.test(s.title+s.category)))"',
+    });
+  }
+
+  const remaining2 = findings.filter(f => !backlog.closedCategories.has(f.category));
+  return remaining2.slice(0, 20);
 }
 
 function buildPrdMarkdown(findings: GapFinding[], grokRoot: string, bl?: ReturnType<typeof loadBacklogState>): string {
@@ -677,6 +714,15 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
     campaignSessionDir ? path.join(campaignSessionDir, 'citadel_report.json') : '',
     path.join(root, 'citadel_prd_feedback.md'),
     path.join(root, 'bundle', 'citadel_report.json'),
+    // SWARM3 self-loop P0 fix: dynamic discovery of recent fidelity debt artifacts (new dedicated modules + tests + docs + sessions)
+    ...(campaignSessionDir ? [
+      path.join(campaignSessionDir, 'forward-ref-annotation.test.ts'),
+      path.join(campaignSessionDir, 'ac-shape-gate.test.ts'),
+    ] : []),
+    path.join(root, 'engine/tests/forward-ref-annotation.test.ts'),
+    path.join(root, 'engine/tests/ac-shape-gate.test.ts'),
+    path.join(root, 'docs/closer-ticket-manager-handoff.md'),
+    ...(campaignSessionDir ? [path.join(campaignSessionDir, 'citadel_report.json')] : []),
   ].filter(Boolean);
 
   for (const c of candidates) {

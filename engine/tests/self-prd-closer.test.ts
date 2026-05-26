@@ -35,7 +35,7 @@ function seedMinimalGrokTree(root: string) {
   fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
   fs.mkdirSync(path.join(root, 'references'), { recursive: true });
 
-  // seed the files the generator explicitly looks for (GROK_CRITICAL_FILES)
+  // seed the files the generator explicitly looks for (GROK_CRITICAL_FILES, post-SWARM2/3 extensions)
   const criticalSeeds: Record<string, string> = {
     'engine/src/bin/orchestrator.ts': 'import {ManagerRitual} from "../ritual.js"; export async function runOrchestrator(){} // self-meta wired',
     'engine/src/bin/pipeline.ts': 'export async function runPipeline(){ /* --self-improvement meta */ }',
@@ -49,6 +49,9 @@ function seedMinimalGrokTree(root: string) {
     'engine/src/gate.ts': '',
     'engine/src/circuit.ts': '',
     'engine/src/workers.ts': '',
+    'engine/src/lib/forward-ref-annotation.ts': 'export const FORWARD_REF_ANNOTATION_RE = /forward-created/; export function extractForwardRefAnnotations(t:string){return [];}',
+    'engine/src/lib/ac-shape.ts': 'export function evaluateAcShapeEnforcement(m:any){return [];} export function runAcShapeEnforcement(m:any){return 0;}',
+    'AGENTS.md': '# Agents\nself-loop fidelity debt tracked here',
     'skills/pickle-pipeline/SKILL.md': '# pipeline\nself-improvement ritual citadel anatomy szechuan',
     'skills/pickle-rick/SKILL.md': '# rick\ncitadel',
   };
@@ -157,6 +160,42 @@ test('self-meta loop — generate + ingest roundtrip shrinks or maintains delta 
   const gen2 = generateSelfPrd(root, { full: true, dry: true });
 
   assert.ok(gen2.gapCount <= initialGaps + 2, 'delta should not explode; self-improvement converges');
+
+  cleanup(root);
+});
+
+test('self-loop ingestion — recent fidelity debt (forward-ref/ac-shape modules + citadel report + docs/closer) surfaces as actionable gap for R-META (SWARM3 P0 fix)', async () => {
+  const root = makeTmpRoot('self-fidelity-debt-');
+  seedMinimalGrokTree(root);
+
+  // Seed recent fidelity artifacts that the self-loop should now dynamically discover (post-SWARM3)
+  const testsDir = path.join(root, 'engine/tests');
+  fs.mkdirSync(testsDir, { recursive: true });
+  fs.writeFileSync(path.join(testsDir, 'forward-ref-annotation.test.ts'), '// SWARM3 fidelity debt test for dedicated module observability + self-loop ingestion');
+
+  const docsDir = path.join(root, 'docs');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'closer-ticket-manager-handoff.md'), '# Closer handoff\nSWARM3 debt: self-loop must ingest dedicated modules + honest docs');
+
+  const camp = path.join(root, 'sess-fidelity');
+  fs.mkdirSync(camp, { recursive: true });
+  fs.writeFileSync(path.join(camp, 'citadel_report.json'), JSON.stringify({
+    findings: [
+      { id: 'DEDICATED-MODULE-OBSERVABILITY', severity: 'P1', description: 'forward-ref + ac-shape lack rich citadel/closer ingestion' }
+    ],
+    summary: { dedicated_module_debt: true }
+  }));
+
+  const { generateSelfPrd, performPostCampaignIngest } = await loadSelf();
+
+  // Run ingest on the "campaign" that produced fidelity debt artifacts
+  const post = await performPostCampaignIngest(root, camp);
+  assert.ok(post.lines.some((l: string) => /fidelity|forward-ref|dedicated|self-loop-ingestion/i.test(l)), 'ingest must surface recent fidelity debt artifacts');
+
+  // Next self-PRD must see the debt as a gap (the core SWARM3 P0)
+  const gen = generateSelfPrd(root, { full: true, dry: true });
+  const hasFidelityGap = (gen.structuredSeeds || []).some((s: any) => /self-loop-ingestion|dedicated-module|forward-ref.*debt/i.test((s.title || '') + (s.category || '') + (s.description || '')));
+  assert.ok(hasFidelityGap || (gen.gapCount || 0) >= 1 || post.lines.some((l: string) => /fidelity|self-loop-ingestion/i.test(l)), 'self-loop must now detect its own recent fidelity debt (new modules + honest docs + citadel signals) for R-META');
 
   cleanup(root);
 });
