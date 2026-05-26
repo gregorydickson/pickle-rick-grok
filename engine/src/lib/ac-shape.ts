@@ -1,10 +1,16 @@
 /**
  * ac-shape.ts — dedicated module for the hard AC-shape collapse-or-justify gate.
- * Ported verbatim from ../pickle-rick-claude/extension/src/bin/spawn-refinement-team.ts:1410
- * + supporting helpers/REs (per 2026-05-24 PRD P0 + multiple swarm agents).
+ * Functional port of evaluateAcShapeEnforcement + runAcShapeEnforcement + helpers/REs from
+ * ../pickle-rick-claude/extension/src/bin/spawn-refinement-team.ts:1410 (per 2026-05-24 PRD P0 + agents
+ * 019e5a97-c9cd..., 019e64d4-7ee4..., 019e64d4-b072... etc. with verbatim claude cross-checks first).
  *
- * Extracted from pipeline-preflight.ts to stop bloat in the hygiene lib
- * (original simplifier agent recommendation + follow-up overcomplexity report).
+ * Extracted from pipeline-preflight.ts to stop bloat (simplifier + overcomplexity agents).
+ *
+ * Honest note: evaluate/run take a minimal {ac_shape_smells?, tickets?} shape. Emitter currently passes
+ * empty ac_shape_smells (data model limit — real analyst smells not yet plumbed into TicketSpec[]).
+ * Full hard exit(2) enforcement + rich manifest lives in SKILL manager (pickle-refine-prd Step 3/4, post-synthesis
+ * before emitRefineCouncilTickets; no amber on council/meta). This module provides the reusable logic.
+ * See pipeline-preflight re-exports, ticket-emitter.ts:392, AGENTS.md Trap Doors, and ac-shape-gate.test.ts.
  */
 
 export interface AcShapeViolation {

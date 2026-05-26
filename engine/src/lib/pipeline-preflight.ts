@@ -21,6 +21,7 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { Activity } from '../activity-logger.js';
 import type { PreflightReport, ReadinessAssessment } from '../types.js';
+import { FORWARD_REF_ANNOTATION_RE } from './forward-ref-annotation.js';
 
 export type { PreflightReport };
 
@@ -30,7 +31,9 @@ const RUNNABLE_VERIFY_RE = /\b(npx |node -e |node --|grep |test -f |ls |find |di
  *  These are the exact anti-patterns that let R-META-DEEPEN-001 (and self-prd pads) emit tickets
  *  whose ACs could never be proven by a Verifier Morty on the current tree.
  *  (Formerly extended by the deleted parallel readiness-gate.ts; now the single canonical home after the 2026-05 review simplification.)
- *  See prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md + ticket-emitter integration (full port of Claude sibling's check-readiness + forward-ref-annotation patterns).
+ *  See prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md + ticket-emitter integration (core functional ports of Claude sibling's shift-left patterns:
+ *    AC-shape gate extracted to lib/ac-shape.ts; FORWARD_REF_ANNOTATION_RE + extract fn now in dedicated tiny lib/forward-ref-annotation.ts per agent 019e64d4-7ee4-7a63-bde7-e3532597ae4a.
+ *    Full analyst ac_shape_smells JSON plumbing into emitter manifest for hard gate on all paths, richer check-readiness parity, and annotation_format malformed findings live in fidelity backlog / SKILL manager Step 3 enforcement — see AGENTS.md Trap Doors).
  *
  *  P0 self-theater fix (2026-05-24 auditor): added patterns for the old wc/grep count and grep-A|grep-q
  *  anti-patterns that were baked into auto-generated H-VERIFY healers themselves. Replacements use
@@ -334,9 +337,11 @@ export function computeTicketManifestHash(ticketIdsOrTickets: any, prdPath?: str
 }
 
 // === HYGIENE FUNCTIONS (post R8-R10 port + fidelity audit)
-// checkVerifyMachinability + scanAnalystOutputsForUnverifiedPaths (with exact one-ASCII-space FORWARD_REF_ANNOTATION_RE matching sibling).
+// checkVerifyMachinability + scanAnalystOutputsForUnverifiedPaths now import FORWARD_REF_ANNOTATION_RE from dedicated tiny lib/forward-ref-annotation.ts
+// (exact port of claude extension/src/services/forward-ref-annotation.ts:1 + extract fn, per agent 019e64d4-7ee4-7a63-bde7-e3532597ae4a).
 // AC-SHAPE HARD GATE lives in dedicated lib/ac-shape.ts (extracted to stop preflight bloat per simplifier + overcomplexity agents).
 // Re-exported here for backward compat with existing call sites.
+// Note: full data plumbing for analyst ac_shape_smells + richer malformed annotation_format detection remain fidelity items (enforced hard in SKILL manager Step 3; see AGENTS Trap Doors).
 
 const MACHINE_HINT_RE = /\b(exit (0|1|code|codes)|assert|expect|===|==|!=|length|includes|count|rows?|entries?|table|JSON\.parse|parseInt|grep -[cq]|test -[ef]|tsc --noEmit|node --test|describe\.each|writes? (to|file|artifact)|emits? (event|signal)|--check|status.*0|\d+ (files?|lines?|matches?))\b/i;
 const PURE_PROSE_RE = /\b(must (feel|be|look|seem|appear)|should (be|feel|look)|robust|fast(er)?|good|clean|intuitive|reliable|performant|scalable|user-friendly)\b/i;
@@ -351,8 +356,6 @@ export function checkVerifyMachinability(verify: string): { isMachineCheckable: 
   }
   return { isMachineCheckable: reasons.length === 0, reasons };
 }
-
-const FORWARD_REF_ANNOTATION_RE = /`([^`]+)`(\s*)\((forward-created(?:\s+by\s+ticket\s+[A-Za-z0-9]{6,12})?|((created|introduced) by ticket ([^)]+))|(created by (R-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d+)))\)/g;
 
 export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, ticketManifestOrTicketsText = '', grokRoot = process.cwd()): { errors: string[]; warnings: string[]; passed: boolean; checkedTokens: number } {
   const errors: string[] = [];

@@ -389,9 +389,11 @@ export async function emitRefinedTickets(
       const hRead = assessMetaReadiness((hSpec.scope || ''), hVerifyJoined, { ...(opts.grokRoot ? {grokRoot:opts.grokRoot} : {}) });
       const hMd = generateTicketMarkdown(hSpec, { generatedBy: (opts.generatedBy||'refine-prd council') + ' + auto proactive honesty', ...(opts.grokRoot?{grokRoot:opts.grokRoot}: {}) });
 
-      // AC-shape hard gate call (ported from claude spawn-refinement-team:1410 per multiple swarm agents).
-      // Currently limited by data model (real ac_shape_smells from analysts not yet plumbed into TicketSpec[]).
-      // Full enforcement + hard exit(2) behavior lives in the SKILL manager (Step 3/4) + this call.
+      // AC-shape hard gate call (evaluate/run from lib/ac-shape.ts; port of claude spawn-refinement-team:1410 per agents).
+      // Forward-ref RE now in dedicated lib/forward-ref-annotation.ts (exact port of claude services/forward-ref-annotation.ts:1).
+      // Currently limited by data model (real ac_shape_smells not plumbed into TicketSpec[]; emitter passes []).
+      // Full enforcement + hard exit(2) lives in the SKILL manager (Step 3 post-synthesis, before emitRefineCouncilTickets; no amber on council/meta paths).
+      // Hygiene scan (machinability + forward-ref one-space + path_not_found) also runs here post-emit.
       try {
         const acManifest = { ac_shape_smells: [], tickets: specs };
         const acStatus = runAcShapeEnforcement(acManifest);
