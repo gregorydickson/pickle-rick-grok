@@ -387,6 +387,19 @@ export async function emitRefinedTickets(
       // FIX: correct arg order (scope string first, then verifyContent). hSpec has .scope.
       const hRead = assessMetaReadiness((hSpec.scope || ''), hVerifyJoined, { ...(opts.grokRoot ? {grokRoot:opts.grokRoot} : {}) });
       const hMd = generateTicketMarkdown(hSpec, { generatedBy: (opts.generatedBy||'refine-prd council') + ' + auto proactive honesty', ...(opts.grokRoot?{grokRoot:opts.grokRoot}: {}) });
+
+      // === Tranche 2 (from emission/plan/overcomp/broad/self swarm agents + claude spawn-refinement-team:1410): hard AC-shape gate now active
+      // Call the newly ported evaluate/run. Violations here trigger the H-VERIFY honesty sibling (no amber waiver for AC-shape on council paths).
+      try {
+        const acManifest = { ac_shape_smells: [], tickets: specs }; // analysts emit ## ac_shape_smells JSON; SKILL + preflight collect it. Full wiring in SKILL Step 3.
+        const acStatus = preflight.runAcShapeEnforcement(acManifest);
+        if (acStatus !== 0) {
+          // Hard gate hit — the honesty H-VERIFY (or dedicated H-VERIFY-AC-SHAPE) will be the healer. Manager must fix or explicitly justify in next cycle.
+          console.error('[ticket-emitter] AC-shape hard gate fired (violations). H-VERIFY-EMISSION-HONESTY sibling will audit/repair. No amber for this class on council/meta.');
+        }
+      } catch (e: any) {
+        console.warn('[ticket-emitter] ac-shape gate non-fatal during emit:', e?.message || e);
+      }
       const hMeta = { title: hSpec.title, status:'pending', phasesCompleted:[], category:hSpec.category, severity:hSpec.severity, sourcePrd:hSpec.sourcePrd, justification:hSpec.justification, isHardening:true, readiness:hRead, ...hSpec };
       const hPath = await sm.persistTicket(sessionDir, hSpec.id, hMd, hMeta);
       created.push(hPath);

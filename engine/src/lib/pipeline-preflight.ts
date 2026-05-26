@@ -337,8 +337,8 @@ export function computeTicketManifestHash(ticketIdsOrTickets: any, prdPath?: str
 
 // === HYGIENE FUNCTIONS (post R8-R10 port + fidelity audit)
 // checkVerifyMachinability + scanAnalystOutputsForUnverifiedPaths (with exact one-ASCII-space FORWARD_REF_ANNOTATION_RE matching sibling)
-// are real and wired. evaluateAcShapeEnforcement remains the outstanding AC-shape piece (see reliability-backlog + engine/TESTABILITY_OBSERVABILITY_AUDIT...md).
-// Sourced from ../pickle-rick-claude (check-readiness.ts + forward-ref-annotation + spawn-refinement-team patterns) per 2026-05-24 PRD.
+// + AC-SHAPE HARD GATE now ported (evaluateAcShapeEnforcement + runAcShapeEnforcement + helpers from claude spawn-refinement-team.ts:1410 + REs).
+// Full shift-left per 2026-05-24 PRD P0 + 5+ swarm agents (emission, plan, overcomp, broad, self, dispatch). No amber waiver for this class on council/meta paths.
 
 const MACHINE_HINT_RE = /\b(exit (0|1|code|codes)|assert|expect|===|==|!=|length|includes|count|rows?|entries?|table|JSON\.parse|parseInt|grep -[cq]|test -[ef]|tsc --noEmit|node --test|describe\.each|writes? (to|file|artifact)|emits? (event|signal)|--check|status.*0|\d+ (files?|lines?|matches?))\b/i;
 const PURE_PROSE_RE = /\b(must (feel|be|look|seem|appear)|should (be|feel|look)|robust|fast(er)?|good|clean|intuitive|reliable|performant|scalable|user-friendly)\b/i;
@@ -407,4 +407,89 @@ export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, tic
   }
   const passed = errors.length === 0;
   return { errors, warnings, passed, checkedTokens: checked };
+}
+
+// === AC-SHAPE HARD GATE (exact port of claude spawn-refinement-team.ts:1410 + helpers/REs per swarm agents + 2026-05-24 PRD)
+// evaluate + run return 2 on violation; called with process.exit(2) in claude main:1978 before any manifest seal / autonomous handoff.
+// Grok now has the machine enforcement (previously only prompt injection + partial hygiene + post-facto H-VERIFY healer + amber).
+// Wire: preflight (here) + ticket-emitter (before H- attachment) + SKILL synthesis (Step 3/4 post-synthesis, before emitRefineCouncilTickets).
+// No waiver for this class on council/meta paths (hard block or explicit manager rewrite + healer sibling).
+
+export interface AcShapeViolation {
+  ac_id: string;
+  reason: string;
+  ticket_ids: string[];
+}
+
+const AC_SHAPE_SECTION_RE = /^##+\s+ac_shape_smells\s*$/im;
+const UNIVERSAL_QUANTIFIER_RE = /\b(?:all|every|for any|each)\b/i;
+const JUSTIFICATION_RE = /\/\/\s*JUSTIFICATION:/i;
+const DESCRIBE_EACH_RE = /describe\.each\s*\(\s*\[/s;
+
+function hasJustificationBlock(ticket: any): boolean {
+  return ticket.justification !== undefined && JUSTIFICATION_RE.test(ticket.justification);
+}
+
+function isParametrizedTicket(ticket: any): boolean {
+  const title = ticket.title || '';
+  const acc = ticket.acceptance_test || (ticket.acceptanceCriteria && ticket.acceptanceCriteria[0] && ticket.acceptanceCriteria[0].verify) || '';
+  return UNIVERSAL_QUANTIFIER_RE.test(title) && DESCRIBE_EACH_RE.test(acc);
+}
+
+function ticketsForSmell(smell: any, tickets: any[]): any[] {
+  const explicitIds = new Set((smell.ticket_ids ?? []).filter((id: string) => id && id.trim() !== ''));
+  return tickets.filter((ticket: any) => {
+    if (explicitIds.size > 0 && explicitIds.has(ticket.id)) return true;
+    const sources = ticket.source_ac_ids || [];
+    return sources.includes(smell.ac_id);
+  });
+}
+
+export function evaluateAcShapeEnforcement(manifest: { ac_shape_smells?: any[]; tickets?: any[] }): AcShapeViolation[] {
+  const violations: AcShapeViolation[] = [];
+  const smells = manifest.ac_shape_smells || [];
+  const tickets = manifest.tickets || [];
+  for (const smell of smells) {
+    const matchingTickets = ticketsForSmell(smell, tickets);
+    if (matchingTickets.length === 0) {
+      violations.push({
+        ac_id: smell.ac_id,
+        reason: 'tagged as an AC-shape smell but no matching ticket entries were emitted',
+        ticket_ids: [],
+      });
+      continue;
+    }
+    if (matchingTickets.length === 1) {
+      const [ticket] = matchingTickets;
+      if (!isParametrizedTicket(ticket)) {
+        violations.push({
+          ac_id: smell.ac_id,
+          reason: 'single-ticket collapse lacks a universal-quantifier title or describe.each([...]) acceptance test',
+          ticket_ids: [ticket.id],
+        });
+      }
+      continue;
+    }
+    const unjustified = matchingTickets.filter((t: any) => !hasJustificationBlock(t));
+    if (unjustified.length > 0) {
+      violations.push({
+        ac_id: smell.ac_id,
+        reason: 'multi-ticket decomposition lacks // JUSTIFICATION: blocks on every matching ticket',
+        ticket_ids: unjustified.map((t: any) => t.id),
+      });
+    }
+  }
+  return violations;
+}
+
+export function runAcShapeEnforcement(manifest: { ac_shape_smells?: any[]; tickets?: any[] }): number {
+  const violations = evaluateAcShapeEnforcement(manifest);
+  if (violations.length === 0) return 0;
+  console.error('[pickle-rick] AC-shape collapse-or-justify gate failed.');
+  console.error('[pickle-rick] Rewrite each AC as one invariant-shaped acceptance criterion, or add // JUSTIFICATION: blocks to every intentionally split ticket.');
+  for (const v of violations) {
+    const tks = v.ticket_ids.length > 0 ? ` tickets=${v.ticket_ids.join(',')}` : '';
+    console.error(`[pickle-rick] ${v.ac_id}: ${v.reason}${tks}`);
+  }
+  return 2;
 }
