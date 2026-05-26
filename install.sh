@@ -40,11 +40,9 @@ if pgrep -f "run-pipeline|mux-runner|orchestrator.*pickle" > /dev/null 2>&1; the
   ACTIVE=1
 else
   # Look for live session state (more robust than pure pgrep for detached grok -p / tsx paths)
-  for sdir in "$HOME/.local/share/pickle-rick/sessions"/* "$HOME/.grok/pickle-rick-grok/sessions"/* 2>/dev/null; do
-    if [ -f "$sdir/state.json" ] && grep -q '"active"[[:space:]]*:[[:space:]]*true' "$sdir/state.json" 2>/dev/null; then
-      ACTIVE=1; break
-    fi
-  done
+  for sdir in "$HOME/.local/share/pickle-rick/sessions"/* "$HOME/.grok/pickle-rick-grok/sessions"/*; do
+    [ -f "$sdir/state.json" ] && grep -q '"active"[[:space:]]*:[[:space:]]*true' "$sdir/state.json" 2>/dev/null && { ACTIVE=1; break; }
+  done 2>/dev/null || true
 fi
 
 if [ "$ACTIVE" -eq 1 ]; then
@@ -73,11 +71,45 @@ fi
 
 # Minimal flock/LOCKDIR serialization around the critical rsync + rewrite section
 # (prevents concurrent headless installs from racing on the same target tree).
-LOCKDIR="/tmp/.install-pickle-rick-grok.lock.d"
-mkdir -p "$LOCKDIR"
-(
-  flock -x 9 || { echo "❌ REFUSE: another install.sh is already running (flock held)."; exit 1; }
+# SWARM5 mac/flock edge hardening: portable fallback exactly as claude:200-215
+# (command -v flock + mkdir LOCKDIR + trap; stealStaleLock for races).
+stealStaleLock() {
+  local lockd="$1"
+  local timeout="${2:-300000}" # 5min default
+  if [ -d "$lockd" ]; then
+    local mtime
+    mtime=$(stat -c %Y "$lockd" 2>/dev/null || stat -f %m "$lockd" 2>/dev/null || echo 0)
+    local now; now=$(date +%s)
+    if [ $((now - mtime)) -gt $((timeout / 1000)) ]; then
+      rmdir "$lockd" 2>/dev/null || true
+    fi
+  fi
+}
 
+LOCKDIR="/tmp/.install-pickle-rick-grok.lock.d"
+stealStaleLock "$LOCKDIR"
+if command -v flock >/dev/null 2>&1; then
+  mkdir -p "$LOCKDIR"
+  (
+    flock -x 9 || { echo "❌ REFUSE: another install.sh is already running (flock held)."; exit 1; }
+    echo "→ Installing core (engine + references) to $PICKLE_HOME"
+    mkdir -p "$PICKLE_HOME"
+    rsync -a --delete \
+        --exclude '.git' \
+        --exclude 'node_modules' \
+        --exclude '.DS_Store' \
+        "$SCRIPT_DIR/" "$PICKLE_HOME/"
+    chmod +x "$PICKLE_HOME/bin/grok-pipeline" 2>/dev/null || true
+    mkdir -p "$SKILLS_TARGET"
+    mkdir -p "$PERSONAS_TARGET"
+  ) 9>"$LOCKDIR/lock"
+else
+  # Portable fallback for stock macOS / systems without flock (claude pattern)
+  while ! mkdir "$LOCKDIR" 2>/dev/null; do
+    echo "Waiting for other install.sh to finish (LOCKDIR held)..."
+    sleep 1
+  done
+  trap 'rmdir "$LOCKDIR" 2>/dev/null || true' EXIT
   echo "→ Installing core (engine + references) to $PICKLE_HOME"
   mkdir -p "$PICKLE_HOME"
   rsync -a --delete \
@@ -85,21 +117,12 @@ mkdir -p "$LOCKDIR"
       --exclude 'node_modules' \
       --exclude '.DS_Store' \
       "$SCRIPT_DIR/" "$PICKLE_HOME/"
-
-  # Make the dispatch helper(s) executable (grok-pipeline wrapper for the automatic "run a pipeline" UX)
   chmod +x "$PICKLE_HOME/bin/grok-pipeline" 2>/dev/null || true
-
   mkdir -p "$SKILLS_TARGET"
   mkdir -p "$PERSONAS_TARGET"
-) 9>"$LOCKDIR/lock"
-
-echo "→ Installing core (engine + references) to $PICKLE_HOME"
-mkdir -p "$PICKLE_HOME"
-rsync -a --delete \
-    --exclude '.git' \
-    --exclude 'node_modules' \
-    --exclude '.DS_Store' \
-    "$SCRIPT_DIR/" "$PICKLE_HOME/"
+  rmdir "$LOCKDIR" 2>/dev/null || true
+  trap - EXIT
+fi
 
 # Make the dispatch helper(s) executable (grok-pipeline wrapper for the automatic "run a pipeline" UX)
 # This is the tiny helper that bakes --target + long tsx path so the LLM constructs dramatically shorter argv.

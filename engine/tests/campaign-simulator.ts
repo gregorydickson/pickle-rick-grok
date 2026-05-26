@@ -47,6 +47,10 @@ interface SimOptions {
   injectSigtermRate: number; // 0-1 chance of "crash" per ticket
   diskPressure: boolean;
   seed?: number;
+  // SWARM5 50-tix debt-injection harness (real non-empty ac_shape_smells + forward-ref violations + mercy)
+  injectRealAcShapeSmells: boolean;
+  injectForwardRefViolation: boolean;
+  injectMercy: boolean;
 }
 
 function parseArgs(): SimOptions {
@@ -60,6 +64,9 @@ function parseArgs(): SimOptions {
   let injectSigtermRate = 0.06;
   let diskPressure = false;
   let seed: number | undefined;
+  let injectRealAcShapeSmells = false;
+  let injectForwardRefViolation = false;
+  let injectMercy = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--tickets') tickets = parseInt(args[++i], 10) || tickets;
     if (args[i] === '--fail-rate') failRate = parseFloat(args[++i]) || failRate;
@@ -70,8 +77,11 @@ function parseArgs(): SimOptions {
     if (args[i] === '--inject-sigterm') injectSigtermRate = parseFloat(args[++i]) || injectSigtermRate;
     if (args[i] === '--disk-pressure') diskPressure = true;
     if (args[i] === '--seed') seed = parseInt(args[++i], 10);
+    if (args[i] === '--inject-real-ac-shape-smells') injectRealAcShapeSmells = true;
+    if (args[i] === '--inject-forward-ref-violation') injectForwardRefViolation = true;
+    if (args[i] === '--inject-mercy') injectMercy = true;
   }
-  return { tickets, failRate, phases, injectTimeout, injectBadArtifact, injectGateRegress, injectSigtermRate, diskPressure, seed };
+  return { tickets, failRate, phases, injectTimeout, injectBadArtifact, injectGateRegress, injectSigtermRate, diskPressure, seed, injectRealAcShapeSmells, injectForwardRefViolation, injectMercy };
 }
 
 function makeSession(): { root: string; sessionDir: string; sm: SessionManager; wd: string } {
@@ -129,11 +139,33 @@ async function simulateCampaign(opts: SimOptions) {
 
   console.log(`[50tix-harness] LAUNCHING ${opts.tickets}-TICKET WAR RIG. failRate=${opts.failRate} sigterm=${opts.injectSigtermRate} diskPressure=${opts.diskPressure}`);
   console.log('  Injections: timeout=', opts.injectTimeout, 'badArt=', opts.injectBadArtifact, 'gateRegress=', opts.injectGateRegress);
+  if (opts.injectRealAcShapeSmells || opts.injectForwardRefViolation || opts.injectMercy) {
+    console.log('  SWARM5 debt: real-ac-shape-smells=', opts.injectRealAcShapeSmells, 'forward-ref-violation=', opts.injectForwardRefViolation, 'mercy=', opts.injectMercy);
+  }
 
   // Seed tickets (realistic PRD seeds would be here)
   for (let i = 1; i <= opts.tickets; i++) {
     const id = `T${String(i).padStart(3, '0')}`;
     await sm.addTicket(sessionDir, { id, title: `ticket ${id} — self-hardening reliability`, path: `tickets/${id}`, status: 'pending', phasesCompleted: [] });
+  }
+
+  // SWARM5 50-tix debt-injection harness: seed *real* non-empty ac_shape_smells + forward-ref violation + mercy signals
+  // so preflight (ac-shape gate + forward-ref RE) + emitter + self-prd-closer + citadel actually see data (not mocks or []).
+  if (opts.injectRealAcShapeSmells || opts.injectForwardRefViolation || opts.injectMercy) {
+    const refinementDir = path.join(sessionDir, 'refinement');
+    fs.mkdirSync(refinementDir, { recursive: true });
+    const analystMd = path.join(refinementDir, 'analyst-outputs.md');
+    let debtContent = '';
+    if (opts.injectRealAcShapeSmells) {
+      debtContent += '## ac_shape_smells\n```json\n{ "smells": [{ "ac_id": "AC-REAL-01", "ticket_ids": ["T001"] }] }\n```\n';
+    }
+    if (opts.injectForwardRefViolation) {
+      debtContent += 'Create `src/violating.ts`(forward-created) without space — annotation_format violation.\n';
+    }
+    if (opts.injectMercy) {
+      debtContent += '## research theater EMISSION_THEATER: ls foo || true (no evidence, mercy candidate)\n';
+    }
+    fs.writeFileSync(analystMd, debtContent || 'SWARM5 debt injection (no-op)');
   }
 
   const stats = {
