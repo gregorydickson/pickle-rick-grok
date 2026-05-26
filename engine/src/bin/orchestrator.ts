@@ -195,7 +195,10 @@ export async function runOrchestrator(
       emitProgress(`phase ${phase} starting`, ticket.id, phase);
 
       const prompt = buildPhasePrompt(ticket, phase, sessionDir, state);
-      const preSha = getGitHead();
+      // FIX (per fresh runner agent 019e64d5-0779-7201-a63c-c4c35dd5083e + Claude mux-runner/pipeline-runner cwd-aware git): use the *target* workingDir for preSha snapshot, not bare process.cwd().
+      // This keeps codeProgress / theater mercy skip decisions correct when orchestrator is launched from arbitrary cwd (e.g. engine/ or grok root) but the real tree is session workingDir / --target.
+      const targetWorkingDir = options.targetRoot || sm.getWorkingDirSafe(sessionDir);
+      const preSha = getGitHead(targetWorkingDir);
 
       // Phase-aware turn budget — the whole point of this extension.
       // Heavy phases (researcher/planner on P0 R-META) now get 150-180 turns by default.
@@ -289,6 +292,17 @@ export async function runOrchestrator(
         } else {
           try { (Activity as any).ticketReadinessBlocked?.(state.sessionId || 'unknown', ticket.id, liveStatus); } catch {}
         }
+
+        // FIX (per fresh runner agent): run resource hygiene on theater skip / blocked / deferred paths too (not only on 'done').
+        // Prevents tmp/worker-logs + prompts + git objects accumulation on the common mercy-skip + stall terminal cases in long 50-tix runs.
+        // (Claude integrates hygiene in core loops regardless of outcome.)
+        try {
+          pruneDirOlderThan(path.join(sessionDir, 'tmp', 'worker-logs'), 48 * 3600 * 1000);
+          pruneDirOlderThan(path.join(sessionDir, 'tmp', 'worker-prompts'), 7 * 24 * 3600 * 1000);
+          hintGC();
+          gentleGitGc(sessionDir);
+        } catch {}
+
         return; // from runTicket; outer loop proceeds to next ticket
       }
 

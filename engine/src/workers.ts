@@ -396,7 +396,7 @@ export class WorkerSpawner {
         }
       };
 
-      const finishStall = (reason: 'output_stall' | 'wall_hang') => {
+      const finishStall = async (reason: 'output_stall' | 'wall_hang') => {
         if (settled) return;
         settled = true;
         stallReason = reason;
@@ -411,6 +411,11 @@ export class WorkerSpawner {
             } catch {}
           }, 3000).unref();
         }
+
+        // FIX (per fresh runner agent 019e64d5-0779-7201-a63c-c4c35dd5083e + Claude mux-runner post-kill drain pattern): give pipes a moment to deliver any delayed post-SIGTERM output before we snapshot partial for RCA/forensics.
+        // Claude does explicit 1500ms settle + stdout/stderr close listeners + fs close after kill.
+        await new Promise(r => setTimeout(r, 1500)); // best-effort drain settle (non-blocking for the guard path)
+
         const partial = (stdoutChunks.join('') + '\n' + stderrChunks.join('')).slice(0, 5000);
         closeLog();
 
