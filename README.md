@@ -172,12 +172,43 @@ You can close the terminal. The run survives and is resumable.
 ### `/microverse` — Metric-Driven Convergence
 
 <p align="center">
-  <img src="images/microverse.png" width="100%" alt="Microverse metric convergence loop">
+  <img src="images/microverse-hero.jpg" width="100%" alt="Microverse — Karpathy-style Autoresearch convergence loop: tiny targeted changes, rigorous metric measurement, automatic rollback on regression, failed-approaches ledger, real convergence">
 </p>
+
+> *"I put a universe inside a box, Morty, and it powers my car battery. This is the same thing, except the universe is your codebase and the battery is a metric."*
 
 Optimize a numeric command output or LLM-judge goal through many tiny, automatically-reverted changes with rigorous gates and failed-approaches ledger.
 
-**Important (post-hardening):** The rich inline `spawn_subagent` loop is now explicitly scoped as a tiny local experiment only. Real or overnight convergence work dispatches to the detached driver.
+Two modes: **Command Metric** (`--metric`) for objective numeric scores, and **LLM Judge** (`--goal`) for subjective quality assessment.
+
+```
+Gap Analysis (iteration 0)
+    │ measure baseline, analyze codebase, identify bottlenecks
+    ▼
+┌─────────────────────────────────────────────────┐
+│ Iteration Loop                                   │
+│  1. Plan one targeted change (avoid failed list) │
+│  2. Implement + commit                            │
+│  3. Measure metric                                │
+│     • Improved → accept, reset stall counter     │
+│     • Held → accept, increment stall counter     │
+│     • Regressed → git reset, log failed approach │
+│  4. Converged? (stall_counter ≥ stall_limit)     │
+└──────────────────────┬──────────────────────────┘
+                       ▼
+              Final Report
+```
+
+| | **Microverse** | **Pickle** |
+|---|---|---|
+| **Goal** | Optimize toward a measurable target | Build features from a PRD |
+| **Iteration unit** | One atomic change per cycle | Full ticket lifecycle |
+| **Progress signal** | Metric score | Ticket completion |
+| **Defines "done"** | Convergence (score stops improving) | All tickets complete |
+
+**Backend** — add `--backend codex` (or set `PICKLE_BACKEND=codex`) to run the per-iteration implementation via codex instead of the default. The measurement/judge step is unaffected.
+
+See `skills/microverse/SKILL.md` for dispatch contract, full flags (`--metric`/`--goal`, `--task`, `--stall-limit`, `--max-iterations`, `--resume`, etc.), monitoring, and the requirement to use the detached engine (`background: true`) for any real or overnight work.
 
 ### `/anatomy-park` — Deep Subsystem Review
 
@@ -185,7 +216,23 @@ Optimize a numeric command output or LLM-judge goal through many tiny, automatic
   <img src="images/anatomy-park.jpeg" width="100%" alt="Anatomy Park three-phase review">
 </p>
 
-Discover subsystems, run the 3-phase protocol (Review → Fix → Verify with automatic rollback on regression), and catalog trap doors.
+> *"Welcome to Anatomy Park! It's like Jurassic Park but inside a human body. Way more dangerous."*
+
+Auto-discovers subsystems, rotates through them round-robin, three-phase protocol per iteration:
+1. **Review** (read-only): trace data flows, check git history, rate CRITICAL/HIGH, propose fixes
+2. **Fix**: apply minimal edits, write regression tests, run full suite
+3. **Verify** (read-only): verify callers/consumers, combinatorial branch verification, revert on regression
+
+**Trap doors** — files with repeated fixes or structural invariants get documented in subsystem `CLAUDE.md` files (or equivalent project guard docs in Grok setups):
+
+```markdown
+## Trap Doors
+- `bank-statement.service.ts` — borrowerFileId MUST equal S3 batch UUID; tenant isolation depends on effectiveLenderId threading
+```
+
+**Backend** — add `--backend codex` (or set `PICKLE_BACKEND=codex`) to run the Review/Fix/Verify phases through codex instead of the default. The subsystem rotation and trap-door cataloging behave identically regardless of backend.
+
+See `skills/anatomy-park/SKILL.md` for the full Grok dispatch contract, engine details (ConvergenceLoop + trap cataloging), and how it integrates with the post-build pipeline phases.
 
 Usually invoked as part of the pipeline, but can be run standalone.
 
