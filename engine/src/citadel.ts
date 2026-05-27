@@ -21,14 +21,153 @@
  *
  * When expanding: port additional auditors... bump schema etc.
  *
- * Rick: "Six real teeth, one of 'em specifically bites the verify theater that killed the meta deepener. Ship it."
+ * Rick: "Six real teeth, one of 'em specifically bites the verify theater that killed the meta deepener. Now the 7th tooth (CrossPhase) bites the convergence fidelity debt too. Ship it clean."
+ *
+ * + CrossPhaseFindingsReport + readCrossPhaseFindings/dedupe + withLock report write (minimal port from claude
+ *   audit-runner.ts:31-50/196/270 + withLock:69; wired into runCitadel so produced citadel_report.json contains
+ *   rich deduped anatomy+szechuan findings for closer/self-loop consumption beyond basic existence check.
+ *   Post-SWARM7 baseline + Citadel depth agent (019e6945-d1f8-7170-bba7-452d75bc3bd2) "work on the backlog".
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import * as crypto from 'crypto';
+import * as os from 'os';
 import { SessionManager } from './session.js';
 import { detectVerifyTheater, analyzeSessionForVerifyTheater } from './lib/pipeline-preflight.js';
+
+// === MINIMAL CROSSPHASE PORT (claude audit-runner.ts:31-50/196/270/226/270 + withLock:69 for report write;
+// reuse recoverable pattern via try-parse + isRecord style from grok citadel itself. Small, self-contained, no new files.)
+export interface CrossPhaseFinding {
+  id: string;
+  severity: string;
+  message?: string;
+  original_id: string;
+  source: 'anatomy-park' | 'szechuan-sauce';
+  source_file: 'anatomy-park.json' | 'szechuan-sauce.json';
+  [key: string]: unknown;
+}
+
+export interface CrossPhaseFindingsReport {
+  findings: CrossPhaseFinding[];
+  summary: {
+    anatomy_park: number;
+    szechuan_sauce: number;
+    duplicate_ids_deduped: number;
+    duplicate_ids_renamed: number;
+    anatomy_park_missing: boolean;
+  };
+}
+
+interface CrossPhaseReadResult extends CrossPhaseFindingsReport {
+  szechuan_findings: CrossPhaseFinding[];
+}
+
+interface PhaseFindingsRead {
+  findings: CrossPhaseFinding[];
+  missing: boolean;
+}
+
+function readRecoverableJsonObject(filePath: string): unknown {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function readPhaseFindings(
+  sessionDir: string | undefined,
+  source: CrossPhaseFinding['source'],
+  sourceFile: CrossPhaseFinding['source_file']
+): PhaseFindingsRead {
+  if (!sessionDir) return { findings: [], missing: sourceFile === 'anatomy-park.json' };
+  const artifactPath = path.join(sessionDir, sourceFile);
+  const parsed: any = readRecoverableJsonObject(artifactPath);
+  if (!parsed || !Array.isArray(parsed.findings)) {
+    return { findings: [], missing: sourceFile === 'anatomy-park.json' && !fs.existsSync(artifactPath) };
+  }
+  const findings: CrossPhaseFinding[] = parsed.findings
+    .filter((f: any) => f && typeof f.id === 'string')
+    .map((f: any) => ({
+      ...f,
+      original_id: f.original_id || f.id,  // preserve pre-set for dedupe tests/artifacts; fallback to id (real convergence shape)
+      source,
+      source_file: sourceFile,
+    }));
+  return { findings, missing: false };
+}
+
+function missingAnatomyParkFinding(): CrossPhaseFinding {
+  return {
+    id: 'anatomy-park:missing',
+    original_id: 'anatomy-park:missing',
+    severity: 'Low',
+    source: 'anatomy-park',
+    source_file: 'anatomy-park.json',
+    message: 'anatomy-park.json is absent; skipping Citadel pattern-replay safety-net input.',
+  };
+}
+
+function dedupeCrossPhaseFindings(findings: CrossPhaseFinding[]): { findings: CrossPhaseFinding[]; duplicates: number } {
+  const seen = new Set<string>();
+  const deduped: CrossPhaseFinding[] = [];
+  let duplicates = 0;
+  for (const f of findings) {
+    if (seen.has(f.original_id)) {
+      duplicates += 1;
+      continue;
+    }
+    seen.add(f.original_id);
+    deduped.push(f);
+  }
+  return { findings: deduped, duplicates };
+}
+
+function readCrossPhaseFindings(sessionDir: string | undefined): CrossPhaseReadResult {
+  const anatomy = readPhaseFindings(sessionDir, 'anatomy-park', 'anatomy-park.json');
+  const szechuan = readPhaseFindings(sessionDir, 'szechuan-sauce', 'szechuan-sauce.json');
+  const merged = dedupeCrossPhaseFindings([...anatomy.findings, ...szechuan.findings]);
+  const findings = anatomy.missing ? [missingAnatomyParkFinding(), ...merged.findings] : merged.findings;
+  return {
+    findings,
+    summary: {
+      anatomy_park: anatomy.findings.length,
+      szechuan_sauce: szechuan.findings.length,
+      duplicate_ids_deduped: merged.duplicates,
+      duplicate_ids_renamed: 0,
+      anatomy_park_missing: anatomy.missing,
+    },
+    szechuan_findings: szechuan.findings,
+  };
+}
+
+// minimal sync withLock port (claude state-manager:1233 + audit-runner:69 usage for citadel_report write; ESM hygiene fix for this codebase)
+function withLockSync(key: string, fn: () => void): void {
+  const hash = crypto.createHash('sha256').update(key).digest('hex');
+  const lp = path.join(os.tmpdir(), `pickle-citadel-lock-${hash}.lock`);
+  const start = Date.now();
+  const timeout = 15000;
+  // best-effort exclusive via wx
+  for (;;) {
+    try {
+      fs.writeFileSync(lp, JSON.stringify({ pid: process.pid, ts: Date.now() }), { flag: 'wx' });
+      break;
+    } catch {
+      if (Date.now() - start > timeout) break; // fall through to write anyway (non-fatal per original)
+      // tiny sleep sync
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+    }
+  }
+  try {
+    fn();
+  } finally {
+    try { fs.unlinkSync(lp); } catch {}
+  }
+}
 
 export interface CitadelFinding {
   severity: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW';
@@ -60,6 +199,7 @@ export interface CitadelReport {
     med: number;
     low: number;
   };
+  crossPhase?: CrossPhaseFindingsReport;  // NEW: rich deduped from anatomy+szechuan (claude audit-runner:196/270 parity, SWARM8)
 }
 
 export const CITADEL_REPORT_SCHEMA = {
@@ -103,7 +243,8 @@ export const CITADEL_REPORT_SCHEMA = {
         med: { type: 'number' },
         low: { type: 'number' }
       }
-    }
+    },
+    crossPhase: { type: 'object' }  // optional rich CrossPhaseFindingsReport (anatomy + szechuan deduped)
   },
   required: ['sessionId', 'schema', 'schemaVersion', 'overall', 'findings', 'summary']
 } as const;
@@ -645,6 +786,9 @@ export function runCitadel(sessionDir: string, prdPathOverride?: string): Citade
 
   const overall: 'PASS' | 'FAIL' | 'WARN' = critical > 0 ? 'FAIL' : (high > 0 || med > 2 ? 'WARN' : 'PASS');
 
+  // NEW: real CrossPhase read + dedupe (claude audit-runner:196/270), enriches the report json for closer/self-loop
+  const crossPhase = readCrossPhaseFindings(sessionDir);
+
   const report: CitadelReport = {
     sessionId,
     schema: 'citadel-report',
@@ -663,19 +807,23 @@ export function runCitadel(sessionDir: string, prdPathOverride?: string): Citade
       high,
       med,
       low
-    }
+    },
+    crossPhase  // rich deduped anatomy + szechuan for closer/self-loop (beyond existence check)
   };
 
   const outPath = path.join(sessionDir, 'citadel_report.json');
   try {
     fs.mkdirSync(sessionDir, { recursive: true });
-    fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
-    fs.writeFileSync(path.join(sessionDir, 'citadel_report.schema.json'), JSON.stringify(CITADEL_REPORT_SCHEMA, null, 2));
+    const lockKey = `citadel:${path.resolve(sessionDir)}`;
+    withLockSync(lockKey, () => {
+      fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
+      fs.writeFileSync(path.join(sessionDir, 'citadel_report.schema.json'), JSON.stringify(CITADEL_REPORT_SCHEMA, null, 2));
+    });
   } catch (e) {
     console.warn('[citadel] Could not write report (non-fatal):', (e as Error).message);
   }
 
-  console.log(`[citadel] DEEP AUDIT COMPLETE. overall=${overall} findings=${allFindings.length} (AC:${acFindings.length} IF:${contractFindings.length} TD:${trapFindings.length} DRIFT:${driftFindings.length} HY+MG:${hygieneFindings.length} EMISSION:${emissionFindings.length})`);
+  console.log(`[citadel] DEEP AUDIT COMPLETE. overall=${overall} findings=${allFindings.length} (AC:${acFindings.length} IF:${contractFindings.length} TD:${trapFindings.length} DRIFT:${driftFindings.length} HY+MG:${hygieneFindings.length} EMISSION:${emissionFindings.length}) crossPhase=${crossPhase.findings.length} (deduped=${crossPhase.summary.duplicate_ids_deduped})`);
   if (allFindings.length > 0) {
     const top = allFindings.slice(0, 4).map(f => `${f.severity}:${f.category}`).join(' | ');
     console.log('[citadel] Top threats:', top);
@@ -694,5 +842,8 @@ export {
   auditEndpointStateAuthDrift,
   auditDiffHygiene,
   auditTicketVerifyQuality,
-  parseAcceptanceCriteria
+  parseAcceptanceCriteria,
+  // NEW exports for consumers (CrossPhase real artifacts from convergence for self-loop/closer)
+  readCrossPhaseFindings,
+  dedupeCrossPhaseFindings
 };

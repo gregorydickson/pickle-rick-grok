@@ -336,8 +336,20 @@ async function simulateCampaign(opts: SimOptions) {
     try {
       fs.writeFileSync(path.join(sessionDir, 'anatomy-park.json'), JSON.stringify({ findings: crossPhase.findings.filter(f => f.source === 'anatomy-park'), summary: crossPhase.summary }, null, 2));
       fs.writeFileSync(path.join(sessionDir, 'szechuan-sauce.json'), JSON.stringify({ findings: crossPhase.findings.filter(f => f.source === 'szechuan-sauce'), summary: crossPhase.summary }, null, 2));
+
+      // SWARM8 emission plumbing extension (per backlog agent 019e6945-b4c5-7222-a284-4f1bd9fb5f29 citing claude spawn:1219/1410/1978 + check-readiness:308/325):
+      // Emit richer ac_shape_smells + annotation_format malformed data so the autonomous emitter/preflight/closer paths can be exercised with real (non-[]) data.
+      const richerEmission = {
+        ac_shape_smells: opts.injectRealAcShapeSmells ? [
+          { ac_id: 'AC-EMIT-01', headline: 'injected smell from 50-tix harness', evidence: ['test'], targets: ['all'], ticket_ids: [], justification: 'harness injection', acceptance_test: 'describe.each([...])' }
+        ] : [],
+        annotation_format_malformed: opts.injectForwardRefViolation ? [
+          { raw: '`bad/path.ts`(forward-created)', reason: 'missing one ASCII space separator per claude check-readiness:325' }
+        ] : []
+      };
+      fs.writeFileSync(path.join(sessionDir, 'emission_quality.json'), JSON.stringify(richerEmission, null, 2));
     } catch {}
-    console.log('  [SWARM7 CrossPhase real artifacts] written anatomy-park.json + szechuan-sauce.json with findings | debtIngested: true | acShapeSmells: ' + (opts.injectRealAcShapeSmells ? 'real-nonempty' : 'none') + ' | forwardRefMalformed: ' + (opts.injectForwardRefViolation ? 'yes' : 'no') + ' | mercyTheater: ' + (opts.injectMercy ? 'yes' : 'no'));
+    console.log('  [SWARM8 Emission real data] richer ac_shape_smells + annotation_format malformed emitted | acShapeSmells: ' + (opts.injectRealAcShapeSmells ? 'real-nonempty' : 'none') + ' | forwardRefMalformed: ' + (opts.injectForwardRefViolation ? 'yes' : 'no'));
   }
 
   const successRate = stats.total > 0 ? (stats.done / stats.total) : 1;

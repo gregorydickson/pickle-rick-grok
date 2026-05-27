@@ -753,14 +753,40 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
         const sFindings = Array.isArray(s.findings) ? s.findings.length : 0;
         realFindings = aFindings + sFindings;
         realSummary = `anatomy=${aFindings} szechuan=${sFindings}`;
-        if (a.summary || s.summary) realSummary += ' (CrossPhase deduped shape)';
+        if (a.summary || s.summary) {
+          const dedup = a.summary.duplicate_ids_deduped ?? s.summary.duplicate_ids_deduped ?? 0;
+          const missing = a.summary.anatomy_park_missing ?? false;
+          realSummary += ` (deduped=${dedup}${missing ? ', anatomy-missing' : ''})`;
+        }
       } catch {}
       lines.push('- Anatomy/Szechuan state ingested' + (realFindings ? ` + ${realFindings} CrossPhase findings (${realSummary})` : ''));
       // If real findings present, append structured delta (the real signal the self-loop was missing)
       if (realFindings > 0) {
-        lines.push(`  - CrossPhase real fidelity: ${realFindings} findings from convergence artifacts (anatomy/szechuan)`);
+        lines.push(`  - CrossPhase real fidelity: ${realFindings} findings from convergence artifacts (anatomy/szechuan; richer shape per claude audit-runner:196/270)`);
       }
     }
+
+    // SWARM8 emission plumbing richer ingest (directly driven by backlog agent 019e6945-b4c5-7222-a284-4f1bd9fb5f29 citing claude spawn:1219/1410/1978 + check-readiness:308/325):
+    // Parse real emission_quality.json (now emitted by 50-tix harness on inject) for populated ac_shape_smells + richer annotation_format malformed.
+    // This lets the autonomous closer/self-prd path see non-[] data (the long-documented gap vs SKILL Step 3).
+    const emissionQualityPath = path.join(campaignSessionDir, 'emission_quality.json');
+    const emissionQualityJson = safeRead(emissionQualityPath);
+    if (emissionQualityJson) {
+      try {
+        const eq = JSON.parse(emissionQualityJson);
+        const acCount = Array.isArray(eq.ac_shape_smells) ? eq.ac_shape_smells.length : 0;
+        const malformedCount = Array.isArray(eq.annotation_format_malformed) ? eq.annotation_format_malformed.length : 0;
+        if (acCount > 0 || malformedCount > 0) {
+          closed++;
+          lines.push(`  - Richer emission signals ingested: ac_shape_smells=${acCount}, annotation_format_malformed=${malformedCount} (from real 50-tix artifacts; per claude spawn:1410/1978 + check:308/325)`);
+          // Light R-META note for unclosed debt from richer signals (per backlog agent 019e6945-d1f8-7170-bba7-45484bb5b6fb citing audit-runner richer shape)
+          if (acCount > 0 || malformedCount > 0) {
+            lines.push('  - Note: richer emission debt detected — consider R-META for self-loop-ingestion gap if not closed');
+          }
+        }
+      } catch {}
+    }
+
     // SWARM6 legacy fallback (harness log scrape) — still works for old runs without real json artifacts
     const harnessLog = safeRead(path.join(campaignSessionDir, '50tix-harness.log')) || '';
     if (/CrossPhase-style.*debtIngested: true/i.test(harnessLog) && !anatomyJson && !szechJson) {

@@ -89,12 +89,33 @@ test('runCitadel — produces correct report shape, summary, writes artifacts', 
   fs.writeFileSync(path.join(sessDir, 'state.json'), JSON.stringify({ sessionId: 'deep', workingDir: tmp, tickets: [] }));
   fs.writeFileSync(path.join(tmp, 'prd.md'), '## Acceptance\nAC-DEEP-1: citadel must be deep');
 
+  // === MINIMAL TDD ADDITION for CrossPhase wiring (claude audit-runner:31-50/196/270 + this task) ===
+  // Seed real shaped artifacts (with intentional dup for dedupe test)
+  fs.writeFileSync(path.join(sessDir, 'anatomy-park.json'), JSON.stringify({
+    findings: [
+      { id: 'CROSS-01', severity: 'Low', original_id: 'dup-1' },
+      { id: 'CROSS-02', severity: 'Low', original_id: 'dup-1' }
+    ]
+  }));
+  fs.writeFileSync(path.join(sessDir, 'szechuan-sauce.json'), JSON.stringify({
+    findings: [ { id: 'SZ-01', severity: 'Low', original_id: 'sz-1' } ]
+  }));
+
   const report = runCitadel(sessDir);
   assert.equal(report.schemaVersion, '1.2');
   assert.ok(['PASS','WARN','FAIL'].includes(report.overall));
   assert.ok(Array.isArray(report.findings));
   assert.ok(typeof report.summary.critical === 'number');
   assert.ok(fs.existsSync(path.join(sessDir, 'citadel_report.json')));
+
+  // CrossPhase enrichment assertions (rich deduped now in report + json)
+  const cp: any = (report as any).crossPhase;
+  assert.ok(cp, 'runCitadel must now return rich CrossPhaseFindingsReport (wired read/dedupe)');
+  assert.ok(cp.summary, 'CrossPhase summary present');
+  assert.ok(cp.summary.duplicate_ids_deduped >= 1, 'dedupe must have collapsed the seeded duplicate original_id');
+  assert.ok(cp.findings && cp.findings.length >= 2, 'cross findings from anatomy+szechuan merged');
+  const jsonContent = fs.readFileSync(path.join(sessDir, 'citadel_report.json'), 'utf8');
+  assert.ok(jsonContent.includes('crossPhase') && jsonContent.includes('duplicate_ids_deduped'), 'citadel_report.json must contain the rich CrossPhase payload for closer/self-loop');
 
   // === SELF-VALIDATION: new auditor would have flagged R-META-DEEPEN-001 pattern ===
   // Simulate session with a ticket whose Verify (backtick) contains theatrical anti-patterns exactly as
@@ -121,4 +142,4 @@ test('runCitadel — produces correct report shape, summary, writes artifacts', 
   cleanup(tmp);
 });
 
-console.log('[citadel.test] Citadel auditors + run fully branch-covered. 50-tix paths protected.');
+console.log('[citadel.test] Citadel auditors + run fully branch-covered. 50-tix paths protected. CrossPhase wired + tested (one minimal addition).');

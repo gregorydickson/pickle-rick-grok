@@ -227,4 +227,42 @@ test('performPostCampaignIngest — eats real CrossPhase findings from anatomy/s
   cleanup(root);
 });
 
+// SWARM8 TDD for richer emission plumbing (per Emission/AC/forward backlog agent 019e6945-b4c5-7222-a284-4f1bd9fb5f29 citing claude spawn:1219/1410/1978 + check-readiness:308/325).
+// Exercises real populated ac_shape_smells (with justification/acceptance_test) + richer annotation_format malformed
+// flowing through the ingest path from real 50-tix artifacts (emission_quality.json now emitted by harness on inject).
+test('performPostCampaignIngest — ingests richer ac_shape_smells + annotation_format malformed from real emission artifacts (not just [] or log)', async () => {
+  const root = makeTmpRoot('self-emission-plumb-');
+  seedMinimalGrokTree(root);
+
+  const sessionDir = path.join(root, 'campaign-019e6945-emit');
+  fs.mkdirSync(sessionDir, { recursive: true });
+
+  // Real richer emission data (matching claude manifest shape + check-readiness malformed findings)
+  const richer = {
+    ac_shape_smells: [
+      { ac_id: 'AC-RICH-01', headline: 'rich smell', evidence: ['x'], targets: ['all'], ticket_ids: ['T1'], justification: 'harness', acceptance_test: 'describe.each([...])' }
+    ],
+    annotation_format_malformed: [
+      { raw: '`bad.ts`(forward-created)', reason: 'no one-ASCII-space separator' }
+    ]
+  };
+  fs.writeFileSync(path.join(sessionDir, 'emission_quality.json'), JSON.stringify(richer));
+
+  // Also seed minimal CrossPhase artifacts so the existing richer parse path is exercised alongside
+  fs.writeFileSync(path.join(sessionDir, 'anatomy-park.json'), JSON.stringify({ findings: [{ id: 'C1' }], summary: { anatomy_park: 1 } }));
+
+  const { performPostCampaignIngest } = await loadSelf();
+  const res = await performPostCampaignIngest(root, sessionDir);
+
+  const ingested = res.backlogMarkdown || '';
+  // Must surface the richer emission signals (the long-documented gap)
+  assert.ok(ingested.includes('ac_shape_smells=1') || ingested.includes('Richer emission signals'), 'must report real ac_shape_smells count from emission_quality.json');
+  assert.ok(ingested.includes('annotation_format_malformed=1') || ingested.includes('richer emission'), 'must surface richer annotation_format malformed findings');
+
+  // Additional richer CrossPhase shape asserts (dedup counts etc. per claude audit-runner:196/270)
+  assert.ok(ingested.includes('deduped=') || ingested.includes('CrossPhase real fidelity'), 'must surface richer CrossPhase summary fields from real artifacts');
+
+  cleanup(root);
+});
+
 console.log('[self-prd-closer.test] Self-PRD generator, auto-decompose, ingest, closer all exercised. The 50-ticket meta dogfood loop now has test coverage. Next iteration will eat its own tail.');
