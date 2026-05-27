@@ -38,7 +38,9 @@ All gaps below are line-anchored to current files. Minimal high-value tests desc
 ---
 
 ## P0 Gap 1: pipeline-preflight.ts is a Ghost Module (Theater Gates, Healers, Preflight, analyze etc. Unrunnable)
-**Files**:
+**CLOSED (2026-05-XX agent team tranche)**: Impl now fully in src/lib/pipeline-preflight.ts (420 lines, all the assess/run/scan/analyze fns live). Dedicated coverage landed in `engine/tests/pipeline-preflight.test.ts` (5 TDD tests exercising the exact cases from :57-99 + ac_shape JSON warning). See reliability-backlog.md (new entry) + AGENTS Trap Doors for the explore subagent 019e69a7... claude-first map + execution. The deeper "full ac_shape_smells JSON plumbing into emitter manifest for hard gate on *all* paths" + richer annotation_format remain open fidelity debt (AGENTS:15/38).
+
+**Files** (historical snapshot at audit time; current state updated above):
 - `engine/src/lib/pipeline-preflight.ts:1-65`: Header + RUNNABLE_VERIFY_RE + VERIFY_THEATER_RE (12 patterns, incl. the P0 self-healer wc/grep/node-e|grep fixes) + `detectVerifyTheater` only. Ends at 65. No assessMetaReadiness (skeletal scan), no runPreflight, no isPrdSufficientlyRefined, no checkTicketMaterialization, etc. (those live only in dist/).
 - `engine/src/lib/ticket-emitter.ts:22` (barrel import of 5 fns), `208` (assess in loop), `213` (detect), `222-239` (theater.isTheatrical || red → healer sibling + amber + waiver), `243-278` (auto-emit H-VERIFY-EMIT-* with ACs that themselves reference the missing p.scan/p.check), `360-361` (self-check in H-VERIFY-EMISSION-HONESTY AC), `406-407` (post-emit hygiene: scan + checkVerifyMachinability + computeTicketManifestHash), `422`.
 - `engine/src/citadel.ts:31,568` (analyzeSessionForVerifyTheater call in TICKET_VERIFY_QUALITY auditor; reuses detect for EMISSION_THEATER findings).
