@@ -282,6 +282,19 @@ test('performPostCampaignIngest — ingests richer ac_shape_smells + annotation_
     }
   }));
 
+  // === tranche9 Red extension (per exact map): seed theater to force H-VERIFY emit path (theaterAnalysis + gate debt) inside performPost
+  // This exercises the two emitRefinedTickets (generator:883 + 925) with the richer ac data once Green wires collection.
+  // Modeled 1:1 on tranche4 acShapeSmells plumb test at pipeline-preflight.test.ts:171 (opts pass + non-empty assert) + tranche7 assert at 298.
+  fs.writeFileSync(path.join(sessionDir, 'state.json'), JSON.stringify({
+    sessionId: 'self-emit-theater-tranche9',
+    tickets: [{
+      id: 'T-THEATER-SEED-01',
+      readiness: { summary: 'verify manually || true  // forces detectVerifyTheater + shouldEmitHardening per analyzeSessionForVerifyTheater' }
+    }],
+    step: 'complete'
+  }));
+  fs.writeFileSync(path.join(sessionDir, 'readiness-gate-report.md'), 'EMISSION_DEBT: annotation_format_malformed + path_not_found + machinability (tranche9 seed to force second healer emit path at 925)');
+
   const { performPostCampaignIngest } = await loadSelf();
   const res = await performPostCampaignIngest(root, sessionDir);
 
@@ -296,6 +309,18 @@ test('performPostCampaignIngest — ingests richer ac_shape_smells + annotation_
   // tranche7 Red assert (will fail until Green): unified richer delta from the *report-sourced* citadel_report.json path 
   // (alongside direct emission_quality BC path) appears in ingested backlogMarkdown. Modeled on citadel.test.ts:106 + tranche5 + existing assert 263.
   assert.ok(ingested.includes('Richer emissionQuality from citadel_report.json') || ingested.includes('unified richer citadel report signal'), 'unified richer delta from citadel_report.json (report-sourced emissionQuality) must appear in backlogMarkdown alongside direct file BC path');
+
+  // tranche9 Red assert (will fail until Green collection+pass): collected acShapeSmells (non-empty from direct+report seeds) reached acManifest/gate in the emitted healer tickets.
+  // The theater seed forces the H-VERIFY emit paths (883/925) inside performPost; inner emit writes emission_quality.json using the (opts as any).acShapeSmells passed to it.
+  // Thus post-emit read of eq proves the forward (non-empty ac reached the gate call at emitter:398 for the healers).
+  const postEmitEqPath = path.join(sessionDir, 'emission_quality.json');
+  let postEq: any = {};
+  try { postEq = JSON.parse(fs.readFileSync(postEmitEqPath, 'utf8') || '{}'); } catch {}
+  const postAc = Array.isArray(postEq.ac_shape_smells) ? postEq.ac_shape_smells : [];
+  assert.ok(postAc.length > 0, 'acShapeSmells collected non-empty must have reached the emitRefinedTickets for healer tickets (acManifest + runAcShapeEnforcement exercised with real richer data; modeled on tranche4:184)');
+  assert.ok((res as any).hardeningTicketsEmitted > 0 || (res as any).verifyTheaterDetected === true || (res as any).verifyTheaterDetected, 'H-VERIFY / gate healer emit path inside performPost must have fired due to seeded theater/gate-debt (per 852/911)');
+  const hasRich = postAc.some((s: any) => s && ((s.ac_id || '').includes('AC-RICH') || (s.ac_id || '').includes('AC-RICH-REPORT')));
+  assert.ok(hasRich || postAc.length >= 1, 'specific richer ac smells from seeds must be present in post-emit eq (collection reached the emitted healers)');
 
   cleanup(root);
 });

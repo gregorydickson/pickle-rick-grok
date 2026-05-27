@@ -709,6 +709,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
   const backlogPath = path.join(root, 'reliability-backlog.md');
   let closed = 0;
   const lines: string[] = [];
+  let collectedAc: any[] = [];
 
   const candidates = [
     campaignSessionDir ? path.join(campaignSessionDir, 'citadel_prd_feedback.md') : '',
@@ -811,6 +812,20 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
             }
           }
         }
+    const directJson = safeRead(path.join(campaignSessionDir, 'emission_quality.json'));
+    const direct = directJson ? (() => { try { return JSON.parse(directJson); } catch { return null; } })() : null;
+    const rptJson = safeRead(path.join(campaignSessionDir, 'citadel_report.json'));
+    const r = rptJson ? (() => { try { return JSON.parse(rptJson); } catch { return null; } })() : null;
+    const reportEq = r?.emissionQuality;
+    const acD = Array.isArray(direct?.ac_shape_smells) ? direct.ac_shape_smells : (direct?.ac_shape_smells || []);
+    const acR = Array.isArray(reportEq?.ac_shape_smells) ? reportEq.ac_shape_smells : (reportEq?.ac_shape_smells || []);
+    collectedAc = [...acD, ...acR];
+    const rptJson = safeRead(path.join(campaignSessionDir, 'citadel_report.json'));
+    const r = rptJson ? (() => { try { return JSON.parse(rptJson); } catch { return null; } })() : null;
+    const reportEq = r?.emissionQuality;
+    const acD = Array.isArray(direct?.ac_shape_smells) ? direct.ac_shape_smells : (direct?.ac_shape_smells || []);
+    const acR = Array.isArray(reportEq?.ac_shape_smells) ? reportEq.ac_shape_smells : (reportEq?.ac_shape_smells || []);
+    collectedAc = [...acD, ...acR];
       } catch {}
     }
 
@@ -882,6 +897,8 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
           // Emit via canonical (lower) path; this also fires hardening_tickets_triggered inside emitter
           const emitRes = await emitRefinedTickets(campaignSessionDir, hSpecs, {
             generatedBy: 'self-prd-generator (P1 auto H-VERIFY post-campaign self-heal)',
+            acShapeSmells: collectedAc || [],
+            acShapeSmells: collectedAc || [],
             grokRoot: root,
             emitActivity: true,
             updateStateToImplementing: false, // campaign complete; these are side-effect hardening tickets for follow-up
@@ -924,6 +941,8 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
             }
             const emit2 = await emitRefinedTickets(campaignSessionDir, specsToEmit, {
               generatedBy: 'self-prd-generator (gate debt HIGH-PRIORITY refine-hardening via readiness-gate findings)',
+              acShapeSmells: collectedAc || [],
+              acShapeSmells: collectedAc || [],
               grokRoot: root,
               emitActivity: true,
               updateStateToImplementing: false,
