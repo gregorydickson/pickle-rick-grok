@@ -740,6 +740,14 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
       closed++;
       lines.push('- Anatomy/Szechuan state ingested');
     }
+    // SWARM6 self-loop living docs automation: parse CrossPhase-style report from 50-tix harness + auto-append structured fidelity delta
+    const harnessLog = safeRead(path.join(campaignSessionDir, '50tix-harness.log')) || '';
+    if (/CrossPhase-style.*debtIngested: true/i.test(harnessLog)) {
+      closed++;
+      lines.push('- CrossPhase-style fidelity delta from 50-tix harness ingested (acShapeSmells/forwardRefMalformed/mercyTheater)');
+      // minimal structured append for living docs (will be visible in next reliability-backlog + master_plan update)
+      lines.push('  - fidelity: ac_shape_smells=' + (harnessLog.match(/acShapeSmells: ([^ ]+)/)?.[1] || 'unknown') + ' forward_malformed=' + (harnessLog.match(/forwardRefMalformed: ([^ ]+)/)?.[1] || 'unknown') + ' mercy=' + (harnessLog.match(/mercyTheater: ([^ ]+)/)?.[1] || 'unknown'));
+    }
   }
 
   lines.push('- Activity + backlog delta scanned');

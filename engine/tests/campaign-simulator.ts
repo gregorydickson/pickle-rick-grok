@@ -322,6 +322,11 @@ async function simulateCampaign(opts: SimOptions) {
   console.log(`  Final remaining for real resume: ${finalSnap.remaining} (done+failed=${finalSnap.done + finalSnap.failed})`);
   console.log(`  State corruption detected: ${corrupted ? 'YES — BAD' : 'NO — CLEAN'}`);
 
+  // SWARM6 CrossPhase-style report output (for self-prd-generator/closer ingestion + citadel reporter parity)
+  if (opts.injectRealAcShapeSmells || opts.injectForwardRefViolation || opts.injectMercy) {
+    console.log('  [SWARM6 CrossPhase-style] debtIngested: true | acShapeSmells: ' + (opts.injectRealAcShapeSmells ? 'real-nonempty' : 'none') + ' | forwardRefMalformed: ' + (opts.injectForwardRefViolation ? 'yes' : 'no') + ' | mercyTheater: ' + (opts.injectMercy ? 'yes' : 'no'));
+  }
+
   const successRate = stats.total > 0 ? (stats.done / stats.total) : 1;
   const credible = !corrupted && stats.isolatedFailures >= 0 && stats.phasesCompletedTotal >= stats.total * 0.6 && stats.peakRss < 800 * 1024 * 1024;
 

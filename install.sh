@@ -34,15 +34,20 @@ for arg in "$@"; do
   [[ "$arg" == "--closer-context" ]] && CLOSER_CONTEXT=1
 done
 
-# Improved active detection (pgrep + state.json active=true in known session dirs)
+# Improved active detection (pgrep + full find_active_session style over all possible data roots, like claude)
 ACTIVE=0
 if pgrep -f "run-pipeline|mux-runner|orchestrator.*pickle" > /dev/null 2>&1; then
   ACTIVE=1
 else
-  # Look for live session state (more robust than pure pgrep for detached grok -p / tsx paths)
-  for sdir in "$HOME/.local/share/pickle-rick/sessions"/* "$HOME/.grok/pickle-rick-grok/sessions"/*; do
-    [ -f "$sdir/state.json" ] && grep -q '"active"[[:space:]]*:[[:space:]]*true' "$sdir/state.json" 2>/dev/null && { ACTIVE=1; break; }
-  done 2>/dev/null || true
+  # find_active_session style (claude:118 pattern) over all possible data roots
+  for root in "$HOME/.local/share/pickle-rick" "$HOME/.grok/pickle-rick-grok" "$HOME/.grok"; do
+    [ -d "$root/sessions" ] || continue
+    for sdir in "$root/sessions"/*; do
+      if [ -f "$sdir/state.json" ] && grep -q '"active"[[:space:]]*:[[:space:]]*true' "$sdir/state.json" 2>/dev/null; then
+        ACTIVE=1; break 2
+      fi
+    done
+  done
 fi
 
 if [ "$ACTIVE" -eq 1 ]; then
@@ -91,7 +96,10 @@ stealStaleLock "$LOCKDIR"
 if command -v flock >/dev/null 2>&1; then
   mkdir -p "$LOCKDIR"
   (
-    flock -x 9 || { echo "❌ REFUSE: another install.sh is already running (flock held)."; exit 1; }
+    if ! flock -x -n 9; then
+      stealStaleLock "$LOCKDIR" 60000  # aggressive 60s re-check on contention
+      flock -x 9 || { echo "❌ REFUSE: another install.sh is already running (flock held after stale steal)."; exit 1; }
+    fi
     echo "→ Installing core (engine + references) to $PICKLE_HOME"
     mkdir -p "$PICKLE_HOME"
     rsync -a --delete \
