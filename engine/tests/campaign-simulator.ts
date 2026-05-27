@@ -322,9 +322,22 @@ async function simulateCampaign(opts: SimOptions) {
   console.log(`  Final remaining for real resume: ${finalSnap.remaining} (done+failed=${finalSnap.done + finalSnap.failed})`);
   console.log(`  State corruption detected: ${corrupted ? 'YES — BAD' : 'NO — CLEAN'}`);
 
-  // SWARM6 CrossPhase-style report output (for self-prd-generator/closer ingestion + citadel reporter parity)
+  // SWARM6/SWARM7 CrossPhase real artifact emission (for self-prd-generator/closer ingestion + citadel reporter parity)
+  // Replaces pure log-scrape with actual anatomy-park.json + szechuan-sauce.json containing CrossPhaseFindingsReport-shaped data
+  // so the ingest path (performPostCampaignIngest) can dynamically eat real convergence signals instead of only harness log.
   if (opts.injectRealAcShapeSmells || opts.injectForwardRefViolation || opts.injectMercy) {
-    console.log('  [SWARM6 CrossPhase-style] debtIngested: true | acShapeSmells: ' + (opts.injectRealAcShapeSmells ? 'real-nonempty' : 'none') + ' | forwardRefMalformed: ' + (opts.injectForwardRefViolation ? 'yes' : 'no') + ' | mercyTheater: ' + (opts.injectMercy ? 'yes' : 'no'));
+    const crossPhase = {
+      findings: [
+        { id: 'CROSS-DEBT-01', severity: 'P0', source: 'anatomy-park', original_id: 'anatomy-park:ac-shape-smell', description: 'injected ac shape smell from 50-tix harness' },
+        { id: 'CROSS-DEBT-02', severity: 'P1', source: 'szechuan-sauce', original_id: 'szechuan:forward-ref', description: 'injected forward-ref malformation' }
+      ],
+      summary: { anatomy_park: 1, szechuan_sauce: 1, duplicate_ids_deduped: 0 }
+    };
+    try {
+      fs.writeFileSync(path.join(sessionDir, 'anatomy-park.json'), JSON.stringify({ findings: crossPhase.findings.filter(f => f.source === 'anatomy-park'), summary: crossPhase.summary }, null, 2));
+      fs.writeFileSync(path.join(sessionDir, 'szechuan-sauce.json'), JSON.stringify({ findings: crossPhase.findings.filter(f => f.source === 'szechuan-sauce'), summary: crossPhase.summary }, null, 2));
+    } catch {}
+    console.log('  [SWARM7 CrossPhase real artifacts] written anatomy-park.json + szechuan-sauce.json with findings | debtIngested: true | acShapeSmells: ' + (opts.injectRealAcShapeSmells ? 'real-nonempty' : 'none') + ' | forwardRefMalformed: ' + (opts.injectForwardRefViolation ? 'yes' : 'no') + ' | mercyTheater: ' + (opts.injectMercy ? 'yes' : 'no'));
   }
 
   const successRate = stats.total > 0 ? (stats.done / stats.total) : 1;

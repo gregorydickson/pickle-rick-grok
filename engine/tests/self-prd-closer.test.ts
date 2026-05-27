@@ -200,4 +200,31 @@ test('self-loop ingestion — recent fidelity debt (forward-ref/ac-shape modules
   cleanup(root);
 });
 
+// SWARM7 TDD for real CrossPhase artifact ingest (per Citadel-CrossPhase agent 019e6726-44f2-7e11-8c42-2809b98a270d + code-simplifier 019e6726-884c-7822-95e3-82eb6c87282c)
+// Exercises the path that prefers anatomy-park.json + szechuan-sauce.json findings (claude audit-runner:196/37-261 shape)
+// over the old harness log scrape. Makes self-loop dynamically eat real convergence fidelity debt.
+test('performPostCampaignIngest — eats real CrossPhase findings from anatomy/szechuan json artifacts (not just log scrape)', async () => {
+  const root = makeTmpRoot('self-crossphase-');
+  seedMinimalGrokTree(root);
+
+  const sessionDir = path.join(root, 'campaign-019e6726-cross');
+  fs.mkdirSync(sessionDir, { recursive: true });
+
+  // Real CrossPhase-shaped artifacts (matching claude reporter + audit-runner:37 CrossPhaseFindingsReport + 196 read fn)
+  const anatomyFindings = [{ id: 'CROSS-TEST-01', severity: 'P0', source: 'anatomy-park', original_id: 'anatomy:ac-debt' }];
+  const szechFindings = [{ id: 'CROSS-TEST-02', severity: 'P1', source: 'szechuan-sauce', original_id: 'szech:forward-debt' }];
+  fs.writeFileSync(path.join(sessionDir, 'anatomy-park.json'), JSON.stringify({ findings: anatomyFindings, summary: { anatomy_park: 1 } }));
+  fs.writeFileSync(path.join(sessionDir, 'szechuan-sauce.json'), JSON.stringify({ findings: szechFindings, summary: { szechuan_sauce: 1 } }));
+
+  const { performPostCampaignIngest } = await loadSelf();
+  const res = await performPostCampaignIngest(root, sessionDir);
+
+  // Must capture real findings (richer than generic "state ingested" or old log-only path)
+  const ingested = res.backlogMarkdown || '';
+  assert.ok(ingested.includes('CrossPhase real fidelity') || ingested.includes('2 CrossPhase findings'), 'must report real CrossPhase findings count from artifacts');
+  assert.ok(ingested.includes('anatomy=1') || ingested.includes('szechuan=1'), 'must surface per-phase counts from real json');
+
+  cleanup(root);
+});
+
 console.log('[self-prd-closer.test] Self-PRD generator, auto-decompose, ingest, closer all exercised. The 50-ticket meta dogfood loop now has test coverage. Next iteration will eat its own tail.');

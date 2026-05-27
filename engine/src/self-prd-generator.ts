@@ -736,16 +736,36 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
   }
 
   if (campaignSessionDir) {
-    if (safeRead(path.join(campaignSessionDir, 'anatomy-park.json')) || safeRead(path.join(campaignSessionDir, 'szechuan-sauce.json'))) {
+    // SWARM7: prefer real CrossPhaseFindingsReport-shaped artifacts from anatomy/szechuan (claude audit-runner:196/97/37-261 + reporter)
+    // Falls back to old harness log scrape for backward compat. This makes the self-loop dynamically eat real convergence fidelity debt.
+    const anatomyPath = path.join(campaignSessionDir, 'anatomy-park.json');
+    const szechPath = path.join(campaignSessionDir, 'szechuan-sauce.json');
+    const anatomyJson = safeRead(anatomyPath);
+    const szechJson = safeRead(szechPath);
+    if (anatomyJson || szechJson) {
       closed++;
-      lines.push('- Anatomy/Szechuan state ingested');
+      let realFindings = 0;
+      let realSummary = '';
+      try {
+        const a = anatomyJson ? JSON.parse(anatomyJson) : {};
+        const s = szechJson ? JSON.parse(szechJson) : {};
+        const aFindings = Array.isArray(a.findings) ? a.findings.length : 0;
+        const sFindings = Array.isArray(s.findings) ? s.findings.length : 0;
+        realFindings = aFindings + sFindings;
+        realSummary = `anatomy=${aFindings} szechuan=${sFindings}`;
+        if (a.summary || s.summary) realSummary += ' (CrossPhase deduped shape)';
+      } catch {}
+      lines.push('- Anatomy/Szechuan state ingested' + (realFindings ? ` + ${realFindings} CrossPhase findings (${realSummary})` : ''));
+      // If real findings present, append structured delta (the real signal the self-loop was missing)
+      if (realFindings > 0) {
+        lines.push(`  - CrossPhase real fidelity: ${realFindings} findings from convergence artifacts (anatomy/szechuan)`);
+      }
     }
-    // SWARM6 self-loop living docs automation: parse CrossPhase-style report from 50-tix harness + auto-append structured fidelity delta
+    // SWARM6 legacy fallback (harness log scrape) — still works for old runs without real json artifacts
     const harnessLog = safeRead(path.join(campaignSessionDir, '50tix-harness.log')) || '';
-    if (/CrossPhase-style.*debtIngested: true/i.test(harnessLog)) {
+    if (/CrossPhase-style.*debtIngested: true/i.test(harnessLog) && !anatomyJson && !szechJson) {
       closed++;
       lines.push('- CrossPhase-style fidelity delta from 50-tix harness ingested (acShapeSmells/forwardRefMalformed/mercyTheater)');
-      // minimal structured append for living docs (will be visible in next reliability-backlog + master_plan update)
       lines.push('  - fidelity: ac_shape_smells=' + (harnessLog.match(/acShapeSmells: ([^ ]+)/)?.[1] || 'unknown') + ' forward_malformed=' + (harnessLog.match(/forwardRefMalformed: ([^ ]+)/)?.[1] || 'unknown') + ' mercy=' + (harnessLog.match(/mercyTheater: ([^ ]+)/)?.[1] || 'unknown'));
     }
   }
