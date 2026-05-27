@@ -49,9 +49,10 @@ export interface EmitOptions {
   emitActivity?: boolean;
   generatedBy?: string;
   grokRoot?: string;
+  acShapeSmells?: any[];   // tranche4 per analyst map 019e69dd-2f3a...: optional, council paths only (SKILL Step3/4 parsed real analyst ## ac_shape_smells JSON); absent => [] (no behavior change for self-prd, tests, meta)
 }
 
-/**
+ /**
  * Generate the exact markdown that matches references/refine/ticket-template.md
  * (and the shape expected by orchestrator, ritual, Morty workers, etc.).
  * This is the single source of truth for ticket formatting.
@@ -391,11 +392,10 @@ export async function emitRefinedTickets(
 
       // AC-shape hard gate call (evaluate/run from lib/ac-shape.ts; port of claude spawn-refinement-team:1410 per agents).
       // Forward-ref RE now in dedicated lib/forward-ref-annotation.ts (exact port of claude services/forward-ref-annotation.ts:1).
-      // Currently limited by data model (real ac_shape_smells not plumbed into TicketSpec[]; emitter passes []).
-      // Full enforcement + hard exit(2) lives in the SKILL manager (Step 3 post-synthesis, before emitRefineCouncilTickets; no amber on council/meta paths).
+      // Tranche 4 complete: ac_shape_smells now plumbed for council paths via optional EmitOptions.acShapeSmells (passed from SKILL manager Step 3 parse of analyst ## ac_shape_smells JSON blocks + Step 4 handoff to emitRefineCouncilTickets). Absent/omitted => [] (self-prd-generator, tests, meta paths unchanged, no new contracts). The hard gate (runAcShapeEnforcement) on *all* emit paths now receives real analyst data where the 3-council produces it. See exact map from subagent 019e69dd-2f3a..., SKILL.md Step 3/4, AGENTS.md:38 post-fix, reliability-backlog tranche4 entry. (Prior self-ack "data model limit" comment retired.)
       // Hygiene scan (machinability + forward-ref one-space + path_not_found) also runs here post-emit.
       try {
-        const acManifest = { ac_shape_smells: [], tickets: specs };
+        const acManifest = { ac_shape_smells: (opts as any).acShapeSmells || [], tickets: specs };
         const acStatus = runAcShapeEnforcement(acManifest);
         if (acStatus !== 0) {
           console.error('[ticket-emitter] AC-shape hard gate fired (violations). H-VERIFY-EMISSION-HONESTY sibling will audit/repair. No amber for this class on council/meta paths.');

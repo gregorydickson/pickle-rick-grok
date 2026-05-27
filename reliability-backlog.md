@@ -67,3 +67,12 @@ Purpose: Delta memory. PRDs shrink. Metrics rise.
 - Appended this tranche entry (modeled exactly on prior :50-57 pattern) + precise surgical AGENTS.md:38 + :40 deltas (honest update only; removed debt claim, noted living doc:1-42 + creation).
 - Result: self-loop ingestion (performPostCampaignIngest + scanForGaps) now sees real living handoff contract on every self-run instead of test-stub-only. Dominant fidelity debt item (AGENTS:38/40, reliability-backlog:53/56) closed. "Docs win" + Contributor Rules (worktree isolation + Citadel + reports) + no-overclaim rule enforced. Still dominant open (AGENTS:38): full ac_shape_smells JSON + richer annotation_format, living MASTER_PLAN depth, thin citadel.
 - Citadel spirit + self-prd-closer.test.ts + install-guard.test.sh + `bash install.sh --closer-context --no-confirm` (worktree source, targets deployed) followed. Subagent map + lead execution. Wubba lubba dub dub.
+
+
+## Campaign 2026-05-XX — ac_shape_smells full manifest plumbing to emitter (Tranche 4, dominant emission debt closure)
+**Codebase Integration + Risk Analyst Execution** (full claude-first: list_dir on skills/pickle-refine-prd/ + engine/src/lib/ + references/refine/ + personas first + verbatim reads with :line# on every file + greps before any cite).
+- Re-verified exact gap at ticket-emitter:394-399, ac-shape:9-12, pipeline-preflight:344, SKILL:103-107/130, analyst-gate-injections:15-30, AGENTS:15/38/68, reliability-backlog:45/68.
+- **Fix shipped**: Minimal safe wiring (EmitOptions.acShapeSmells?: any[] optional + 1-line acManifest use in emitRefinedTickets; SKILL example + prose updated to pass parsed array from Step 3; 3 comments + AGENTS:38 + this entry). Zero TicketSpec change, zero persisted data, zero self-prd-generator touch, zero ritual/citadel. Council paths now deliver real analyst smells to the hard gate on all emit paths.
+- Updated AGENTS.md + this file per Contributor Rules ("Docs win" + self-changes pass Citadel + exact :line#).
+- Result: The 2026-05-24 port PRD's AC-shape hard gate now actually receives real data from the 3-analyst council on the refine path (the original intent). Dominant fidelity debt item closed. Self-loop/closer continue to see richer via emission_quality.json.
+- TDD/worktree + Citadel + `bash install.sh` + push followed. Subagent map + lead execution. Wubba lubba dub dub.
