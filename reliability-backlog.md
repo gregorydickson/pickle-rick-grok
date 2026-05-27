@@ -23,3 +23,16 @@ Purpose: Delta memory. PRDs shrink. Metrics rise.
   - Anatomy/Szechuan state ingested
   - Activity + backlog delta scanned
 - reliability-backlog updated. Next generator run targets strictly remaining gaps.
+
+## Campaign 2026-05-XX (agent-driven Trap Door closure tranche)
+**Loop Closer + Agent Team Ingest** (codebase-analyst + engineering-architect + risk-analyst swarm)
+- Performed claude-first exhaustive audit of Trap Doors (AGENTS:38), citadel CrossPhase wiring (citadel.ts:789+), self-prd-generator ingest paths.
+- CLOSED: f3e971a "real citadel reporter/CrossPhase artifacts not dynamically ingested" + harness-sim-only debt.
+  - Patch: engine/src/self-prd-generator.ts now prefers `readCrossPhaseFindings(sessionDir)` (DRY reuse of dedupe + rich summary) + emits richer delta into reliability-backlog + self-PRD seeds.
+  - Result: citadel_report.json (with full CrossPhaseFindingsReport) is now the primary signal for convergence fidelity debt in the self-loop. Legacy direct + harness paths preserved for compat.
+  - Agent IDs: 019e697d-77f7..., 019e697f-9f39..., 019e6982-7b98... (full protocol + risk sign-off with 1-line DRY tweak).
+- Ritual god residual left untouched (self-mut safety per AGENTS:21/27; doc-only).
+- Other Trap Doors (emission ac_shape full plumbing, install hygiene, thin citadel depth) remain tracked for next H-* or self-PRD.
+- AGENTS.md Trap Doors + this file updated per Contributor Rules.
+- Next generator run will see the delta; self-PRDs target remaining items only.
+- reliability-backlog updated. Citadel + install + push required post-edit.

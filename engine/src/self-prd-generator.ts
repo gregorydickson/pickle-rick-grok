@@ -32,6 +32,7 @@ import { safeRead } from './lib/phase-utils.js';
 import { emitRefinedTickets, type TicketSpec } from './lib/ticket-emitter.js';
 import { detectVerifyTheater, analyzeSessionForVerifyTheater } from './lib/pipeline-preflight.js';
 import { summarizeReadiness } from './lib/pipeline-preflight.js';
+import { readCrossPhaseFindings } from './citadel.js';
 
 const GROK_CRITICAL_FILES = [
   'engine/src/bin/orchestrator.ts',
@@ -787,9 +788,24 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
       } catch {}
     }
 
+    // Prefer the authoritative, deduped CrossPhaseFindingsReport from citadel reporter (citadel.ts:789-811 + readCrossPhaseFindings:130 + dedupe:115, withLock write).
+    // Closes exact AGENTS Trap Doors f3e971a gap: "real citadel reporter/CrossPhase artifacts from anatomy/szechuan not dynamically ingested".
+    // Re-uses the exact ported logic (no duplication, no theater). Falls back gracefully on old reports (no .crossPhase).
+    const crossPhase = readCrossPhaseFindings(campaignSessionDir);
+    const cpFindings = crossPhase && Array.isArray(crossPhase.findings) ? crossPhase.findings : [];
+    if (cpFindings.length > 0) {
+      closed++;
+      const sum = crossPhase.summary || {};
+      const dedup = sum.duplicate_ids_deduped ?? 0;
+      const a = sum.anatomy_park ?? 0;
+      const s = sum.szechuan_sauce ?? 0;
+      lines.push(`- Citadel CrossPhase ingested: ${cpFindings.length} findings (anatomy=${a} szechuan=${s} deduped=${dedup})`);
+      lines.push(`  - Richer citadel reporter delta (CrossPhaseFindingsReport shape) for self-prd + reliability-backlog (claude audit-runner:196/270 parity, SWARM8 ingest closure)`);
+    }
+
     // SWARM6 legacy fallback (harness log scrape) — still works for old runs without real json artifacts
     const harnessLog = safeRead(path.join(campaignSessionDir, '50tix-harness.log')) || '';
-    if (/CrossPhase-style.*debtIngested: true/i.test(harnessLog) && !anatomyJson && !szechJson) {
+    if (/CrossPhase-style.*debtIngested: true/i.test(harnessLog) && cpFindings.length === 0) {
       closed++;
       lines.push('- CrossPhase-style fidelity delta from 50-tix harness ingested (acShapeSmells/forwardRefMalformed/mercyTheater)');
       lines.push('  - fidelity: ac_shape_smells=' + (harnessLog.match(/acShapeSmells: ([^ ]+)/)?.[1] || 'unknown') + ' forward_malformed=' + (harnessLog.match(/forwardRefMalformed: ([^ ]+)/)?.[1] || 'unknown') + ' mercy=' + (harnessLog.match(/mercyTheater: ([^ ]+)/)?.[1] || 'unknown'));
