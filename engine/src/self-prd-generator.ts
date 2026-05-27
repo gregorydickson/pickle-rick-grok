@@ -788,6 +788,29 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
       } catch {}
     }
 
+    // tranche7 Green: minimal additive (after 789 direct emission_quality block, symmetric to 773-788 sibling)
+    // Uses safeRead + JSON.parse + r?.emissionQuality (readRecoverable style per citadel.ts:72) on campaign citadel_report.json
+    // Surfaces acCount/malformedCount + closed++ + lines.push exactly parallel; unified richer citadel report signal for closer (alongside direct BC path)
+    const citadelReportPath = path.join(campaignSessionDir, 'citadel_report.json');
+    const citadelReportJson = safeRead(citadelReportPath);
+    if (citadelReportJson) {
+      try {
+        const r = JSON.parse(citadelReportJson);
+        const eq = r?.emissionQuality;
+        if (eq) {
+          const acCount = Array.isArray(eq.ac_shape_smells) ? eq.ac_shape_smells.length : 0;
+          const malformedCount = Array.isArray(eq.annotation_format_malformed) ? eq.annotation_format_malformed.length : 0;
+          if (acCount > 0 || malformedCount > 0) {
+            closed++;
+            lines.push(`  - Richer emissionQuality from citadel_report.json: ac_shape_smells=${acCount}, annotation_format_malformed=${malformedCount} (unified richer citadel report signal alongside direct file BC path)`);
+            if (acCount > 0 || malformedCount > 0) {
+              lines.push('  - Note: richer emission debt detected — consider R-META for self-loop-ingestion gap if not closed');
+            }
+          }
+        }
+      } catch {}
+    }
+
     // Prefer the authoritative, deduped CrossPhaseFindingsReport from citadel reporter (citadel.ts:789-811 + readCrossPhaseFindings:130 + dedupe:115, withLock write).
     // Closes exact AGENTS Trap Doors f3e971a gap: "real citadel reporter/CrossPhase artifacts from anatomy/szechuan not dynamically ingested".
     // Re-uses the exact ported logic (no duplication, no theater). Falls back gracefully on old reports (no .crossPhase).

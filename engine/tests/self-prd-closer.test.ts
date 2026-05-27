@@ -255,6 +255,22 @@ test('performPostCampaignIngest — ingests richer ac_shape_smells + annotation_
   // Also seed minimal CrossPhase artifacts so the existing richer parse path is exercised alongside
   fs.writeFileSync(path.join(sessionDir, 'anatomy-park.json'), JSON.stringify({ findings: [{ id: 'C1' }], summary: { anatomy_park: 1 } }));
 
+  // tranche7 Red: seed citadel_report.json containing emissionQuality (with ac_shape_smells + annotation_format_malformed) 
+  // modeled on citadel.test.ts:106 (tranche6 seed pattern) + tranche5 + existing richer at 244
+  fs.writeFileSync(path.join(sessionDir, 'citadel_report.json'), JSON.stringify({
+    overall: 'PASS',
+    findings: [],
+    summary: { critical: 0 },
+    emissionQuality: {
+      ac_shape_smells: [
+        { ac_id: 'AC-RICH-REPORT-01', headline: 'report smell', evidence: ['y'], targets: ['all'], ticket_ids: ['T2'], justification: 'citadel', acceptance_test: 'test("report")' }
+      ],
+      annotation_format_malformed: [
+        { raw: '`worse.ts`(forward-created)', reason: 'no one-ASCII-space separator' }
+      ]
+    }
+  }));
+
   const { performPostCampaignIngest } = await loadSelf();
   const res = await performPostCampaignIngest(root, sessionDir);
 
@@ -265,6 +281,10 @@ test('performPostCampaignIngest — ingests richer ac_shape_smells + annotation_
 
   // Additional richer CrossPhase shape asserts (dedup counts etc. per claude audit-runner:196/270)
   assert.ok(ingested.includes('deduped=') || ingested.includes('CrossPhase real fidelity'), 'must surface richer CrossPhase summary fields from real artifacts');
+
+  // tranche7 Red assert (will fail until Green): unified richer delta from the *report-sourced* citadel_report.json path 
+  // (alongside direct emission_quality BC path) appears in ingested backlogMarkdown. Modeled on citadel.test.ts:106 + tranche5 + existing assert 263.
+  assert.ok(ingested.includes('Richer emissionQuality from citadel_report.json') || ingested.includes('unified richer citadel report signal'), 'unified richer delta from citadel_report.json (report-sourced emissionQuality) must appear in backlogMarkdown alongside direct file BC path');
 
   cleanup(root);
 });
