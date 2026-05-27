@@ -24,6 +24,7 @@ Purpose: Delta memory. PRDs shrink. Metrics rise.
   - Activity + backlog delta scanned
 - reliability-backlog updated. Next generator run targets strictly remaining gaps.
 
+
 ## Campaign 2026-05-XX (agent-driven Trap Door closure tranche)
 **Loop Closer + Agent Team Ingest** (codebase-analyst + engineering-architect + risk-analyst swarm)
 - Performed claude-first exhaustive audit of Trap Doors (AGENTS:38), citadel CrossPhase wiring (citadel.ts:789+), self-prd-generator ingest paths.
@@ -37,6 +38,7 @@ Purpose: Delta memory. PRDs shrink. Metrics rise.
 - Next generator run will see the delta; self-PRDs target remaining items only.
 - reliability-backlog updated. Citadel + install + push required post-edit.
 
+
 ## Campaign 2026-05-XX — agent-team preflight test coverage (TESTABILITY P0 closure)
 **Agent Team + Lead Execution** (explore subagent 019e69a7-deb2... acting as codebase-analyst + lead orchestration)
 - claude-first exhaustive audit (list_dir + verbatim reads + exact :line cites) of Trap Doors (AGENTS:38-41), TESTABILITY_OBSERVABILITY_AUDIT... P0 Gap 1 (theater gates + "No dedicated pipeline-preflight.test.ts"), live preflight impl, ac-shape plumbing comments (ticket-emitter:394, ac-shape:9, preflight:344), existing gate tests, analyst-gate-injections, SKILL Step 3 enforcement.
@@ -47,6 +49,7 @@ Purpose: Delta memory. PRDs shrink. Metrics rise.
 - AGENTS.md + reports updated per Contributor Rules ("Self-changes: Must pass Citadel. Update this AGENTS.md + reports").
 - reliability-backlog updated. Citadel + `bash install.sh` + push required. Wubba lubba dub dub.
 
+
 ## Campaign 2026-05-XX — install hygiene doc parity correction (Trap Doors no-overclaim rule)
 **Agent Team Execution** (explore subagent 019e69b2-53e2-7a70-806f-4df87dbb2edc acting as codebase-analyst + claude-first protocol)
 - Mandatory list_dir (root/engine/tests/) + verbatim read_file + exact :line cites on install.sh:1-242 (ACTIVE scan :37-51, non-tty hard refuse + closer bypass :59-74, stealStaleLock/LOCKDIR/flock+portable :81-133, idempotent AGENTS replace :217-232), tests/install-guard.test.sh:1-92, AGENTS.md:40 (the bullet that states its own "Docs/AGENTS must reflect exact current parity (no overclaim)" rule), lib/pickle-env.sh, self-prd-generator.ts:725 (closer handoff candidate), and all cross-refs.
@@ -55,3 +58,12 @@ Purpose: Delta memory. PRDs shrink. Metrics rise.
 - Updated reliability-backlog.md (this entry) + AGENTS (the Trap Door itself) per Contributor Rules.
 - Result: Living doc now reflects *exact* current hygiene parity. The "Docs win" + "no overclaim" self-requirement inside the Trap Door is enforced by the machine. Still open: full MD5/RSYNC parity, closer-ticket-manager-handoff.md creation, etc. (tracked for next self-PRD).
 - Citadel spirit + install-guard test + `bash install.sh --closer-context --no-confirm` + push followed. Subagent map + lead execution. Wubba lubba dub dub.
+
+
+## Campaign 2026-05-XX — closer-ticket-manager-handoff.md creation (self-loop ingestion fidelity + Trap Doors doc parity)
+**Agent Team Execution** (implementer subagent 019e69cd-7d27-7322-b65e-ad90df14d39a following exact TDD/worktree plan from codebase-analyst map subagent 019e69ca-57b0-78d3-b7eb-1d9a650190b5)
+- TDD enhancement (Red/Green) on engine/tests/self-prd-closer.test.ts *only* (fidelity debt test now seeds real closer-ticket-manager-handoff.md containing both keyword AND ingest markers ("closed" + "PASS" etc) so performPostCampaignIngest actually counts it toward closed++ and surfaces "Ingested ..." line; run from worktree).
+- Created the real docs/closer-ticket-manager-handoff.md using the *exact* ~42-line living contract from the map (bypass contract details from install.sh + guard test, closer ticket duties per PRD:69, full ties to scanForGaps:335 + performPost:723 + test stub pattern:178, "living" meaning + current status; zero invention, no bloat, forward-created).
+- Appended this tranche entry (modeled exactly on prior :50-57 pattern) + precise surgical AGENTS.md:38 + :40 deltas (honest update only; removed debt claim, noted living doc:1-42 + creation).
+- Result: self-loop ingestion (performPostCampaignIngest + scanForGaps) now sees real living handoff contract on every self-run instead of test-stub-only. Dominant fidelity debt item (AGENTS:38/40, reliability-backlog:53/56) closed. "Docs win" + Contributor Rules (worktree isolation + Citadel + reports) + no-overclaim rule enforced. Still dominant open (AGENTS:38): full ac_shape_smells JSON + richer annotation_format, living MASTER_PLAN depth, thin citadel.
+- Citadel spirit + self-prd-closer.test.ts + install-guard.test.sh + `bash install.sh --closer-context --no-confirm` (worktree source, targets deployed) followed. Subagent map + lead execution. Wubba lubba dub dub.
