@@ -792,42 +792,25 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
       } catch {}
     }
 
-    // tranche7 Green: minimal additive (after 789 direct emission_quality block, symmetric to 773-788 sibling)
-    // Uses safeRead + JSON.parse + r?.emissionQuality (readRecoverable style per citadel.ts:72) on campaign citadel_report.json
-    // Surfaces acCount/malformedCount + closed++ + lines.push exactly parallel; unified richer citadel report signal for closer (alongside direct BC path)
-    const citadelReportPath = path.join(campaignSessionDir, 'citadel_report.json');
-    const citadelReportJson = safeRead(citadelReportPath);
-    if (citadelReportJson) {
-      try {
-        const r = JSON.parse(citadelReportJson);
-        const eq = r?.emissionQuality;
-        if (eq) {
-          const acCount = Array.isArray(eq.ac_shape_smells) ? eq.ac_shape_smells.length : 0;
-          const malformedCount = Array.isArray(eq.annotation_format_malformed) ? eq.annotation_format_malformed.length : 0;
-          if (acCount > 0 || malformedCount > 0) {
-            closed++;
-            lines.push(`  - Richer emissionQuality from citadel_report.json: ac_shape_smells=${acCount}, annotation_format_malformed=${malformedCount} (unified richer citadel report signal alongside direct file BC path)`);
-            if (acCount > 0 || malformedCount > 0) {
-              lines.push('  - Note: richer emission debt detected — consider R-META for self-loop-ingestion gap if not closed');
-            }
-          }
-        }
-    const directJson = safeRead(path.join(campaignSessionDir, 'emission_quality.json'));
-    const direct = directJson ? (() => { try { return JSON.parse(directJson); } catch { return null; } })() : null;
-    const rptJson = safeRead(path.join(campaignSessionDir, 'citadel_report.json'));
-    const r = rptJson ? (() => { try { return JSON.parse(rptJson); } catch { return null; } })() : null;
-    const reportEq = r?.emissionQuality;
-    const acD = Array.isArray(direct?.ac_shape_smells) ? direct.ac_shape_smells : (direct?.ac_shape_smells || []);
-    const acR = Array.isArray(reportEq?.ac_shape_smells) ? reportEq.ac_shape_smells : (reportEq?.ac_shape_smells || []);
-    collectedAc = [...acD, ...acR];
-    const rptJson = safeRead(path.join(campaignSessionDir, 'citadel_report.json'));
-    const r = rptJson ? (() => { try { return JSON.parse(rptJson); } catch { return null; } })() : null;
-    const reportEq = r?.emissionQuality;
-    const acD = Array.isArray(direct?.ac_shape_smells) ? direct.ac_shape_smells : (direct?.ac_shape_smells || []);
-    const acR = Array.isArray(reportEq?.ac_shape_smells) ? reportEq.ac_shape_smells : (reportEq?.ac_shape_smells || []);
-    collectedAc = [...acD, ...acR];
-      } catch {}
-    }
+    // tranche7/9 Green: unified richer emission (direct emission_quality.json + citadel_report.json emissionQuality)
+    // Safe, deduped (no redecl). Uses safeRead + JSON.parse. Surfaces ac_shape_smells + annotation_format_malformed for closer + reliability-backlog.
+    // CrossPhase handled below (authoritative deduped per citadel reporter).
+    try {
+      const directJson = safeRead(path.join(campaignSessionDir, 'emission_quality.json'));
+      const direct = directJson ? (() => { try { return JSON.parse(directJson); } catch { return null; } })() : null;
+      const rptJson = safeRead(path.join(campaignSessionDir, 'citadel_report.json'));
+      const r = rptJson ? (() => { try { return JSON.parse(rptJson); } catch { return null; } })() : null;
+      const reportEq = r?.emissionQuality;
+      const acD = Array.isArray(direct?.ac_shape_smells) ? direct.ac_shape_smells : (direct?.ac_shape_smells || []);
+      const acR = Array.isArray(reportEq?.ac_shape_smells) ? reportEq.ac_shape_smells : (reportEq?.ac_shape_smells || []);
+      collectedAc = [...acD, ...acR];
+      const acCount = acR.length || acD.length;
+      const malformedCount = Array.isArray(reportEq?.annotation_format_malformed) ? reportEq.annotation_format_malformed.length : 0;
+      if (acCount > 0 || malformedCount > 0) {
+        closed++;
+        lines.push(`  - Richer emissionQuality from citadel_report.json + direct: ac_shape_smells=${acCount}, annotation_format_malformed=${malformedCount} (unified richer signal for self-prd + reliability-backlog)`);
+      }
+    } catch {}
 
     // Prefer the authoritative, deduped CrossPhaseFindingsReport from citadel reporter (citadel.ts:789-811 + readCrossPhaseFindings:130 + dedupe:115, withLock write).
     // Closes exact AGENTS Trap Doors f3e971a gap: "real citadel reporter/CrossPhase artifacts from anatomy/szechuan not dynamically ingested".
@@ -898,7 +881,6 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
           const emitRes = await emitRefinedTickets(campaignSessionDir, hSpecs, {
             generatedBy: 'self-prd-generator (P1 auto H-VERIFY post-campaign self-heal)',
             acShapeSmells: collectedAc || [],
-            acShapeSmells: collectedAc || [],
             grokRoot: root,
             emitActivity: true,
             updateStateToImplementing: false, // campaign complete; these are side-effect hardening tickets for follow-up
@@ -941,7 +923,6 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
             }
             const emit2 = await emitRefinedTickets(campaignSessionDir, specsToEmit, {
               generatedBy: 'self-prd-generator (gate debt HIGH-PRIORITY refine-hardening via readiness-gate findings)',
-              acShapeSmells: collectedAc || [],
               acShapeSmells: collectedAc || [],
               grokRoot: root,
               emitActivity: true,

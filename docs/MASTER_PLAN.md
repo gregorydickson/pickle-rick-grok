@@ -31,7 +31,7 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 
 ## Current Status (Post-Tranche8)
 - Debt closed for living MASTER_PLAN updates depth: real doc at docs/MASTER_PLAN.md now ingested (Ingested MASTER_PLAN.md + gap suppression in gen).
-- Still dominant open (AGENTS:43): full ac_shape_smells JSON plumbing + richer annotation_format in manifest, thin citadel depth.
+- Still dominant open (AGENTS:43): full ac_shape_smells JSON plumbing + richer annotation_format in manifest, thin citadel depth, ritual god residual, generator ingest patterns (post 2026-05-27 sweep dupe fix in generator). See slim reliability-backlog.md (single source living record + 3 hardening tickets per analyst team 019e6b15.../019e6b18.../019e6b19...).
 
 Wubba lubba dub dub.
 
