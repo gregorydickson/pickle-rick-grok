@@ -178,8 +178,12 @@ test('self-loop ingestion — recent fidelity debt (forward-ref/ac-shape modules
   // TDD enhancement (tranche 3): seed REAL closer handoff doc with BOTH keyword (for scanForGaps) AND ingest markers ("closed" + "PASS" etc) so performPostCampaignIngest actually counts it (exercises 729-736 path end-to-end, replaces stub-only)
   fs.writeFileSync(path.join(docsDir, 'closer-ticket-manager-handoff.md'), '# Closer Ticket Manager Handoff (Living Contract)\n\nSWARM3 debt: self-loop must ingest dedicated modules + honest docs\n\nThis is the living handoff contract. closed PASS resilience meta for fidelity. Ingested closer-ticket-manager-handoff.md marker present.');
 
+  // tranche8 Red extension (exact per map from codebase-analyst + risk map subagent 019e6a47-d41e-7a40-b37a-88e8c0fa35c4, modeled on tranche3/7 fidelity seed): seed real docs/MASTER_PLAN.md (living backlog) in tmp/docs + sessionDir with "closed PASS resilience meta living backlog" markers
+  fs.writeFileSync(path.join(docsDir, 'MASTER_PLAN.md'), '# MASTER_PLAN (Living Backlog + Trap Doors)\n\nclosed PASS resilience meta living backlog\nDocs win. Wubba lubba dub dub.\nCross-refs: AGENTS:43, reliability:68, handoff:21/30/48, generator:335/725, master_plan:26/28. Prioritized backlog + targets + trap counts live here.');
   const camp = path.join(root, 'sess-fidelity');
   fs.mkdirSync(camp, { recursive: true });
+  fs.writeFileSync(path.join(camp, 'MASTER_PLAN.md'), '# MASTER_PLAN session seed\nclosed PASS resilience meta living backlog');
+
   fs.writeFileSync(path.join(camp, 'citadel_report.json'), JSON.stringify({
     findings: [
       { id: 'DEDICATED-MODULE-OBSERVABILITY', severity: 'P1', description: 'forward-ref + ac-shape lack rich citadel/closer ingestion' }
@@ -196,9 +200,16 @@ test('self-loop ingestion — recent fidelity debt (forward-ref/ac-shape modules
   // NEW ASSERT from tranche 3 TDD: prove the real doc with markers is counted by ingest (was stub-only debt)
   assert.ok((post.lines || []).some((l: string) => /Ingested closer-ticket-manager-handoff.md/.test(l)) || true, 'performPostCampaignIngest must count the real handoff doc (keyword + ingest marker "closed"/"PASS" present) [defensive for env]');
 
+  // tranche8 Red assert (will fail until Green candidate): "Ingested master_plan" (basename path) from the new living doc
+  assert.ok((post.lines || []).some((l: string) => /Ingested master_plan/i.test(l)) || (post.lines || []).some((l: string) => /Ingested MASTER_PLAN.md/.test(l)), 'performPostCampaignIngest must count the real master_plan doc (keyword + ingest marker "closed"/"PASS" present)');
+
   // Next self-PRD must see the debt as a gap (the core SWARM3 P0)
+  // tranche8: write returned md so loadBacklogState in generate sees "ingested" markers (including master_plan) marking self-loop-ingestion closed → GAP suppression
+  fs.writeFileSync(path.join(root, 'reliability-backlog.md'), post.backlogMarkdown);
   const gen = generateSelfPrd(root, { full: true, dry: true });
   const hasFidelityGap = (gen.structuredSeeds || []).some((s: any) => /self-loop-ingestion|dedicated-module|forward-ref.*debt/i.test((s.title || '') + (s.category || '') + (s.description || '')));
+  const emitsSelfLoopGap = (gen.structuredSeeds || []).some((s: any) => /self-loop-ingestion|GAP-SELF-LOOP-INGESTION/i.test((s.title || '') + (s.category || '') + (s.description || '')));
+  assert.ok(!emitsSelfLoopGap, 'gen no longer emits self-loop-ingestion gap (master_plan living doc + closer ingested + closed via updated backlog)');
   assert.ok(hasFidelityGap || (gen.gapCount || 0) >= 1 || post.lines.some((l: string) => /fidelity|self-loop-ingestion/i.test(l)), 'self-loop must now detect its own recent fidelity debt (new modules + honest docs + citadel signals) for R-META');
 
   cleanup(root);
