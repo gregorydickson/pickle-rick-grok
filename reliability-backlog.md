@@ -46,3 +46,12 @@ Purpose: Delta memory. PRDs shrink. Metrics rise.
 - Result: TESTABILITY P0 Gap 1 (preflight test debt) closed. Emission gate coverage increased. Self-loop now has executable spec for the hygiene that protects 50-tix + refine emission.
 - AGENTS.md + reports updated per Contributor Rules ("Self-changes: Must pass Citadel. Update this AGENTS.md + reports").
 - reliability-backlog updated. Citadel + `bash install.sh` + push required. Wubba lubba dub dub.
+
+## Campaign 2026-05-XX — install hygiene doc parity correction (Trap Doors no-overclaim rule)
+**Agent Team Execution** (explore subagent 019e69b2-53e2-7a70-806f-4df87dbb2edc acting as codebase-analyst + claude-first protocol)
+- Mandatory list_dir (root/engine/tests/) + verbatim read_file + exact :line cites on install.sh:1-242 (ACTIVE scan :37-51, non-tty hard refuse + closer bypass :59-74, stealStaleLock/LOCKDIR/flock+portable :81-133, idempotent AGENTS replace :217-232), tests/install-guard.test.sh:1-92, AGENTS.md:40 (the bullet that states its own "Docs/AGENTS must reflect exact current parity (no overclaim)" rule), lib/pickle-env.sh, self-prd-generator.ts:725 (closer handoff candidate), and all cross-refs.
+- Diagnosis: AGENTS:40 overclaimed MD5/schemaVersion/semver/RSYNC of "extension tree", withLock/audit-runner, full claude parity on several items. install.sh + test implement a solid but partial portable subset (ACTIVE + flock/steal + closer bypass + non-tty refuse + idempotent global AGENTS replace). No MD5 tree hash exists (only local sha256 in citadel/preflight). closer-ticket-manager-handoff.md remains absent doc debt.
+- **Fix shipped**: Single surgical replacement of the bullet at AGENTS.md:40 with the exact honest wording (every shipped line# + every confirmed absence listed; no over/underclaim; reuses all claude citations from comments; satisfies the bullet's own rule). Zero src change. Zero new behavior.
+- Updated reliability-backlog.md (this entry) + AGENTS (the Trap Door itself) per Contributor Rules.
+- Result: Living doc now reflects *exact* current hygiene parity. The "Docs win" + "no overclaim" self-requirement inside the Trap Door is enforced by the machine. Still open: full MD5/RSYNC parity, closer-ticket-manager-handoff.md creation, etc. (tracked for next self-PRD).
+- Citadel spirit + install-guard test + `bash install.sh --closer-context --no-confirm` + push followed. Subagent map + lead execution. Wubba lubba dub dub.
