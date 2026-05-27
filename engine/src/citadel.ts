@@ -200,6 +200,7 @@ export interface CitadelReport {
     low: number;
   };
   crossPhase?: CrossPhaseFindingsReport;  // NEW: rich deduped from anatomy+szechuan (claude audit-runner:196/270 parity, SWARM8)
+  emissionQuality?: unknown;  // tranche6: optional emission_quality.json content (ac_shape_smells + annotation_format_malformed) — parallel to crossPhase, readRecoverableJsonObject reuse
 }
 
 export const CITADEL_REPORT_SCHEMA = {
@@ -244,7 +245,8 @@ export const CITADEL_REPORT_SCHEMA = {
         low: { type: 'number' }
       }
     },
-    crossPhase: { type: 'object' }  // optional rich CrossPhaseFindingsReport (anatomy + szechuan deduped)
+    crossPhase: { type: 'object' },  // optional rich CrossPhaseFindingsReport (anatomy + szechuan deduped)
+    emissionQuality: { type: 'object' }  // optional emission_quality.json (ac_shape_smells + annotation_format_malformed) parallel to crossPhase
   },
   required: ['sessionId', 'schema', 'schemaVersion', 'overall', 'findings', 'summary']
 } as const;
@@ -788,6 +790,7 @@ export function runCitadel(sessionDir: string, prdPathOverride?: string): Citade
 
   // NEW: real CrossPhase read + dedupe (claude audit-runner:196/270), enriches the report json for closer/self-loop
   const crossPhase = readCrossPhaseFindings(sessionDir);
+  const emissionQuality = readRecoverableJsonObject(path.join(sessionDir, 'emission_quality.json'));
 
   const report: CitadelReport = {
     sessionId,
@@ -808,7 +811,8 @@ export function runCitadel(sessionDir: string, prdPathOverride?: string): Citade
       med,
       low
     },
-    crossPhase  // rich deduped anatomy + szechuan for closer/self-loop (beyond existence check)
+    crossPhase,  // rich deduped anatomy + szechuan for closer/self-loop (beyond existence check)
+    emissionQuality  // tranche6: richer emission signals (ac_shape_smells + annotation_format_malformed) for closer/self-loop (reuses readRecoverableJsonObject:72 exactly, parallel to crossPhase)
   };
 
   const outPath = path.join(sessionDir, 'citadel_report.json');
@@ -823,7 +827,7 @@ export function runCitadel(sessionDir: string, prdPathOverride?: string): Citade
     console.warn('[citadel] Could not write report (non-fatal):', (e as Error).message);
   }
 
-  console.log(`[citadel] DEEP AUDIT COMPLETE. overall=${overall} findings=${allFindings.length} (AC:${acFindings.length} IF:${contractFindings.length} TD:${trapFindings.length} DRIFT:${driftFindings.length} HY+MG:${hygieneFindings.length} EMISSION:${emissionFindings.length}) crossPhase=${crossPhase.findings.length} (deduped=${crossPhase.summary.duplicate_ids_deduped})`);
+  console.log(`[citadel] DEEP AUDIT COMPLETE. overall=${overall} findings=${allFindings.length} (AC:${acFindings.length} IF:${contractFindings.length} TD:${trapFindings.length} DRIFT:${driftFindings.length} HY+MG:${hygieneFindings.length} EMISSION:${emissionFindings.length}) crossPhase=${crossPhase.findings.length} (deduped=${crossPhase.summary.duplicate_ids_deduped}) emissionQuality=${emissionQuality ? ((emissionQuality as any)?.ac_shape_smells?.length || 0) + ((emissionQuality as any)?.annotation_format_malformed?.length || 0) : 0}`);
   if (allFindings.length > 0) {
     const top = allFindings.slice(0, 4).map(f => `${f.severity}:${f.category}`).join(' | ');
     console.log('[citadel] Top threats:', top);

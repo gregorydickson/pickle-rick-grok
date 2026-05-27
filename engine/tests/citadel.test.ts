@@ -101,6 +101,13 @@ test('runCitadel — produces correct report shape, summary, writes artifacts', 
     findings: [ { id: 'SZ-01', severity: 'Low', original_id: 'sz-1' } ]
   }));
 
+  // === tranche6 RED extension (modeled exactly on anatomy seed 94-102 + tranche5 emission_quality.json pattern from map) ===
+  // Seed emission_quality.json (ac_shape_smells + annotation_format_malformed) so Red fails until citadel wires read + attach
+  fs.writeFileSync(path.join(sessDir, 'emission_quality.json'), JSON.stringify({
+    ac_shape_smells: [ { rule: 'ac-shape-foo', severity: 'high', evidence: 'test' } ],
+    annotation_format_malformed: [ { path: 'engine/src/foo.ts:1', reason: 'annotation_format_malformed: expected exactly one space after //' } ]
+  }));
+
   const report = runCitadel(sessDir);
   assert.equal(report.schemaVersion, '1.2');
   assert.ok(['PASS','WARN','FAIL'].includes(report.overall));
@@ -117,6 +124,13 @@ test('runCitadel — produces correct report shape, summary, writes artifacts', 
   const jsonContent = fs.readFileSync(path.join(sessDir, 'citadel_report.json'), 'utf8');
   assert.ok(jsonContent.includes('crossPhase') && jsonContent.includes('duplicate_ids_deduped'), 'citadel_report.json must contain the rich CrossPhase payload for closer/self-loop');
 
+  // tranche6 assertions (Red: will fail until Green wires emissionQuality via readRecoverableJsonObject parallel to crossPhase)
+  const eq: any = (report as any).emissionQuality;
+  assert.ok(eq, 'runCitadel must now return emissionQuality (read via readRecoverableJsonObject:72)');
+  assert.ok(eq.ac_shape_smells && eq.ac_shape_smells.length >= 1, 'ac_shape_smells from seeded emission_quality.json must surface');
+  assert.ok(eq.annotation_format_malformed && eq.annotation_format_malformed.length >= 1, 'annotation_format_malformed from emission_quality must surface');
+  assert.ok(jsonContent.includes('emissionQuality') && jsonContent.includes('ac_shape_smells'), 'citadel_report.json must contain the emissionQuality payload + ac_shape_smells for closer/self-loop');
+
   // === SELF-VALIDATION: new auditor would have flagged R-META-DEEPEN-001 pattern ===
   // Simulate session with a ticket whose Verify (backtick) contains theatrical anti-patterns exactly as
   // R-META-DEEPEN-001's emitted ticket.md did (|| true, "after .*fix", feed good, etc. — see VERIFY_THEATER_RE).
@@ -131,7 +145,7 @@ test('runCitadel — produces correct report shape, summary, writes artifacts', 
   const badState = {
     sessionId: 'deep',
     workingDir: tmp,
-    tickets: [{ id: 'R-META-DEEPEN-001', status: 'failed', phasesCompleted: ['researcher', 'plan'] }]
+    tickets: [{ id: 'R-META-DEEPEN-001', status: 'failed', phasesCompleted: ['researcher', 'plan'], readiness: { summary: 'ls foo || true; echo "after good proposal fix for R-META-DEEPEN-001" ; /* feed good post */ ' } }]
   };
   fs.writeFileSync(path.join(sessDir, 'state.json'), JSON.stringify(badState));
   const badReport = runCitadel(sessDir);
