@@ -416,6 +416,7 @@ export async function emitRefinedTickets(
   // Post-synthesis emission quality hygiene (now unified in pipeline-preflight).
   // Uses the strengthened scanAnalystOutputsForUnverifiedPaths (git ls-files + exact forward-ref annotations)
   // + checkVerifyMachinability layered on detectVerifyTheater.
+  // tranche5: after hygiene scan, best-effort write emission_quality.json (when sessionDir context) so richer ac_shape_smells + annotation_format_malformed reach self-prd/closer (CrossPhase precedent).
   // No separate report file (reuses existing preflight diagnostics + the auto-attached H-VERIFY-EMISSION-HONESTY ticket).
   try {
     const allText = specs.map(s => `${s.justification || ''} ${s.acceptanceCriteria.map(a => `${a.criterion} ${a.verify}`).join(' ')} ${s.scope || ''}`).join('\n');
@@ -424,6 +425,19 @@ export async function emitRefinedTickets(
     const badMach = specs.flatMap(s => s.acceptanceCriteria.map(ac => ({ id: ac.id, m: checkVerifyMachinability(ac.verify || '') }))).filter(x => !x.m.isMachineCheckable);
     if (hygiene.errors.length || badMach.length) {
       console.error(`[ticket-emitter] emission quality: ${hygiene.errors.length} hygiene errors + ${badMach.length} low-machinability (see preflight + auto H-VERIFY-EMISSION-HONESTY ticket)`);
+    }
+    // tranche5 Green (exact at post-emit hygiene try block after hygiene=scan call, per map):
+    // best-effort fs.writeFileSync of emission_quality.json (non-fatal). Mirrors CrossPhase in post-campaign/self-prd.
+    try {
+      if (sessionDir) {
+        const eq = {
+          ac_shape_smells: (opts as any).acShapeSmells || [],
+          annotation_format_malformed: hygiene.annotation_format_malformed || []
+        };
+        fs.writeFileSync(path.join(sessionDir, 'emission_quality.json'), JSON.stringify(eq, null, 2));
+      }
+    } catch (e: any) {
+      console.warn('[ticket-emitter] emission_quality.json write non-fatal (tranche5):', e?.message || e);
     }
   } catch (e: any) {
     console.warn('[ticket-emitter] post-emit hygiene scan non-fatal:', e?.message || e);

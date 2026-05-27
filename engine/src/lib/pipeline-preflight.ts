@@ -145,7 +145,9 @@ export function summarizeReadiness(tickets: any[]): string | null {
 
 function checkTicketMaterialization(sessionDir: string): any {
   try {
-    const state = JSON.parse(fs.readFileSync(path.join(sessionDir, 'state.json'), 'utf8'));
+    const statePath = path.join(sessionDir, 'state.json');
+    if (!fs.existsSync(statePath)) return { onDisk: 0, inState: 0, match: false, allPresent: false, missingTicketIds: [], countOnDisk: 0, ticketIdsInState: [] };
+    const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
     const stateTickets: string[] = (state.tickets || []).map((t: any) => t.id);
     const diskDir = path.join(sessionDir, 'tickets');
     const onDiskSet = new Set(
@@ -337,11 +339,12 @@ export function computeTicketManifestHash(ticketIdsOrTickets: any, prdPath?: str
 }
 
 // === HYGIENE FUNCTIONS (post R8-R10 port + fidelity audit)
-// checkVerifyMachinability + scanAnalystOutputsForUnverifiedPaths now import FORWARD_REF_ANNOTATION_RE from dedicated tiny lib/forward-ref-annotation.ts
-// (exact port of claude extension/src/services/forward-ref-annotation.ts:1 + extract fn, per agent 019e64d4-7ee4-7a63-bde7-e3532597ae4a).
-// AC-SHAPE HARD GATE lives in dedicated lib/ac-shape.ts (extracted to stop preflight bloat per simplifier + overcomplexity agents).
-// Re-exported here for backward compat with existing call sites.
-// Note: full data plumbing for analyst ac_shape_smells + richer malformed annotation_format detection remain fidelity items (enforced hard in SKILL manager Step 3; see AGENTS Trap Doors).
+  // checkVerifyMachinability + scanAnalystOutputsForUnverifiedPaths now import FORWARD_REF_ANNOTATION_RE from dedicated tiny lib/forward-ref-annotation.ts
+  // (exact port of claude extension/src/services/forward-ref-annotation.ts:1 + extract fn, per agent 019e64d4-7ee4-7a63-bde7-e3532597ae4a).
+  // AC-SHAPE HARD GATE lives in dedicated lib/ac-shape.ts (extracted to stop preflight bloat per simplifier + overcomplexity agents).
+  // Re-exported here for backward compat with existing call sites.
+  // Note: full data plumbing for analyst ac_shape_smells + richer malformed annotation_format detection remain fidelity items (enforced hard in SKILL manager Step 3; see AGENTS Trap Doors).
+  // tranche5: richer annotation_format_malformed now collected here (minimal, after ANNOTATED loop) for emitter emission_quality + self-loop parity.
 
 const MACHINE_HINT_RE = /\b(exit (0|1|code|codes)|assert|expect|===|==|!=|length|includes|count|rows?|entries?|table|JSON\.parse|parseInt|grep -[cq]|test -[ef]|tsc --noEmit|node --test|describe\.each|writes? (to|file|artifact)|emits? (event|signal)|--check|status.*0|\d+ (files?|lines?|matches?))\b/i;
 const PURE_PROSE_RE = /\b(must (feel|be|look|seem|appear)|should (be|feel|look)|robust|fast(er)?|good|clean|intuitive|reliable|performant|scalable|user-friendly)\b/i;
@@ -357,7 +360,7 @@ export function checkVerifyMachinability(verify: string): { isMachineCheckable: 
   return { isMachineCheckable: reasons.length === 0, reasons };
 }
 
-export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, ticketManifestOrTicketsText = '', grokRoot = process.cwd()): { errors: string[]; warnings: string[]; passed: boolean; checkedTokens: number } {
+export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, ticketManifestOrTicketsText = '', grokRoot = process.cwd()): { errors: string[]; warnings: string[]; passed: boolean; checkedTokens: number; annotation_format_malformed?: Array<{ raw: string; reason: string }> } {
   const errors: string[] = [];
   const warnings: string[] = [];
   const combined = `${analystOutputs || ''}\n${ticketManifestOrTicketsText || ''}`;
@@ -379,12 +382,20 @@ export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, tic
   const seen = new Set<string>();
   let m2: RegExpExecArray | null;
   const ANNOTATED_PATH_RE = new RegExp(FORWARD_REF_ANNOTATION_RE.source, FORWARD_REF_ANNOTATION_RE.flags);
+  const annotation_format_malformed: Array<{ raw: string; reason: string }> = [];
   while ((m2 = ANNOTATED_PATH_RE.exec(combined)) !== null) {
     const p = (m2[1] ?? '').trim();
     const anno = m2[2] ?? '';
     const key = `${p}:${anno}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    // tranche5 Green (minimal enhancement inside scanAnalystOutputsForUnverifiedPaths after the ANNOTATED_PATH_RE loop per exact map):
+    // collect structured malformed reasons for forward-ref cases lacking exact one-space / malformed annotation (richer check-readiness parity, backward compat).
+    // Mirrors claude check-readiness.ts:308/325 extract + annotation_format findings. RE matches zero-space too; we now surface it.
+    if (m2[2] !== ' ') {
+      const raw = m2[0] || `\`${p}\`${m2[2] || ''}(...)`;
+      annotation_format_malformed.push({ raw, reason: 'no one-ASCII-space separator' });
+    }
     // The regex already captures the valid forms; any match here is structurally good.
   }
   // Bare path hygiene (git ls-files or existence)
@@ -407,7 +418,9 @@ export function scanAnalystOutputsForUnverifiedPaths(analystOutputs: string, tic
     warnings.push('ac_shape_smells section present but missing expected machine-readable JSON { "smells": [...] } shape');
   }
   const passed = errors.length === 0;
-  return { errors, warnings, passed, checkedTokens: checked };
+  const ret: any = { errors, warnings, passed, checkedTokens: checked };
+  if (annotation_format_malformed.length > 0) ret.annotation_format_malformed = annotation_format_malformed;
+  return ret;
 }
 
 // Re-export AC-shape hard gate from dedicated module (prevents preflight bloat).

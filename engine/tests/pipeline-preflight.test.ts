@@ -136,6 +136,7 @@ test('analyzeSessionForVerifyTheater + ac-shape reexports work on manifest with 
 // Asserts (via successful execution of the updated internal gate call + manifest shape) that
 // the ac-shape hard gate received non-empty data (instead of the old hardcoded []).
 // This is the council/refine emit seam that previously never forwarded the SKILL-parsed smells.
+// tranche5 Red extension added to *this test body at ~139* (per map) to cover new optional malformed shape.
 test('TDD tranche4: emitRefineCouncilTickets forwards real acShapeSmells to ac-shape gate (per map from subagent 019e69dd-2f3a-7af2-872a-4968d502f6b9; exercises emitter path + asserts non-empty data received)', async () => {
   const tmp = makeTmp();
   try {
@@ -182,6 +183,17 @@ test('TDD tranche4: emitRefineCouncilTickets forwards real acShapeSmells to ac-s
     // the *plumbing from emitter opts* that was the missing link per the analyst map.)
     assert.ok(realSmells.length > 0, 'real ac_shape_smells data was supplied to emitter and thus to gate (non-empty received)');
     console.log('[pipeline-preflight.test] tranche4 TDD emitter+acShapeSmells path exercised successfully — gate now sees real data on council emits.');
+
+    // === TDD tranche5 Red extension (per exact minimal plan + risk map from prior codebase-analyst subagent 019e69ed-d4c9...) ===
+    // Extend *this* tranche4 test (~139) to assert new optional `malformed` / `annotation_format_malformed` shape
+    // from scan on bad annotation cases (one-space etc.). Modeled on claude check-readiness:308/325 richer parity.
+    // These asserts are RED until Green step populates the field (backward-compat optional in return).
+    const badAnnoCase = 'Touch `engine/src/lib/pipeline-preflight.ts`(forward-created) for tranche5 parity.';
+    const malformedScan: any = scanAnalystOutputsForUnverifiedPaths(badAnnoCase, '', process.cwd());
+    assert.ok('annotation_format_malformed' in malformedScan || 'malformed' in malformedScan, 'scan must expose optional annotation_format_malformed (or malformed) for richer check-readiness parity (tranche5 Red)');
+    const mf = malformedScan.annotation_format_malformed || malformedScan.malformed;
+    assert.ok(Array.isArray(mf), 'annotation_format_malformed must be array of structured {raw, reason} for forward-ref lacking exact one-space / malformed annotation');
+    console.log('[pipeline-preflight.test] tranche5 Red assertions added inside tranche4 test; shape asserted (will pass after Green minimal enhancement).');
   } finally {
     cleanup(tmp);
   }
