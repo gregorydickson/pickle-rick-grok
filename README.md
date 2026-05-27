@@ -143,7 +143,7 @@ These are the primary user-facing entry points. All of them are thin dispatch sk
 ### `/pickle-pipeline` — The Whole Damn Thing
 
 <p align="center">
-  <img src="images/pickle-rick.png" width="100%" alt="Full autonomous pipeline">
+  <img src="images/pickle-pipeline-hero.jpg" width="100%" alt="pickle-pipeline — The Whole Damn Thing (Grok Edition): PRD → Refine Council (/pickle-refine-prd) → Headless Build (grok -p + mux-runner + 8-phase ritual) → Citadel gate → Anatomy Park deep review → Szechuan Sauce deslopping → Self-Improving Loop">
 </p>
 
 One command for the complete lifecycle:
