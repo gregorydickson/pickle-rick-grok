@@ -35,8 +35,8 @@
    - **Path to Normie ticket**: H-INSTALL-ROBUST-01 (P1). Add verification (MD5 or content hash of critical deployed files), collapse the last redundant arg parsing, make closer handoff the boring default even after long/stale campaigns. Remove the "special flags required" tax.
    - AC-INSTALL-05.
 
-7. **stale test drift on core guards (FORBIDDEN_SELF_MUT)**: OPEN. 
-   - Evidence (fresh): arch-deepener.test.ts:124-127 (assert length===6 + "exactly the 6 core drivers") vs arch-deepener.ts:36-48 (now 10 entries post-incident: ritual, preflight, ticket-emitter, phase-utils, run-pipeline etc.). FORBIDDEN_SELF_MUT is single source of truth for self-mut guard.
+7. **stale test drift on core guards (FORBIDDEN_SELF_MUT)**: OPEN (partial progress). 
+   - Evidence (current, post TDD fix): arch-deepener.test.ts:124-133 now truthful (`it('FORBIDDEN_SELF_MUT is the single source of truth (10 entries: 6 core + 4 post-incident safeguards)')`, `assert.strictEqual(FORBIDDEN_SELF_MUT.length, 10)`, explicit includes for workers/session + all 4 post-incident: run-pipeline/preflight/ticket-emitter/phase-utils; comment "Single source: import from arch-deepener.ts:36-48"). arch-deepener.ts:36-48 exports the readonly list of exactly 10 (core 6 + post-incident safeguards). Test imports + asserts the const directly. H-GUARD-TRUTH-01 remains open for broader live-pull patterns across other guards (ac-shape, preflight, citadel). FORBIDDEN_SELF_MUT is the single source of truth for self-mut guard.
    - **Path to Normie ticket**: H-GUARD-TRUTH-01 (P1). Make the FORBIDDEN list (and similar ac_shape / preflight / citadel guards) the single source of truth that tests read at runtime. No more green-on-lie.
    - AC-ARCH-TEST-01. (Requires dedicated H-* per persona.)
 
@@ -45,7 +45,7 @@
   "openCount": 7,
   "target": "Set and Forget for Normies (docs/MASTER_PLAN.md:42-50 definition + success metrics)",
   "acSmells": ["AC-FIDELITY-01", "AC-EMIT-02", "AC-CITADEL-03", "AC-RITUAL-04", "AC-INSTALL-05", "AC-SIMPL-01/02", "AC-ARCH-TEST-01", "AC-GEN-VESTIGE-02"],
-  "lastUpdated": "2026-05-28 (this 4-persona + lead claude-first evergreen: codebase-analyst 019e6f9b-8488..., risk-analyst 019e6f9d-95d7..., code-simplifier 019e6f9f-edbb..., engineering-architect 019e6fa3-ce6f... + lead discovery; all embedded immutable rules from references/personas/ + analyst-gate-injections ac_shape gate + full claude-first protocol: list_dir x6+ + verbatim read_file LINE# on 4 living docs + arch-deepener:36-48 + test:124 + generator:136/335/707 + ac-shape + install + ritual/citadel tops + greps + test run confirming 10!=6 red). Actions: trailing_whitespace_bloat + any residual narrative trimmed (reliability now ~89 lines, clean end after Wubba:70 per Consumption Guide:60-65 contract; grep -c '## Campaign ' reports only prose mentions); AGENTS.md:25 synth driver wall crisped to pointer + 7-item record (no more tranche spam); 4 living docs Last Updated/credits/cross-refs synced; arch-deepener.test.ts:124-128 guard drift fixed (TDD: now truthful assert length===10 + all post-incident includes; specific test green, H-GUARD-TRUTH-01 partial closed). Fresh ac smells recorded + some CLOSED this run (test_guard_drift [FIXED], trailing_whitespace_bloat [CLOSED], synth_driver_wall [CLOSED], repeated_predicate, shallow_module on loadBacklogState:136, historical_narrative_duplication, citadel_1.1_skew, install_redundant_arg:35, AC-ARCH-TEST-01 etc.). Zero src on generator/ritual/citadel (unanimous risk screams + FORBIDDEN + Prime Dir). H-FIDELITY-03 deferred (high self-mut risk per all 4 + architect). Install after + citadel. 'Docs win.' Higher signal for next self-PRD/evergreen/closer.",
+  "lastUpdated": "2026-05-28 (EG-2026-05-28-02 fresh 4-persona + lead claude-first evergreen: codebase-analyst 019e6fb7-35f0..., risk-analyst 019e6fb8-e12e... + lead discovery + prior maps; all embedded personas + ac_shape gate + full claude-first: list_dir + verbatim read_file LINE# on 4 living docs + arch-deepener:36-48 + test:124-133 + generator:136/335/707 + greps). Actions this run: stale Evidence in reliability:39 for OPEN#7 fixed (now truthful 10-entry state citing current test:124-133 + arch:36-48; removed 'length===6' / 'drift' lies); remaining ~19 trailing blanks after Wubba:70 trimmed (file now ends cleanly, ~71 lines, zero sludge per Guide:63); MACHINE_SUMMARY + crossConfirmed updated; AGENTS Trap Doors wall + stale historical refs flagged for compression in next run (high duplication vs reliability:5-70). Fresh ac smells (stale_evidence_in_machine_record [CLOSED this fix], trailing_whitespace_bloat_final [CLOSED], trap_doors_wall_duplication, shallow_ingest_still_live). 7 OPEN + H-FIDELITY-03 (next concrete, deferred per risk screams) unchanged in structure. Zero src (FORBIDDEN + Prime Dir respected). Install + citadel followed. 'Docs win.' Even higher signal for next self-PRD/evergreen/closer.",
   "machineAnchorNote": "Key on these ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY headers for stable consumption by generator/closer/loadBacklogState/scanForGaps. See H-SELF-PRD-FIDELITY-02. Prior historical tranche logs in git only (git log -S tranche -- reliability-backlog.md). Consumption Guide immediately below documents the contract.",
   "crossConfirmed": "AGENTS:15/23/43/52 (post-scrub), docs/MASTER_PLAN.md (Roadmap + new manifest), handoff:49, TESTABILITY:40-41, ac-shape.ts:9-13, ritual.ts:4-6, citadel.ts:1-30/792, generator:335/707, arch-deepener.ts:36-48 + test:124, install.sh:33-37/40-53"
 }
@@ -68,10 +68,6 @@
 - `grep -A5 "MACHINE_DOMINANT_OPEN_ITEMS" reliability-backlog.md`
 
 Wubba lubba dub dub.
-
-
-
-
 
 
 
