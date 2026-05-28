@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-28 (tranche8 creation + 2026-05-28 4-person evergreen sweep: Consumption Guide + dupe/sludge purge in reliability + syncs; Living Interface Manifest added)
+**Last Updated**: 2026-05-28 (tranche8 + 2026-05-28 4-person evergreen sweep + final purge completion: Consumption Guide + full removal of remaining historical tranche sludge from reliability-backlog.md; Living Interface Manifest + cross-ref hygiene)
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 
