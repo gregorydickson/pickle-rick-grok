@@ -2,21 +2,48 @@
 
 **Status**: This is the canonical, living single-source record of remaining open items (AGENTS.md:43 Trap Doors + synthesis driver at 15). The self-prd-generator (scanForGaps + performPostCampaignIngest + loadBacklogState) and closer (self-improvement-loop-closer.ts:40-43) ingest here on every campaign. 50-Ticket report and pre-tranche10 logs are historical/stale. The top (Current Dominant + Machine-Usable Summary) is the machine-usable signal for fidelity.
 
-**Current Dominant Open Items (post-tranche11 + this Code Simplifier evergreen scrub 2026-05-28 claude-first exhaustive; 7 items OPEN; canonical per reliability + AGENTS:43 + generator fidelity scan + handoff)**:
+**Current Dominant Open Items (post-tranche11 + 2026-05-28 evergreen scrub; 7 items OPEN; canonical per reliability + AGENTS:43 + generator fidelity scan + handoff)**:
 
-1. **full analyst ac_shape_smells JSON plumbing into emitter manifest (for true hard gate on *all* paths)**: OPEN (data model limit blocks universal). Evidence: ac-shape.ts:9-13, ticket-emitter acManifest, SKILL.md (council only), pipeline-preflight warning. AC-SIMPL-01. No all-paths gate.
+**Target**: These 7 items are the explicit blockers between "advanced dogfood for its builders" and **"Set and Forget for Normies"** (see docs/MASTER_PLAN.md "Roadmap" section for definition + success metrics).
 
-2. **richer annotation_format in manifest / check-readiness parity**: OPEN (partial). Evidence: preflight malformed/optional handling, citadel, generator vestigial blocks.
+1. **full analyst ac_shape_smells JSON plumbing into emitter manifest (for true hard gate on *all* paths)**: OPEN (data model limit blocks universal). 
+   - Evidence: ac-shape.ts:9-13 ("Emitter currently passes empty ac_shape_smells (data model limit — real analyst smells not yet plumbed into TicketSpec[])"), ticket-emitter.ts:52/398 (EmitOptions + acManifest council-only), SKILL.md:104/140 (council parse only), pipeline-preflight.ts:417 (only warning).
+   - **Path to Normie ticket**: H-EMIT-UNIVERSAL-01 (P0). Extend TicketSpec + EmitOptions to carry real ac_shape_smells from all paths (self-PRD, healers, meta). Wire through emitter on every emit. Hard gate must fire on bad ACs even for generated tickets. Hardening required: Anatomy (full smell data flow) + Szechuan.
+   - AC-SIMPL-01.
 
-3. **thin citadel depth**: OPEN. Evidence: citadel.ts v1.2 + CrossPhase, schema gaps vs claude 17 (AGENTS:43).
+2. **richer annotation_format in manifest / check-readiness parity**: OPEN (partial). 
+   - Evidence: preflight:360/395-398/422 (malformed collection + richer return optional), citadel:793/815, generator:774-820 (still vestigial blocks), vs claude check-readiness:308/325.
+   - **Path to Normie ticket**: H-EMIT-UNIVERSAL-01 (same P0 ticket as #1 — they are coupled). Full one-space forward-ref + annotation_format_malformed detection + hard enforcement on all emission paths.
+   - AC-EMIT-02.
 
-4. **ritual god residual**: OPEN (doc-only per safety + FORBIDDEN). Evidence: ritual.ts:4-6 comment; AGENTS:43. AC-RITUAL-04.
+3. **thin citadel depth**: OPEN. 
+   - Evidence: citadel.ts:1-30 (v1.2 6-auditor + CrossPhaseFindingsReport), emissionQuality/crossPhase attached but schema and auditor count lag claude 17 dedicated (audit-runner:76/148/196/270 + reporter:148 + dedupe:270).
+   - **Path to Normie ticket**: H-CITADEL-DEPTH-01 (P0). Add missing high-value auditors (emission honesty on self-generated work, ritual god surface, install hygiene, self-meta traps). Make richer findings the primary input to the closer. Hardening: full Anatomy on auditor flows + Szechuan.
+   - AC-CITADEL-03.
 
-5. **self-prd-generator scanForGaps/performPostCampaignIngest depth + internal vestigials**: OPEN (living docs help but residual + code smells). Evidence: generator fidelityDirs/keywords + candidates (handles clarified dupe), load shallow, prior dupe ifs/||[] noise (tracked). AC-FIDELITY-01 + GEN-VESTIGE.
+4. **ritual god residual**: OPEN (doc-only per safety + FORBIDDEN). 
+   - Evidence: ritual.ts:4-6 exact quote ("Research rescue logic progressively extracted (handlePureResearchTheaterNoEvidence + handleResearchBlockedOrDeferred) toward claude-style flat services..."); AGENTS:43.
+   - **Path to Normie ticket**: H-RITUAL-GOD-01 (P0, high risk). Requires explicit H-* waiver. Options: (a) extract the rescue logic into flat, observable services with strong contracts, or (b) dramatically improve observability + isolation so the god surface stops being a silent 3am risk. Heavy hardening mandatory (Anatomy + Szechuan on ritual + related workers).
+   - AC-RITUAL-04. No implementation touch without waiver.
 
-6. **install hygiene (redundant checks + no MD5)**: OPEN. Evidence: install.sh (ACTIVE pgrep + state, redundant closer-context arg parse). AGENTS:49; handoff. AC-INSTALL-05.
+5. **self-prd-generator scanForGaps/performPostCampaignIngest depth + internal vestigials**: OPEN (living docs help but residual + code smells). 
+   - Evidence: generator:335 (fidelityDirs/keywords), 707/714/725/739 (performPost + richer blocks with vestigials at 784/805/815-828/890/933 per greps), 136-153 (loadBacklogState shallow tail-regex).
+   - **Path to Normie ticket**: H-SELF-PRD-FIDELITY-02 (P1). Use the new stable ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY anchors. Add small typed parser adapter (lib/backlog-ingest.ts pattern). Eliminate remaining duplicate ifs / ||[] / debt-note noise. Success: measurably higher-quality R-META output with less self-pollution.
+   - AC-FIDELITY-01 + GEN-VESTIGE-02.
 
-7. **stale test drift on core guards (FORBIDDEN_SELF_MUT)**: NEW from this scrub. Evidence: arch-deepener.test.ts length assert vs source (10 entries post-incident); test green on drift. AC-ARCH-TEST-01. (Requires dedicated H-* per persona.)
+6. **install hygiene (redundant checks + no MD5)**: OPEN. 
+   - Evidence: install.sh:22-84 (ACTIVE guard pgrep:41 + state.json:48; redundant arg check at 36), AGENTS:49, handoff:9-16.
+   - **Path to Normie ticket**: H-INSTALL-ROBUST-01 (P1). Add verification (MD5 or content hash of critical deployed files), collapse the last redundant arg parsing, make closer handoff the boring default even after long/stale campaigns. Remove the "special flags required" tax.
+   - AC-INSTALL-05.
+
+7. **stale test drift on core guards (FORBIDDEN_SELF_MUT)**: NEW from this scrub. 
+   - Evidence: arch-deepener.test.ts:124-127 (assert length===6 + "exactly the 6 core drivers") vs arch-deepener.ts:36-48 (now 10 entries post-incident: ritual, preflight, ticket-emitter, phase-utils, run-pipeline etc.).
+   - **Path to Normie ticket**: H-GUARD-TRUTH-01 (P1). Make the FORBIDDEN list (and similar ac_shape / preflight / citadel guards) the single source of truth that tests read at runtime. No more green-on-lie.
+   - AC-ARCH-TEST-01. (Requires dedicated H-* per persona.)
+
+**Machine-Usable Summary (for generator scanForGaps/performPost/loadBacklogState + closer)**: 7 items + AC smells (AC-FIDELITY-01, AC-EMIT-02, AC-CITADEL-03, AC-RITUAL-04, AC-INSTALL-05, AC-SIMPL-01/02, AC-ARCH-TEST-01, AC-GEN-VESTIGE-02). Fresh claude-first verified. Stale :N + repeated tranche boilerplate purged; master_plan dupe clarified; SKILL vestigial deleted; all 7 items now carry explicit "Path to Normie" tickets + hardening requirements. Update on every closer/tranche. Cross-confirmed AGENTS:15/23/43/52 (post-scrub), docs/MASTER_PLAN.md (new Roadmap section), handoff, TESTABILITY:40-41, ac-shape.ts:9-13, ritual.ts:4-6.
+
+**Stable machine anchor**: ## MACHINE_DOMINANT_OPEN_ITEMS (7 items above) + ## MACHINE_SUMMARY. Future parsers should key on these markers. See docs/MASTER_PLAN.md for the full "Set and Forget for Normies" target definition and success metrics.
 
 **Machine-Usable Summary (for generator scanForGaps/performPost/loadBacklogState + closer)**: 7 items + AC smells (AC-FIDELITY-01, AC-EMIT-02, AC-CITADEL-03, AC-RITUAL-04, AC-INSTALL-05, AC-SIMPL-01/02, AC-ARCH-TEST-01, AC-GEN-VESTIGE-02). Fresh claude-first verified (list_dir + read_file LINE_NUMBER→ + git ls-files/git grep -n on HEAD for cites + ac_shape smells). Stale :N + repeated tranche boilerplate purged from top + reports; master_plan dupe clarified (root deprecated stub, living=docs/); SKILL vestigial comment deleted; generator vestigials + arch test drift + install redundant now explicit actionable. 
 
