@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-28 (tranche8 + multiple 2026-05-28 evergreen sweeps including this 5-agent run: final surgical removal of residual historical narrative after Consumption Guide at reliability-backlog.md:72; H-FIDELITY-03 recorded as next concrete consumer upgrade; file now 100% compliant with its own Guide contract + Living Interface Manifest; Prime Directive on bootstrapping vs production autonomous use added to AGENTS.md)
+**Last Updated**: 2026-05-28 (this run: user "update our plans with this information" + final real post-Guide sludge purge in reliability-backlog.md (now ends cleanly after Consumption Guide + Bootstrapping Phase Note); H-FIDELITY-03 + three-horizon bootstrapping strategy (Current self-loop fidelity engine → Early External Dogfood → Normie Threshold) injected into the primary ingested record per Prime Directive (AGENTS:9). Machine-usable plans for clean-context agent team run. "Docs win.")
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 
@@ -48,6 +48,15 @@ Wubba lubba dub dub.
 - A new or external project can run multiple autonomous cycles with only occasional "closer handoff" style intervention.
 
 This is the explicit usability target that turns the system from "advanced dogfood for its builders" into something a normie team can trust overnight.
+
+**Bootstrapping Strategy (Current Phase Focus)**: Per the Prime Directive (AGENTS.md:9-18), the current work is *building* pickle-rick-grok itself — rich chat agent teams (this evergreen process, engineering personas, spawn_subagent) are the correct high-leverage tool right now. The finished system's job is the opposite (headless autonomous dev on external repos). 
+
+Three horizons:
+- **Current**: Make the self-improvement loop (generator + closer) the primary developer. H-FIDELITY-03 (loadBacklogState + fidelity consumers actually using the ## MACHINE_* anchors + Consumption Guide contract in reliability-backlog.md) + repeated clean-context evergreen hygiene sweeps are the mechanism. Raise the fidelity floor first so hard P0 work (H-EMIT-UNIVERSAL-01 etc.) has a trustworthy engine to drive it.
+- **Early External Dogfood**: Prove low-friction autonomous runs on real external codebases (some closer handoff OK).
+- **Normie Threshold**: The 6 criteria at :42-50 with "set and forget" for competent engineers.
+
+H-FIDELITY-03 is the highest-leverage safe next concrete ticket. Hard emission/ritual/citadel items stay on the full H-* + 4-hardening + waiver path.
 
 **P0 — Non-negotiable for the target (must be closed before claiming normie readiness)**
 - **H-EMIT-UNIVERSAL-01**: Full analyst ac_shape_smells + richer annotation_format hard gate on *all* emission paths (self-PRD, healers, meta, not just council). Remove the "data model limit" in ac-shape.ts:9-13 and ticket-emitter. Success: every emitted ticket carries real smells when analysts produced them; hard enforcement fires on bad ACs even for generated healers. Hardening: Anatomy (data flow of smells from SKILL → emitter → generator → verifier) + Szechuan on any remaining "council only" branches.

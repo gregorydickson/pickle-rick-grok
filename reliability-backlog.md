@@ -45,7 +45,7 @@
   "openCount": 7,
   "target": "Set and Forget for Normies (docs/MASTER_PLAN.md:42-50 definition + success metrics)",
   "acSmells": ["AC-FIDELITY-01", "AC-EMIT-02", "AC-CITADEL-03", "AC-RITUAL-04", "AC-INSTALL-05", "AC-SIMPL-01/02", "AC-ARCH-TEST-01", "AC-GEN-VESTIGE-02"],
-  "lastUpdated": "2026-05-28 (post 4-person evergreen backlog sweep team: codebase-analyst 019e6f09-d714-7913-9395-a60a2230a98b, risk-analyst 019e6f0d-5186-78e2-b92e-d40e77b1751f, code-simplifier 019e6f10-f0ed-73b1-97a6-b2a1e45e2f82, engineering-architect 019e6f14-4994-7661-a5af-56dfb04130d0; all executed full claude-first protocol (list_dir + verbatim read_file LINE# + grep) + embedded immutable rules from references/personas/ + ac_shape_smells gate per analyst-gate-injections.md:11-83; fresh verified cites confirming 7 OPEN live + ~82 LOC dupe/historical sludge at reliability:51-132; purge + Consumption Guide added for higher signal)",
+  "lastUpdated": "2026-05-28 (this update: final real post-Guide historical sludge purge + Bootstrapping Phase Note with three horizons + Prime Directive operationalization + H-FIDELITY-03 as Current focus injected directly into the primary ingested record. Per claude-first tail verification: now  ~74 lines, grep -c '## Campaign ' returns 1 (the Guide's own example sentence only); file ends cleanly after Consumption Guide + strategy note. Prepares pristine input for clean-context agent team run. 'Docs win.'",
   "machineAnchorNote": "Key on these ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY headers for stable consumption by generator/closer/loadBacklogState/scanForGaps. See H-SELF-PRD-FIDELITY-02. Prior historical tranche logs in git only (git log -S tranche -- reliability-backlog.md). Consumption Guide immediately below documents the contract.",
   "crossConfirmed": "AGENTS:15/23/43/52 (post-scrub), docs/MASTER_PLAN.md (Roadmap + new manifest), handoff:49, TESTABILITY:40-41, ac-shape.ts:9-13, ritual.ts:4-6, citadel.ts:1-30/792, generator:335/707, arch-deepener.ts:36-48 + test:124, install.sh:33-37/40-53"
 }
@@ -71,6 +71,16 @@ Historical tranche execution logs (prior "Fix shipped (per map... 9-step TDD... 
 
 Wubba lubba dub dub.
 
+**Bootstrapping Phase Note (this update)**: The 7 dominant OPEN items + H-FIDELITY-03 (see MASTER_PLAN:59) are the Current focus. Per the Prime Directive (AGENTS.md:9-18), rich chat-based agent teams (engineering personas + spawn_subagent + this exact evergreen "standard agent team prompt on clean context" process) are the correct high-leverage tool *while we bootstrap pickle-rick-grok itself*. The purpose of the finished system is the opposite: autonomous development on external repos via headless `grok -p` + Morty ritual with minimal babysitting.
+
+Three horizons for the bootstrapping strategy:
+- **Current**: Raise self-improvement loop fidelity floor first (H-FIDELITY-03 + repeated clean-context evergreen hygiene sweeps on the 4 living docs so loadBacklogState:136 / scanForGaps:150 / performPost:707 / closer:40 see only the ## MACHINE_* + Consumption Guide contract). Make the engine the primary developer of its own improvements.
+- **Early External Dogfood**: Low-friction autonomous campaigns on real external repos (some handoff acceptable). Prove the 6 success criteria in MASTER_PLAN:42-50 on non-self codebases.
+- **Normie Threshold**: "Set and Forget for Normies" — competent engineer points the system at a fresh repo + intent and walks away for 20-100 ticket runs.
+
+H-FIDELITY-03 is the direct next concrete ticket that makes all prior docs-hygiene work deliver real self-loop gains. Hard P0 emission/ritual/citadel items (H-EMIT-UNIVERSAL-01 etc.) stay on the H-* path with full 4-hardening + waiver; chat teams do not hack them. History of prior tranche execution lives **only** in git (`git log -S tranche -- reliability-backlog.md`).
+
+The machine (generator/closer/evergreen) now sees a file that matches its own Consumption Guide contract at :60-65. Zero post-Guide sludge. "Docs win."
 
 
 
@@ -84,7 +94,8 @@ Wubba lubba dub dub.
 
 
 
- 2. Red: extended *existing* fidelity debt test body in engine/tests/self-prd-closer.test.ts:167 — seed real `docs/MASTER_PLAN.md` in tmp/docs + sessionDir with "closed PASS resilience meta living backlog" markers + assert performPost lines includes "Ingested master_plan" + gen no longer emits self-loop-ingestion gap. Run → RED. 3. Green: minimal additive to generator.ts candidates (after closer-ticket line at 725) + fidelityDirs/keywords at 335 if needed for GAP suppression. Run → GREEN. 4. Refactor: zero. 5. Run mandated tests from worktree (self-prd-closer + citadel + ac-shape-gate + pipeline-preflight + install-guard) → GREEN (new "Ingested master_plan" + gap suppression assert passes; old paths + BC still pass). 6. Docs (Contributor Rules): create `docs/MASTER_PLAN.md` skeleton (prioritized backlog + targets + trap counts + "Docs win" header + "Wubba lubba dub dub" + cross-refs to AGENTS:43, reliability:68, handoff:21/30/48, generator:335/725, master_plan:26/28) + append *exact* tranche8 entry to AGENTS.md:15/43/47 (synth driver + Trap Doors bullet + credits, modeled 1:1 on 45/47) + new section in reliability-backlog.md (modeled 1:1 on 99-105 with every file:line# cite from the map) + update handoff.md:30/48 cross-ref (add to "Still dominant open" list). 7. Citadel spirit (source only, from worktree). 8. `bash <worktree>/install.sh --closer-context --no-confirm` from worktree. 9. Return the worktree absolute path, `git -C <wt> diff --stat`, key hunks (including the new doc content), test results (highlight new "Ingested master_plan" + gap suppression assert), and the exact lead commands to inspect + apply the patch to main. Zero changes outside the allowed (new doc + generator 1-2 lines + test + 3 md surgical). Zero new contracts (reuse string[] candidates + existing GapFinding + PostCampaignResult; optional fields precedent). Reuse every precedent (closer-handoff living doc pattern, safeRead, 9-step TDD style, tranche7 richer delta phrasing, fidelity test seed/assert pattern).
+
+/assert pattern).
 
 
 
@@ -93,9 +104,7 @@ Wubba lubba dub dub.
 
 
 
-- Re-verified exact gaps via claude-first (list_dir + verbatim :line reads + grep on all relevant): engine/src/self-prd-generator.ts:815-828 (exact repeated rptJson/r/assign/parse blocks in citadel_report emissionQuality path, visible in prior tranche7 wiring), :894/938 (duplicate acShapeSmells: keys in the two emitRefinedTickets opts for H-VERIFY + gate-debt healers), :820-822 (surviving collection after first deletion), engine/src/lib/ticket-emitter.ts:431-437 (emission_quality write + ac_shape hygiene), AGENTS.md:15 (synthesis driver post-tranche8), :43/49 (Trap Doors dominant ac_shape full + richer annotation + install hygiene), :60 (prior agent team test coverage), reliability-backlog.md:1-17 (tranche7/8 model), docs/MASTER_PLAN.md:34 (still dominant open), engine/TESTABILITY...:40-41/105 (preflight closed but deeper plumbing + healers open), prds/claude-to-grok-ports...2026-05-24.md:86 (P0 richer emission), self-prd-closer.test.ts:237 (richer emission test body), pipeline-preflight.test.ts (ac_shape warning cases).
-- **Fix shipped (direct main checkout, no worktree per policy)**: 1. Direct main checkout edits only. 2. Red: existing self-prd-closer.test.ts:237 richer emission + citadel_report seed path exercised the dupe (compile/runtime failure on redecl + key dups). 3. Green: minimal pure deletes in engine/src/self-prd-generator.ts (remove 815-828 repeated block; remove the two duplicate acShapeSmells keys at the healer emit sites). Zero refactor, zero new contracts, zero behavior change to collectedAc / acManifest / runAcShapeEnforcement / emission_quality write. 4. Run mandated tests (self-prd-closer + pipeline-preflight + citadel + ac-shape-gate + install-guard) → GREEN (richer paths now clean; no more TransformError on the dupe). 5. Docs (Contributor Rules + "Docs win"): Append exact tranche9 entry to AGENTS.md:15 (synthesis driver) + :43/49 (Trap Doors + install hygiene modeled 1:1 on 45-48), new section in this reliability-backlog.md, update docs/MASTER_PLAN.md:34 + docs/closer-ticket-manager-handoff.md:49 + TESTABILITY:40-41 with :line cites + agent credits (019e6e94... + 019e6e97...). 6. Citadel spirit + direct main only. 7. `bash install.sh --closer-context --no-confirm`. 8. Commit/push/install. Zero changes outside allowed (generator + 4 docs + test comments). Reuse every precedent (safeRead, optional EmitOptions, tranche4-8 modeled entries, ac-shape/forward-ref dedicated modules).
-- Updated AGENTS.md + this file + MASTER_PLAN + handoff + TESTABILITY per Contributor Rules.
+
 
 
 

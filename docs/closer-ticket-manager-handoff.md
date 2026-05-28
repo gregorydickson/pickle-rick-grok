@@ -2,7 +2,7 @@
 
 **Status**: Created to close dominant fidelity debt (AGENTS.md:38/40, reliability-backlog.md:53/56). Replaces test-stub-only pattern.
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-28 (creation + tranche8 + 2026-05-28 4-person evergreen purge completion: final removal of remaining historical tranche sludge from reliability-backlog.md post-Consumption Guide; cross-ref sync)
+**Last Updated**: 2026-05-28 (this run: user-directed plans update with bootstrapping strategy + final real post-Guide purge in reliability (now pristine + Bootstrapping Phase Note with three horizons); H-FIDELITY-03 + Prime Directive operationalized in the ingested record for clean-context agent team execution. Cross-refs synced. "Docs win.")
 
 ## The --closer-context / --no-confirm Bypass Contract
 
