@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-29 (post 6-person EG Round 1: AGENTS Trap Doors wall compressed + spam trimmed across 4 living docs per simplifier/architect/codebase + risk; MACHINE_SUMMARY + smells refreshed; H-FIDELITY-03 deferred per screams; 7 OPEN confirmed live. Zero src. Install + citadel followed. "Docs win." See reliability-backlog.md:5-70 for machine record.)
+**Last Updated**: 2026-05-29 (post-EG Round 1 hygiene per AGENTS:70 pointer + reliability:48 record; H-FIDELITY-03 deferred. 7 OPEN live. Zero src. "Docs win." See reliability-backlog.md:5-70.)
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 
