@@ -31,7 +31,7 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 
 ## Current Status (Post-Tranche8)
 - Debt closed for living MASTER_PLAN updates depth: real doc at docs/MASTER_PLAN.md now ingested (Ingested MASTER_PLAN.md + gap suppression in gen).
-- Still dominant open (AGENTS:43 + tranche11 4-person team 2026-05-28 + 2026-05-28 evergreen scrub): full ac_shape_smells JSON plumbing + richer annotation_format in manifest, thin citadel depth, ritual god residual, self-prd depth + vestigials, install hygiene (redundant + no MD5), + arch-deepener.test drift. See reliability-backlog.md:5-21 (crisp 7-item machine-usable Current Dominant + Machine Summary + stable ## MACHINE_* anchors; the canonical single-source the generator/closer load).
+- Still dominant open (AGENTS:43 + tranche11 4-person team 2026-05-28 + 2026-05-28 evergreen scrub): full ac_shape_smells JSON plumbing + richer annotation_format in manifest, thin citadel depth, ritual god residual, self-prd depth + vestigials, install hygiene (redundant + no MD5), + arch-deepener.test drift. See reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY real parseable blocks + fresh 6-agent evergreen scrub cites; the canonical single-source the generator/closer load per generator:709/closer:40).
 
 Wubba lubba dub dub.
 
