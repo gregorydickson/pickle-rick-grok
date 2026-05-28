@@ -164,33 +164,34 @@ if [ "$CLOSER_CONTEXT" -eq 1 ] || [ "$NO_CONFIRM" -eq 1 ] || [ ! -t 0 ]; then
 else
     read -p "Append Pickle Rick guidance to $AGENTS_FILE ? [y/N] " append_choice
     if [[ "$append_choice" =~ ^[Yy]$ ]]; then
-    mkdir -p "$(dirname "$AGENTS_FILE")"
-    touch "$AGENTS_FILE"
+        mkdir -p "$(dirname "$AGENTS_FILE")"
+        touch "$AGENTS_FILE"
 
-    # Idempotent replace of the Pickle Rick (Grok) persona block (including EAGER DISPATCH GUARD,
-    # source-only rules, sealed-prior policy, etc.). Updates to the contract in this tree now
-    # actually propagate on re-install (was append-only — a P1 drift vector per dispatch auditor).
-    # Preserves all user content outside the block. End marker from global AGENTS contract.
-    TMP_BLOCK="$(mktemp)"
-    cat "$APPEND_BLOCK" > "$TMP_BLOCK"
+        # Idempotent replace of the Pickle Rick (Grok) persona block (including EAGER DISPATCH GUARD,
+        # source-only rules, sealed-prior policy, etc.). Updates to the contract in this tree now
+        # actually propagate on re-install (was append-only — a P1 drift vector per dispatch auditor).
+        # Preserves all user content outside the block. End marker from global AGENTS contract.
+        TMP_BLOCK="$(mktemp)"
+        cat "$APPEND_BLOCK" > "$TMP_BLOCK"
 
-    # Remove any prior version of the block (start marker to the known end marker or EOF)
-    if grep -q "=== Pickle Rick (Grok) ===" "$AGENTS_FILE" 2>/dev/null; then
-        # Delete from the start marker through the end marker (or to EOF if no end marker yet)
-        awk '
-            /=== Pickle Rick \(Grok\) ===/ { in_block=1; next }
-            in_block && /=== End Pickle Rick ===/ { in_block=0; next }
-            !in_block { print }
-        ' "$AGENTS_FILE" > "$AGENTS_FILE.tmp" && mv "$AGENTS_FILE.tmp" "$AGENTS_FILE"
-        echo "   → Replaced existing Pickle Rick (Grok) block with fresh version from source"
-    else
-        echo "" >> "$AGENTS_FILE"
-        echo "   → Inserting Pickle Rick (Grok) block (first time)"
+        # Remove any prior version of the block (start marker to the known end marker or EOF)
+        if grep -q "=== Pickle Rick (Grok) ===" "$AGENTS_FILE" 2>/dev/null; then
+            # Delete from the start marker through the end marker (or to EOF if no end marker yet)
+            awk '
+                /=== Pickle Rick \(Grok\) ===/ { in_block=1; next }
+                in_block && /=== End Pickle Rick ===/ { in_block=0; next }
+                !in_block { print }
+            ' "$AGENTS_FILE" > "$AGENTS_FILE.tmp" && mv "$AGENTS_FILE.tmp" "$AGENTS_FILE"
+            echo "   → Replaced existing Pickle Rick (Grok) block with fresh version from source"
+        else
+            echo "" >> "$AGENTS_FILE"
+            echo "   → Inserting Pickle Rick (Grok) block (first time)"
+        fi
+
+        cat "$TMP_BLOCK" >> "$AGENTS_FILE"
+        rm -f "$TMP_BLOCK"
+        echo "   → Persona/dispatch contract updated from this tree's references/agents-append.md (sibling parity: replace not append)"
     fi
-
-    cat "$TMP_BLOCK" >> "$AGENTS_FILE"
-    rm -f "$TMP_BLOCK"
-    echo "   → Persona/dispatch contract updated from this tree's references/agents-append.md (sibling parity: replace not append)"
 fi
 
 echo ""
