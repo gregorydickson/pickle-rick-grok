@@ -28,6 +28,8 @@
    - **Path to Normie ticket**: H-SELF-PRD-FIDELITY-02 (P1). Use the new stable ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY anchors (now real parseable blocks). Add small typed parser adapter (lib/backlog-ingest.ts pattern). Eliminate remaining duplicate ifs / ||[] / debt-note noise. Success: measurably higher-quality R-META output with less self-pollution.
    - AC-FIDELITY-01 + GEN-VESTIGE-02.
 
+**Next concrete ticket (H-FIDELITY-03)**: Make `loadBacklogState` + fidelity consumers prefer the new anchors + Consumption Guide contract (see docs/MASTER_PLAN.md:58 for full definition + hardening requirements). This is the immediate follow-on to the recent living-docs hygiene work.
+
 6. **install hygiene (redundant checks + no MD5)**: OPEN. 
    - Evidence: install.sh:22-84 (ACTIVE guard pgrep:41 + state.json:48; redundant arg check at 36; post-lock removal at 79-84), AGENTS:49, handoff:9-16.
    - **Path to Normie ticket**: H-INSTALL-ROBUST-01 (P1). Add verification (MD5 or content hash of critical deployed files), collapse the last redundant arg parsing, make closer handoff the boring default even after long/stale campaigns. Remove the "special flags required" tax.
@@ -73,9 +75,9 @@ Wubba lubba dub dub.
 
 
 
- 2. Red: extended *existing* test body in engine/tests/self-prd-closer.test.ts:237 (the richer emission ingest test) — seed a citadel_report.json containing emissionQuality (with ac_shape_smells + annotation_format_malformed) + add assert for unified richer delta from the report-sourced path appearing in the ingested backlogMarkdown (modeled on citadel.test.ts:106 + tranche5 pattern + existing assert at 263). Run → RED. 3. Green: minimal additive block inside engine/src/self-prd-generator.ts:739 if(campaignSessionDir) (after the 789 emission_quality direct parse block or symmetric; use safeRead + JSON.parse on join(campaignSessionDir, 'citadel_report.json'), extract eq = r?.emissionQuality, if present surface the acCount/malformedCount + lines.push + closed++ exactly like the 773-788 sibling block but for "Richer emissionQuality from citadel_report.json ... (unified richer citadel report signal alongside direct file BC path)"). No other lines. Run → GREEN. 4. Refactor: zero. 5. Run mandated tests from worktree (self-prd-closer + citadel + ac-shape-gate + pipeline-preflight + install-guard) → GREEN (new unified report ingest assert passes, old paths + BC still pass). 6. Docs (Contributor Rules): Append *exact* tranche7 entry to AGENTS.md (update :15 synth driver + Trap Doors 43/46 with CLOSED note + credits, modeled 1:1 on 45/46) + new section in reliability-backlog.md (modeled 1:1 on 90-96 with every file:line# cite from the map). 7. Citadel spirit (source only, from worktree). 8. `bash <worktree>/install.sh --closer-context --no-confirm` from worktree. 9. Return the worktree absolute path, `git -C <wt> diff --stat`, key hunks, test results (highlight the new unified report ingest assert), and the exact lead commands to inspect + apply the patch to main. Zero changes outside the two allowed files for the code change + the two docs files. Zero new contracts (parse data report leniency precedent). Reuse every (readRecoverable, CrossPhase, tranche6 style).
 
-- Result: unified richer emissionQuality from citadel_report.json now ingested in performPostCampaignIngest (report-sourced path surfaces "Richer emissionQuality from citadel_report.json: ac_shape_smells=..., annotation_format_malformed=... (unified richer citadel report signal alongside direct file BC path)" + note + closed++); direct emission_quality.json BC path + all prior CrossPhase/citadel paths untouched and still pass. 
+
+
 
 
 
