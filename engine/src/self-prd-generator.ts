@@ -785,9 +785,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
           closed++;
           lines.push(`  - Richer emission signals ingested: ac_shape_smells=${acCount}, annotation_format_malformed=${malformedCount} (from real 50-tix artifacts; per claude spawn:1410/1978 + check:308/325)`);
           // Light R-META note for unclosed debt from richer signals (per backlog agent 019e6945-d1f8-7170-bba7-45484bb5b6fb citing audit-runner richer shape)
-          if (acCount > 0 || malformedCount > 0) {
-            lines.push('  - Note: richer emission debt detected — consider R-META for self-loop-ingestion gap if not closed');
-          }
+          lines.push('  - Note: richer emission debt detected — consider R-META for self-loop-ingestion gap if not closed');
         }
       } catch {}
     }
@@ -807,9 +805,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
           if (acCount > 0 || malformedCount > 0) {
             closed++;
             lines.push(`  - Richer emissionQuality from citadel_report.json: ac_shape_smells=${acCount}, annotation_format_malformed=${malformedCount} (unified richer citadel report signal alongside direct file BC path)`);
-            if (acCount > 0 || malformedCount > 0) {
-              lines.push('  - Note: richer emission debt detected — consider R-META for self-loop-ingestion gap if not closed');
-            }
+            lines.push('  - Note: richer emission debt detected — consider R-META for self-loop-ingestion gap if not closed');
           }
         }
     const directJson = safeRead(path.join(campaignSessionDir, 'emission_quality.json'));
@@ -817,8 +813,8 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
     const rptJson = safeRead(path.join(campaignSessionDir, 'citadel_report.json'));
     const r = rptJson ? (() => { try { return JSON.parse(rptJson); } catch { return null; } })() : null;
     const reportEq = r?.emissionQuality;
-    const acD = Array.isArray(direct?.ac_shape_smells) ? direct.ac_shape_smells : (direct?.ac_shape_smells || []);
-    const acR = Array.isArray(reportEq?.ac_shape_smells) ? reportEq.ac_shape_smells : (reportEq?.ac_shape_smells || []);
+    const acD = Array.isArray(direct?.ac_shape_smells) ? direct.ac_shape_smells : [];
+    const acR = Array.isArray(reportEq?.ac_shape_smells) ? reportEq.ac_shape_smells : [];
     collectedAc = [...acD, ...acR];
       } catch {}
     }
