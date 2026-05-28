@@ -25,4 +25,6 @@ The system can:
 
 (The full remaining body of the master plan — sections 2+, specific P0/P1 tickets, 4-path architecture epic, self-PRD targets, reports, etc. — is preserved in git history at this commit. The change above is the delta for this architectural UX improvement. Reconstruct via `git show` or `git checkout -- master_plan.md` if needed in the tree.)
 
+**DEPRECATED / HISTORICAL STUB**: The living ingested source of truth is now `docs/MASTER_PLAN.md` (created tranche8, dynamically loaded by generator:335 fidelityKeywords + performPostCampaignIngest candidates + scanForGaps; see docs/MASTER_PLAN.md:1-3, reliability-backlog.md:19, AGENTS:43). This root file is frozen at 2026-05-21 snapshot (body in git history). Update only the docs/ living one. "Docs win."
+
 **Docs win. Citadel will catch any drift.**

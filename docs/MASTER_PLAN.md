@@ -20,7 +20,7 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 - reliability-backlog.md:68 (still dominant open pre-tranche8)
 - docs/closer-ticket-manager-handoff.md:21/30/48 (Ingest MASTER_PLAN; Still dominant open list)
 - engine/src/self-prd-generator.ts:335 (fidelityDirs/keywords), :725 (candidates)
-- master_plan.md:26/28 ("Docs win. Citadel will catch any drift.")
+- master_plan.md:26/28 (now deprecated stub; "Docs win" + explicit pointer to this living docs/MASTER_PLAN.md as the generator/closer ingested source per tranche8 + risk scrub 2026-05-28)
 - prds/claude-to-grok-ports...2026-05-24.md:66 (MASTER_PLAN curation)
 
 ## What "Living" Means
@@ -34,5 +34,7 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 - Still dominant open (AGENTS:43 + tranche11 4-person team 2026-05-28): full ac_shape_smells JSON plumbing + richer annotation_format in manifest, thin citadel depth, ritual god residual, self-prd depth, install hygiene (no MD5). See reliability-backlog.md:5-20 (crisp machine-usable Current Dominant + Machine Summary post-tranche10 + team audit; the canonical single-source the generator/closer load).
 
 Wubba lubba dub dub.
+
+**Risk/scope scrub 2026-05-28 (this run)**: Clawed stale :N cites across 5+ files (AGENTS long-lines, reliability:7-17, handoff:30-49, TESTABILITY:40), master_plan dupe noise (root now explicitly deprecated stub pointing here; generator fidelityKeywords handles both but humans+scans win from clarity), vestigial code smells in generator (still has duplicate if(acCount) at 784/805 + ||[] despite tranche10 claims — see git grep verify), stale arch-deepener.test.ts:124-127 (asserts FORBIDDEN length==6 but arch-deepener.ts:36-48 has 10 entries post-incident; test lies, green on drift). Install.sh:33-37 redundant --closer parse. All per claude-first (list+read+grep+git ls/grep on HEAD). No src mut (screamed on generator/ritual/citadel per FORBIDDEN arch-deepener:36-48 + persona). 1 SKILL dedupe + 4 report hygiene fixes landed direct main. Higher signal for next self-PRD/closer. See reliability-backlog new section + AGENTS tranche12.
 
 **Docs win. Citadel will catch any drift.**
