@@ -1,8 +1,11 @@
 #!/bin/bash
-# Minimal TDD harness for SWARM4 install guard hardening (post-0f75961)
+# TDD harness for install.sh guard behavior.
 # Exercises: hard refuse in non-tty, --no-confirm / --closer-context bypass,
-# flock/LOCKDIR serialization, better active detection (state.json active=true),
-# non-interactive AGENTS prompt in closer context.
+# active session detection (state.json + pgrep), non-interactive closer path.
+#
+# NOTE: The LOCKDIR / flock / stealStaleLock "serialization" feature was removed
+# entirely (declared a bug — it caused more hangs than it prevented, especially
+# under agent harness execution). Tests related to the old locking have been retired.
 # Run: bash tests/install-guard.test.sh (from repo root)
 
 set -euo pipefail
@@ -40,52 +43,7 @@ else
   exit 1
 fi
 
-# 4. flock/LOCKDIR serialization (basic smoke: second concurrent install should block or serialize)
-LOCKDIR="/tmp/.install.lock.d.test"
-rm -rf "$LOCKDIR" 2>/dev/null || true
-(
-  flock -x -n 9 || { echo "FAIL: could not take test lock"; exit 1; }
-  # In real install this would be inside the rsync section
-  echo "PASS: flock primitive works for serialization"
-) 9>"$LOCKDIR/lock"
+# 4. (RETIRED) flock/LOCKDIR serialization tests removed along with the feature. 9>"$LOCKDIR/lock"
 
-# 5. SWARM5 mac/fallback + stale lock (portable path + stealStaleLock simulation)
-echo "=== SWARM5 mac/fallback + stale tests ==="
-# Simulate no-flock environment (force the else branch)
-if bash -c "PATH=/usr/bin:/bin command -v flock >/dev/null 2>&1 || echo 'no-flock'" | grep -q 'no-flock'; then
-  echo "PASS: portable mkdir LOCKDIR fallback path would be taken on mac (no flock)"
-else
-  echo "SKIP: flock present; portable fallback not exercised"
-fi
-
-# Stale lock simulation (mtime old enough for steal)
-STALE_LOCK="/tmp/.install-stale-test.lock.d"
-rm -rf "$STALE_LOCK" 2>/dev/null || true
-mkdir -p "$STALE_LOCK"
-touch -t 200001010000 "$STALE_LOCK"  # ancient mtime
-# In real code stealStaleLock would rmdir it after timeout check
-echo "PASS: stale mtime simulation ready for stealStaleLock (test harness)"
-
-# 6. Concurrent closer-context --no-confirm with stale lock (should not hang/refuse)
-if bash -c "\"$INSTALL\" --closer-context --no-confirm 2>&1 | grep -q 'Installing core'"; then
-  echo "PASS: --closer-context --no-confirm + stale lock simulation allows progress"
-else
-  echo "SKIP/INFO: closer bypass + stale interaction not fully simulated in this env"
-fi
-
-# 7. SWARM6 real install invocation + race/perm/edge coverage (TDD: invoke real install with pre-stale + assert portable path + no crash on closer bypass)
-echo "=== SWARM6 real invocation + race/perm edges ==="
-REAL_STALE="/tmp/.install-real-stale-test.lock.d"
-rm -rf "$REAL_STALE" 2>/dev/null || true
-mkdir -p "$REAL_STALE"
-touch -t 200001010000 "$REAL_STALE"  # pre-stale
-# Force portable path + closer bypass on real install (should succeed or refuse cleanly, not crash)
-if bash -c "PATH=/usr/bin:/bin \"$INSTALL\" --closer-context --no-confirm 2>&1 | grep -E '(Installing core|REFUSE|proceeding at your own risk)'"; then
-  echo "PASS: real install + pre-stale + closer bypass invokes portable path cleanly"
-else
-  echo "INFO: real invocation exercised (output may vary by env; check for crash/loop)"
-fi
-rm -rf "$REAL_STALE" 2>/dev/null || true
-
-echo "=== SWARM6 Guard TDD Harness COMPLETE (real invocation + race/perm/edge cases exercised) ==="
-rm -rf "$STALE_LOCK" "$LOCKDIR" 2>/dev/null || true
+# 5-7. (RETIRED) All remaining SWARM5/SWARM6 locking, stale-dir, and portable-fallback
+# tests have been removed because the underlying LOCKDIR feature no longer exists in install.sh.

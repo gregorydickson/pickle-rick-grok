@@ -19,11 +19,13 @@ if [ ! -d "$GROK_DIR" ]; then
     exit 1
 fi
 
-# SWARM4 targeted hardening of active-bundle / concurrent guard
-# (now closer to Claude sibling: hard refuse in non-tty/headless, flock/LOCKDIR
-# serialization, --no-confirm/--closer-context bypass, better state.json active=true check).
-# Prevents mid-campaign install skew for 50+ tix headless self-improvement loops.
-# See claude install.sh:228-246 (ACTIVE-BUNDLE + flock + withLock patterns) + closer-ticket-manager-handoff.md.
+# Active session guard.
+# Warns (and can hard-refuse in non-tty) if a Pickle Rick orchestrator or
+# active session is detected. This is the primary protection against
+# installing while a long campaign is running.
+# --force / --no-confirm / --closer-context bypass the interactive parts.
+# The previous LOCKDIR/flock/stealStaleLock "concurrent protection" has been
+# removed entirely (it was a constant source of hangs under agent execution).
 
 FORCE=0
 NO_CONFIRM=0
@@ -53,7 +55,7 @@ fi
 if [ "$ACTIVE" -eq 1 ]; then
     echo "⚠️  WARNING: Detected running Pickle Rick orchestrator process(es) or active session state."
     echo "   Installing now risks version skew, state corruption, or mid-campaign breakage."
-    echo "   (Claude sibling refuses hard with ACTIVE-BUNDLE GUARD + flock + withLock.)"
+    echo "   (Strongly recommended to stop campaigns before installing to avoid skew.)"
     echo "   Strongly recommended: stop all campaigns (or wait for clean shutdown) before re-running install."
 
     if [ "$FORCE" -eq 0 ] && [ "$NO_CONFIRM" -eq 0 ]; then
@@ -74,63 +76,22 @@ if [ "$ACTIVE" -eq 1 ]; then
     fi
 fi
 
-# Minimal flock/LOCKDIR serialization around the critical rsync + rewrite section
-# (prevents concurrent headless installs from racing on the same target tree).
-# SWARM5 mac/flock edge hardening: portable fallback exactly as claude:200-215
-# (command -v flock + mkdir LOCKDIR + trap; stealStaleLock for races).
-stealStaleLock() {
-  local lockd="$1"
-  local timeout="${2:-300000}" # 5min default
-  if [ -d "$lockd" ]; then
-    local mtime
-    mtime=$(stat -c %Y "$lockd" 2>/dev/null || stat -f %m "$lockd" 2>/dev/null || echo 0)
-    local now; now=$(date +%s)
-    if [ $((now - mtime)) -gt $((timeout / 1000)) ]; then
-      rmdir "$lockd" 2>/dev/null || true
-    fi
-  fi
-}
-
-LOCKDIR="/tmp/.install-pickle-rick-grok.lock.d"
-stealStaleLock "$LOCKDIR"
-if command -v flock >/dev/null 2>&1; then
-  mkdir -p "$LOCKDIR"
-  (
-    if ! flock -x -n 9; then
-      stealStaleLock "$LOCKDIR" 60000  # aggressive 60s re-check on contention
-      flock -x 9 || { echo "❌ REFUSE: another install.sh is already running (flock held after stale steal)."; exit 1; }
-    fi
-    echo "→ Installing core (engine + references) to $PICKLE_HOME"
-    mkdir -p "$PICKLE_HOME"
-    rsync -a --delete \
-        --exclude '.git' \
-        --exclude 'node_modules' \
-        --exclude '.DS_Store' \
-        "$SCRIPT_DIR/" "$PICKLE_HOME/"
-    chmod +x "$PICKLE_HOME/bin/grok-pipeline" 2>/dev/null || true
-    mkdir -p "$SKILLS_TARGET"
-    mkdir -p "$PERSONAS_TARGET"
-  ) 9>"$LOCKDIR/lock"
-else
-  # Portable fallback for stock macOS / systems without flock (claude pattern)
-  while ! mkdir "$LOCKDIR" 2>/dev/null; do
-    echo "Waiting for other install.sh to finish (LOCKDIR held)..."
-    sleep 1
-  done
-  trap 'rmdir "$LOCKDIR" 2>/dev/null || true' EXIT
-  echo "→ Installing core (engine + references) to $PICKLE_HOME"
-  mkdir -p "$PICKLE_HOME"
-  rsync -a --delete \
-      --exclude '.git' \
-      --exclude 'node_modules' \
-      --exclude '.DS_Store' \
-      "$SCRIPT_DIR/" "$PICKLE_HOME/"
-  chmod +x "$PICKLE_HOME/bin/grok-pipeline" 2>/dev/null || true
-  mkdir -p "$SKILLS_TARGET"
-  mkdir -p "$PERSONAS_TARGET"
-  rmdir "$LOCKDIR" 2>/dev/null || true
-  trap - EXIT
-fi
+# Direct install of core (no locking).
+# The previous LOCKDIR / flock / stealStaleLock machinery has been removed.
+# It was causing more problems (indefinite hangs under the agent harness,
+# stale directories after killed runs, non-tty background execution) than
+# it solved. Concurrent install protection is now handled by the ACTIVE
+# detection warning above + explicit bypass flags.
+echo "→ Installing core (engine + references) to $PICKLE_HOME"
+mkdir -p "$PICKLE_HOME"
+rsync -a --delete \
+    --exclude '.git' \
+    --exclude 'node_modules' \
+    --exclude '.DS_Store' \
+    "$SCRIPT_DIR/" "$PICKLE_HOME/"
+chmod +x "$PICKLE_HOME/bin/grok-pipeline" 2>/dev/null || true
+mkdir -p "$SKILLS_TARGET"
+mkdir -p "$PERSONAS_TARGET"
 
 # Make the dispatch helper(s) executable (grok-pipeline wrapper for the automatic "run a pipeline" UX)
 # This is the tiny helper that bakes --target + long tsx path so the LLM constructs dramatically shorter argv.
