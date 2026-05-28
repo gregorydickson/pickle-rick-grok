@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-28 (tranche8 + multiple 2026-05-28 evergreen sweeps including this 5-agent run: final surgical removal of residual historical narrative after Consumption Guide at reliability-backlog.md:72; H-FIDELITY-03 recorded as next concrete consumer upgrade; file now 100% compliant with its own Guide contract + Living Interface Manifest)
+**Last Updated**: 2026-05-28 (tranche8 + multiple 2026-05-28 evergreen sweeps including this 5-agent run: final surgical removal of residual historical narrative after Consumption Guide at reliability-backlog.md:72; H-FIDELITY-03 recorded as next concrete consumer upgrade; file now 100% compliant with its own Guide contract + Living Interface Manifest; Prime Directive on bootstrapping vs production autonomous use added to AGENTS.md)
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 
@@ -16,7 +16,7 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 **Prioritized targets** (from synth driver + reliability:68): full ac_shape_smells JSON + richer annotation_format, living MASTER_PLAN depth (now CLOSED), thin citadel depth. Trap counts tracked in citadel_report + backlog.
 
 **Cross-refs (exact, no invention)**:
-- AGENTS.md:43 (debt list + tranche bullets), :15 (synth driver), :47 (tranche7 model)
+- AGENTS.md:43 (debt list + tranche bullets), :7 (Prime Directive: Bootstrapping Mode vs Production Autonomous Use — this is the fundamental distinction during our current work building pickle-rick-grok itself), :15 (synth driver), :47 (tranche7 model)
 - reliability-backlog.md:68 (still dominant open pre-tranche8)
 - docs/closer-ticket-manager-handoff.md:21/30/48 (Ingest MASTER_PLAN; Still dominant open list)
 - engine/src/self-prd-generator.ts:335 (fidelityDirs/keywords), :725 (candidates)

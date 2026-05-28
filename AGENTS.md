@@ -4,7 +4,17 @@ Local rules for agents working in this source tree.
 
 ## Project Objectives
 
-Build a system that autonomously runs and develops systems using PRDs. The overriding principle is: **never stop and ask the user**. Always continue working until something is created. Overcome issues and keep developing — they will be ironed out in the polishing phases (Anatomy Park and Szechuan Sauce). While we are currently bootstrapping pickle-rick-grok and may perform manual fixes ourselves, the purpose of the system is completely autonomous development.
+Build a system that autonomously runs and develops systems using PRDs. The overriding principle is: **never stop and ask the user**. Always continue working until something is created. Overcome issues and keep developing — they will be ironed out in the polishing phases (Anatomy Park and Szechuan Sauce).
+
+### Prime Directive: Bootstrapping Mode vs Production Autonomous Use
+
+**During the bootstrapping phase of pickle-rick-grok itself** (the work happening in *this* source tree right now), heavy use of chat-based rich agent teams (engineering personas via `spawn_subagent`, this evergreen process, design/review loops, etc.) is not only permitted but is one of the primary tools for making progress.
+
+**The finished system's purpose** is the opposite: to perform high-quality autonomous development on *arbitrary external projects* with minimal ongoing human or chat-agent intervention. Production campaigns are expected to run via headless `grok -p` + the Morty phase workers + full ritual + convergence phases.
+
+This distinction is fundamental. The tools and workflows that accelerate building the system (rich chat teams, manual fixes, this style of evergreen agent sweeps) are not necessarily the same as the workflows the mature system will use on other people's codebases. We are currently the builders using whatever gives us leverage. The thing we are building is meant to eventually operate with far less of us in the loop.
+
+All other rules (source vs deployed separation, self-mutation restrictions, rich teams only inside `/pickle-refine-prd`, production work through the ritual, etc.) exist to protect the transition from "bootstrapping pickle-rick-grok" to "pickle-rick-grok doing autonomous work on the rest of the universe."
 
 The system should be capable of:
 
@@ -29,8 +39,8 @@ The system should be capable of:
 
 ## Contributor Rules
 
-- **Production work**: Use Morty phase workers + full ritual. Always delegate return to `ManagerRitual`.
-- **Chat / dev work**: Use engineering personas + native `spawn_subagent` with `fork_context: false`.
+- **Production work**: Use Morty phase workers + full ritual. Always delegate return to `ManagerRitual`. (See Prime Directive above — this is the expected mode for the mature system.)
+- **Chat / dev work**: Use engineering personas + native `spawn_subagent` with `fork_context: false`. (Primary tool during the current bootstrapping phase of pickle-rick-grok itself.)
 - **Mutating work**: Direct edits in the main loanlight/pickle-rick/pickle-rick-grok source checkout are the normal and preferred workflow for this project. Worktree isolation is optional (useful for certain long agent runs or when you want extra boundaries), not a requirement.
 - **Self-changes**: Must pass Citadel. Update this AGENTS.md + reports.
 - **Global updates**: Run `bash install.sh` after source changes.
@@ -77,3 +87,5 @@ Minimal TDD port executed: added CrossPhase* types + readPhase/readCross/dedupe 
 **Next targeted improvement (2026-05-28 decision)**: Added H-FIDELITY-03 as the immediate concrete follow-on ticket under P1 in docs/MASTER_PLAN.md:58 and reliability-backlog.md. Scope: Upgrade the fidelity consumers (`loadBacklogState` at self-prd-generator.ts:136-148 and call sites) to actually use the new `## MACHINE_*` anchors + Consumption Guide instead of legacy tail parsing. This is the highest-leverage low-risk step that makes all the recent living-docs hygiene work deliver real self-loop fidelity gains. Will carry full 4 hardening tickets (Anatomy on fidelity data flows + Szechuan). Recorded here per "Docs win". See MASTER_PLAN:58 and reliability-backlog.md for the ticket definition.
 
 **CLOSED (2026-05-28 final residual purge tranche — this 5-agent evergreen run)**: Lead claude-first + codebase-analyst subagent (019e6f3c...) confirmed via fresh reads/greps: reliability-backlog.md had clean MACHINE_* + Consumption Guide up to line 72 ("Wubba lubba dub dub."), but still contained residual historical tranche narrative/junk at 73-104 (tranche8 "Fix shipped" block + "Codebase-analyst..." log), directly violating Guide:60-61/65/67. Surgical 1-file pure-docs delete of 73-104 (using short unique markers). File now ends cleanly after the Consumption Guide — 100% compliant with its own contract and MASTER_PLAN:79 Living Interface Manifest. Zero src touch (FORBIDDEN + risk screams respected). H-FIDELITY-03 now has pristine fuel. Docs win + commit + install. Wubba lubba dub dub. (See updated reliability-backlog.md:1-72 + this entry + subagent map.)
+
+**Prime Directive clarification (this change)**: Elevated the distinction between "our current bootstrapping work on pickle-rick-grok itself" (heavy legitimate use of chat-based rich agent teams, this style of evergreen sweeps, manual intervention) versus "the purpose of the finished system" (autonomous development on external projects via headless pipeline + ritual) into an explicit Prime Directive section in AGENTS.md:7. This was already implicit in the Contributor Rules and engineering-council.md but deserved first-class status. Cross-synced into docs/MASTER_PLAN.md. Per user's observation during an evergreen sweep. Wubba lubba dub dub.
