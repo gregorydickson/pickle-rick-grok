@@ -31,7 +31,7 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 
 ## Current Status (Post-Tranche8)
 - Debt closed for living MASTER_PLAN updates depth: real doc at docs/MASTER_PLAN.md now ingested (Ingested MASTER_PLAN.md + gap suppression in gen).
-- Still dominant open (AGENTS:43 + 2026-05-28 4-person evergreen sweep): full ac_shape_smells JSON plumbing + richer annotation_format, thin citadel, ritual god residual (doc-only), self-prd depth + vestigials, install hygiene, arch-deepener.test drift. See reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY + Consumption Guide; the canonical single-source for generator:709/closer:40 + fidelity scan). (Roadmap + new Living Interface Manifest below.)
+- Still dominant open (AGENTS:43 + 2026-05-28 evergreen sweeps): the 7 items in reliability-backlog.md:5-41 (## MACHINE_DOMINANT_OPEN_ITEMS + Consumption Guide contract; canonical for loadBacklogState:136/scanForGaps:150/performPost:707/closer:40). Full ac_shape_smells plumbing, richer annotation, thin citadel, ritual god (doc-only), self-prd vestigials, install hygiene, test guard drift remain. See reliability:5-70 + this Roadmap. (Living Interface Manifest below; history in git only.) 
 
 Wubba lubba dub dub.
 

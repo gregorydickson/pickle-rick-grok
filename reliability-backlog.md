@@ -71,16 +71,7 @@ Historical tranche execution logs (prior "Fix shipped (per map... 9-step TDD... 
 
 Wubba lubba dub dub.
 
-**Bootstrapping Phase Note (this update)**: The 7 dominant OPEN items + H-FIDELITY-03 (see MASTER_PLAN:59) are the Current focus. Per the Prime Directive (AGENTS.md:9-18), rich chat-based agent teams (engineering personas + spawn_subagent + this exact evergreen "standard agent team prompt on clean context" process) are the correct high-leverage tool *while we bootstrap pickle-rick-grok itself*. The purpose of the finished system is the opposite: autonomous development on external repos via headless `grok -p` + Morty ritual with minimal babysitting.
-
-Three horizons for the bootstrapping strategy:
-- **Current**: Raise self-improvement loop fidelity floor first (H-FIDELITY-03 + repeated clean-context evergreen hygiene sweeps on the 4 living docs so loadBacklogState:136 / scanForGaps:150 / performPost:707 / closer:40 see only the ## MACHINE_* + Consumption Guide contract). Make the engine the primary developer of its own improvements.
-- **Early External Dogfood**: Low-friction autonomous campaigns on real external repos (some handoff acceptable). Prove the 6 success criteria in MASTER_PLAN:42-50 on non-self codebases.
-- **Normie Threshold**: "Set and Forget for Normies" — competent engineer points the system at a fresh repo + intent and walks away for 20-100 ticket runs.
-
-H-FIDELITY-03 is the direct next concrete ticket that makes all prior docs-hygiene work deliver real self-loop gains. Hard P0 emission/ritual/citadel items (H-EMIT-UNIVERSAL-01 etc.) stay on the H-* path with full 4-hardening + waiver; chat teams do not hack them. History of prior tranche execution lives **only** in git (`git log -S tranche -- reliability-backlog.md`).
-
-The machine (generator/closer/evergreen) now sees a file that matches its own Consumption Guide contract at :60-65. Zero post-Guide sludge. "Docs win."
+"Docs win." The machine (loadBacklogState:136 / scanForGaps:150 / performPost:707 / closer:40) now sees pristine ## MACHINE_DOMINANT_OPEN_ITEMS + Consumption Guide contract with zero post-Guide sludge or historical noise. History lives only in git (`git log -S tranche -- reliability-backlog.md`). Every future evergreen / self-PRD run starts from higher-signal fuel. Citadel will catch drift.
 
 
 
@@ -94,8 +85,6 @@ The machine (generator/closer/evergreen) now sees a file that matches its own Co
 
 
 
-
-/assert pattern).
 
 
 
