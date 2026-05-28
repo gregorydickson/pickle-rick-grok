@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-27 (tranche8 creation + ingestion)
+**Last Updated**: 2026-05-28 (tranche8 creation + 2026-05-28 4-person evergreen sweep: Consumption Guide + dupe/sludge purge in reliability + syncs; Living Interface Manifest added)
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 
@@ -31,7 +31,7 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 
 ## Current Status (Post-Tranche8)
 - Debt closed for living MASTER_PLAN updates depth: real doc at docs/MASTER_PLAN.md now ingested (Ingested MASTER_PLAN.md + gap suppression in gen).
-- Still dominant open (AGENTS:43 + tranche11 4-person team 2026-05-28 + 2026-05-28 evergreen scrub): full ac_shape_smells JSON plumbing + richer annotation_format in manifest, thin citadel depth, ritual god residual, self-prd depth + vestigials, install hygiene (redundant + no MD5), + arch-deepener.test drift. See reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY real parseable blocks + fresh 6-agent evergreen scrub cites; the canonical single-source the generator/closer load per generator:709/closer:40).
+- Still dominant open (AGENTS:43 + 2026-05-28 4-person evergreen sweep): full ac_shape_smells JSON plumbing + richer annotation_format, thin citadel, ritual god residual (doc-only), self-prd depth + vestigials, install hygiene, arch-deepener.test drift. See reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY + Consumption Guide; the canonical single-source for generator:709/closer:40 + fidelity scan). (Roadmap + new Living Interface Manifest below.)
 
 Wubba lubba dub dub.
 
@@ -72,6 +72,16 @@ This is the explicit usability target that turns the system from "advanced dogfo
 - "New engineer + fresh clone + one PRD" time-to-first-successful-overnight (target: <4 hours of setup, then hands-off).
 
 Every ticket carved from this roadmap **must** follow the prescriptive template (references/refine/ticket-template.md), carry 4 hardening tickets when non-trivial, and update this file + reliability-backlog.md + AGENTS.md as part of the closer handoff.
+
+## Living Interface Manifest (for generator/closer fidelity + evergreen sweeps)
+
+The 4 living docs are the canonical fidelity surface (generator:335 fidelityDirs=['docs'], fidelityKeywords + candidates:714-731, loadBacklogState:136, performPost:707, closer:40):
+- reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY + Consumption Guide — the single source for the 7 OPEN + parser contract)
+- docs/MASTER_PLAN.md:40-74 (Roadmap: Set and Forget for Normies + P0/P1 H-* + success metrics + this manifest)
+- docs/closer-ticket-manager-handoff.md (bypass contract + closer expectations + ingestion cross-refs)
+- AGENTS.md:15/23/43 (synthesis driver + Trap Doors + Contributor Rules + claude-first mandate)
+
+Consumers MUST key on the MACHINE_ anchors + Guide (not tail regex or ad-hoc lists). Update keywords/candidates + this manifest on structural changes. History in git only. "Docs win."
 
 **Docs win. Citadel will catch any drift.**
 

@@ -43,55 +43,35 @@
   "openCount": 7,
   "target": "Set and Forget for Normies (docs/MASTER_PLAN.md:42-50 definition + success metrics)",
   "acSmells": ["AC-FIDELITY-01", "AC-EMIT-02", "AC-CITADEL-03", "AC-RITUAL-04", "AC-INSTALL-05", "AC-SIMPL-01/02", "AC-ARCH-TEST-01", "AC-GEN-VESTIGE-02"],
-  "lastUpdated": "2026-05-28 (post 6-agent evergreen scrub team: 2x codebase-analyst, 2x risk-analyst, code-simplifier, engineering-architect; all claude-first + embedded personas + gate ac_shape_smells; fresh cites from ac-shape:9-13, ritual:4-6, generator:784/805/815+, arch:36-48 + test:124, install:33-37/40-53, citadel:792+, preflight:395, handoff, MASTER, TESTABILITY)",
-  "machineAnchorNote": "Key on these ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY headers for stable consumption by generator/closer/loadBacklogState/scanForGaps. See H-SELF-PRD-FIDELITY-02. Prior historical tranche logs in git only (git log -S tranche -- reliability-backlog.md).",
-  "crossConfirmed": "AGENTS:15/23/43/52 (post-scrub), docs/MASTER_PLAN.md (Roadmap), handoff:49, TESTABILITY:40-41, ac-shape.ts:9-13, ritual.ts:4-6, citadel.ts:1-30/792, generator:335/707"
+  "lastUpdated": "2026-05-28 (post 4-person evergreen backlog sweep team: codebase-analyst 019e6f09-d714-7913-9395-a60a2230a98b, risk-analyst 019e6f0d-5186-78e2-b92e-d40e77b1751f, code-simplifier 019e6f10-f0ed-73b1-97a6-b2a1e45e2f82, engineering-architect 019e6f14-4994-7661-a5af-56dfb04130d0; all executed full claude-first protocol (list_dir + verbatim read_file LINE# + grep) + embedded immutable rules from references/personas/ + ac_shape_smells gate per analyst-gate-injections.md:11-83; fresh verified cites confirming 7 OPEN live + ~82 LOC dupe/historical sludge at reliability:51-132; purge + Consumption Guide added for higher signal)",
+  "machineAnchorNote": "Key on these ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY headers for stable consumption by generator/closer/loadBacklogState/scanForGaps. See H-SELF-PRD-FIDELITY-02. Prior historical tranche logs in git only (git log -S tranche -- reliability-backlog.md). Consumption Guide immediately below documents the contract.",
+  "crossConfirmed": "AGENTS:15/23/43/52 (post-scrub), docs/MASTER_PLAN.md (Roadmap + new manifest), handoff:49, TESTABILITY:40-41, ac-shape.ts:9-13, ritual.ts:4-6, citadel.ts:1-30/792, generator:335/707, arch-deepener.ts:36-48 + test:124, install.sh:33-37/40-53"
 }
 
-**Current Dominant Open Items (post-tranche11 + 2026-05-28 evergreen scrub; 7 items OPEN; canonical per reliability + AGENTS:43 + generator fidelity scan + handoff)**:
+## Consumption Guide for Self-Loop Consumers (loadBacklogState + scanForGaps + performPostCampaignIngest + runSelfImprovementLoopCloser)
 
-**Target**: These 7 items are the explicit blockers between "advanced dogfood for its builders" and **"Set and Forget for Normies"** (see docs/MASTER_PLAN.md "Roadmap" section for definition + success metrics).
+**Single source of truth**: The parseable `## MACHINE_DOMINANT_OPEN_ITEMS` (reliability-backlog.md:5) + `## MACHINE_SUMMARY` (reliability-backlog.md:41) blocks above. These are the stable machine anchors (JSON + 7 OPEN items with Evidence / Path-to-Normie H-* tickets / AC smells) that generator:136 (loadBacklogState), :150 (scanForGaps), :335 (fidelityDirs/keywords), :707 (performPostCampaignIngest), and closer:40 (runSelfImprovementLoopCloser) are intended to consume for fidelity + closed detection + next R-META generation.
 
-1. **full analyst ac_shape_smells JSON plumbing into emitter manifest (for true hard gate on *all* paths)**: OPEN (data model limit blocks universal). 
-   - Evidence: ac-shape.ts:9-13 ("Emitter currently passes empty ac_shape_smells (data model limit — real analyst smells not yet plumbed into TicketSpec[])"), ticket-emitter.ts:52/398 (EmitOptions + acManifest council-only), SKILL.md:104/140 (council parse only), pipeline-preflight.ts:417 (only warning).
-   - **Path to Normie ticket**: H-EMIT-UNIVERSAL-01 (P0). Extend TicketSpec + EmitOptions to carry real ac_shape_smells from all paths (self-PRD, healers, meta). Wire through emitter on every emit. Hard gate must fire on bad ACs even for generated tickets. Hardening required: Anatomy (full smell data flow) + Szechuan.
-   - AC-SIMPL-01.
+**Current reality (until H-SELF-PRD-FIDELITY-02)**: loadBacklogState:136-148 uses `txt.slice(-4000)` + hardcoded `known[]` array + `/## Campaign /g` count for legacy closedCategories. Fidelity scan (generator:335) walks 'docs' + keywords ("MASTER_PLAN|living.?backlog|closer-ticket-manager-handoff"). performPost:723-736 + 952 appends "Ingested ..." for candidates. All 4 living docs (this file + AGENTS.md + docs/MASTER_PLAN.md + docs/closer-ticket-manager-handoff.md) are the fidelity surface.
 
-2. **richer annotation_format in manifest / check-readiness parity**: OPEN (partial). 
-   - Evidence: preflight:360/395-398/422 (malformed collection + richer return optional), citadel:793/815, generator:774-820 (still vestigial blocks), vs claude check-readiness:308/325.
-   - **Path to Normie ticket**: H-EMIT-UNIVERSAL-01 (same P0 ticket as #1 — they are coupled). Full one-space forward-ref + annotation_format_malformed detection + hard enforcement on all emission paths.
-   - AC-EMIT-02.
+**Contract for future parsers + evergreen sweeps**:
+- Key first and exclusively on the ## MACHINE_* headers (lines 5/41) for the 7 dominant OPEN + acSmells list.
+- Ignore all content after ## MACHINE_SUMMARY for closed detection or fidelity (historical tranche logs belong only in git: `git log -S tranche -- reliability-backlog.md`).
+- Update fidelityKeywords (generator:336) + candidates (714-731) + this Guide on any structural change to the 4 living docs.
+- Every closer handoff + this evergreen prompt must leave the top anchors + Guide as the first ~60 lines (higher signal, zero sludge).
 
-3. **thin citadel depth**: OPEN. 
-   - Evidence: citadel.ts:1-30 (v1.2 6-auditor + CrossPhaseFindingsReport), emissionQuality/crossPhase attached but schema and auditor count lag claude 17 dedicated (audit-runner:76/148/196/270 + reporter:148 + dedupe:270).
-   - **Path to Normie ticket**: H-CITADEL-DEPTH-01 (P0). Add missing high-value auditors (emission honesty on self-generated work, ritual god surface, install hygiene, self-meta traps). Make richer findings the primary input to the closer. Hardening: full Anatomy on auditor flows + Szechuan.
-   - AC-CITADEL-03.
+**Verification commands** (machine-checkable):
+- `node -e 'console.dir(require("./engine/src/self-prd-generator").loadBacklogState("."))'`
+- `grep -c "## Campaign " reliability-backlog.md` (should be 0 post-purge; history via git only)
+- `grep -A5 "MACHINE_DOMINANT_OPEN_ITEMS" reliability-backlog.md`
 
-4. **ritual god residual**: OPEN (doc-only per safety + FORBIDDEN). 
-   - Evidence: ritual.ts:4-6 exact quote ("Research rescue logic progressively extracted (handlePureResearchTheaterNoEvidence + handleResearchBlockedOrDeferred) toward claude-style flat services..."); AGENTS:43.
-   - **Path to Normie ticket**: H-RITUAL-GOD-01 (P0, high risk). Requires explicit H-* waiver. Options: (a) extract the rescue logic into flat, observable services with strong contracts, or (b) dramatically improve observability + isolation so the god surface stops being a silent 3am risk. Heavy hardening mandatory (Anatomy + Szechuan on ritual + related workers).
-   - AC-RITUAL-04. No implementation touch without waiver.
+Historical tranche execution logs (prior "Fix shipped (per map... 9-step TDD... agent IDs 019e6a... modeled 1:1" narratives) live **only** in git. "Docs win." The self-prd-generator/closer now see higher-signal input with real anchors first.
 
-5. **self-prd-generator scanForGaps/performPostCampaignIngest depth + internal vestigials**: OPEN (living docs help but residual + code smells). 
-   - Evidence: generator:335 (fidelityDirs/keywords), 707/714/725/739 (performPost + richer blocks with vestigials at 784/805/815-828/890/933 per greps), 136-153 (loadBacklogState shallow tail-regex).
-   - **Path to Normie ticket**: H-SELF-PRD-FIDELITY-02 (P1). Use the new stable ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY anchors. Add small typed parser adapter (lib/backlog-ingest.ts pattern). Eliminate remaining duplicate ifs / ||[] / debt-note noise. Success: measurably higher-quality R-META output with less self-pollution.
-   - AC-FIDELITY-01 + GEN-VESTIGE-02.
+Wubba lubba dub dub.
 
-6. **install hygiene (redundant checks + no MD5)**: OPEN. 
-   - Evidence: install.sh:22-84 (ACTIVE guard pgrep:41 + state.json:48; redundant arg check at 36), AGENTS:49, handoff:9-16.
-   - **Path to Normie ticket**: H-INSTALL-ROBUST-01 (P1). Add verification (MD5 or content hash of critical deployed files), collapse the last redundant arg parsing, make closer handoff the boring default even after long/stale campaigns. Remove the "special flags required" tax.
-   - AC-INSTALL-05.
 
-7. **stale test drift on core guards (FORBIDDEN_SELF_MUT)**: NEW from this scrub. 
-   - Evidence: arch-deepener.test.ts:124-127 (assert length===6 + "exactly the 6 core drivers") vs arch-deepener.ts:36-48 (now 10 entries post-incident: ritual, preflight, ticket-emitter, phase-utils, run-pipeline etc.).
-   - **Path to Normie ticket**: H-GUARD-TRUTH-01 (P1). Make the FORBIDDEN list (and similar ac_shape / preflight / citadel guards) the single source of truth that tests read at runtime. No more green-on-lie.
-   - AC-ARCH-TEST-01. (Requires dedicated H-* per persona.)
 
-**Machine-Usable Summary (for generator scanForGaps/performPost/loadBacklogState + closer)**: 7 items + AC smells (AC-FIDELITY-01, AC-EMIT-02, AC-CITADEL-03, AC-RITUAL-04, AC-INSTALL-05, AC-SIMPL-01/02, AC-ARCH-TEST-01, AC-GEN-VESTIGE-02). Fresh claude-first verified. Stale :N + repeated tranche boilerplate purged; master_plan dupe clarified; SKILL vestigial deleted; all 7 items now carry explicit "Path to Normie" tickets + hardening requirements. Update on every closer/tranche. Cross-confirmed AGENTS:15/23/43/52 (post-scrub), docs/MASTER_PLAN.md (new Roadmap section), handoff, TESTABILITY:40-41, ac-shape.ts:9-13, ritual.ts:4-6.
 
-**Stable machine anchor**: ## MACHINE_DOMINANT_OPEN_ITEMS (7 items above) + ## MACHINE_SUMMARY. Future parsers should key on these markers. See docs/MASTER_PLAN.md for the full "Set and Forget for Normies" target definition and success metrics.
-
-See the ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY blocks at the top of this file for the canonical, parseable, machine-usable record of the 7 dominant open items + AC smells (fresh claude-first cites from this 6-agent evergreen sweep + prior). Historical execution details and prior tranche narratives live only in git (`git log -S tranche -- reliability-backlog.md`). "Docs win." The self-prd-generator/closer now see higher-signal input with real anchors + far less historical sludge.
 
 - **Fix shipped (per map, isolation=worktree ONLY)**: 1. Worktree isolation (confirmed clean git tree first via git status --porcelain=0). 2. Red: extended *existing* test body in engine/tests/self-prd-closer.test.ts:237 (the richer emission ingest test) — seed a citadel_report.json containing emissionQuality (with ac_shape_smells + annotation_format_malformed) + add assert for unified richer delta from the report-sourced path appearing in the ingested backlogMarkdown (modeled on citadel.test.ts:106 + tranche5 pattern + existing assert at 263). Run → RED. 3. Green: minimal additive block inside engine/src/self-prd-generator.ts:739 if(campaignSessionDir) (after the 789 emission_quality direct parse block or symmetric; use safeRead + JSON.parse on join(campaignSessionDir, 'citadel_report.json'), extract eq = r?.emissionQuality, if present surface the acCount/malformedCount + lines.push + closed++ exactly like the 773-788 sibling block but for "Richer emissionQuality from citadel_report.json ... (unified richer citadel report signal alongside direct file BC path)"). No other lines. Run → GREEN. 4. Refactor: zero. 5. Run mandated tests from worktree (self-prd-closer + citadel + ac-shape-gate + pipeline-preflight + install-guard) → GREEN (new unified report ingest assert passes, old paths + BC still pass). 6. Docs (Contributor Rules): Append *exact* tranche7 entry to AGENTS.md (update :15 synth driver + Trap Doors 43/46 with CLOSED note + credits, modeled 1:1 on 45/46) + new section in reliability-backlog.md (modeled 1:1 on 90-96 with every file:line# cite from the map). 7. Citadel spirit (source only, from worktree). 8. `bash <worktree>/install.sh --closer-context --no-confirm` from worktree. 9. Return the worktree absolute path, `git -C <wt> diff --stat`, key hunks, test results (highlight the new unified report ingest assert), and the exact lead commands to inspect + apply the patch to main. Zero changes outside the two allowed files for the code change + the two docs files. Zero new contracts (parse data report leniency precedent). Reuse every (readRecoverable, CrossPhase, tranche6 style).
 

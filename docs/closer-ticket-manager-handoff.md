@@ -46,6 +46,6 @@ Per AGENTS.md:25-32 (Contributor Rules): Self-changes **must** pass Citadel. Upd
 
 - Debt closed for this item: real living doc now at docs/closer-ticket-manager-handoff.md.
 - Tranche8: living MASTER_PLAN depth (AGENTS:43) closed via ingestion (generator candidates + fidelity + "Ingested master_plan" + gen gap suppression).
-- Still dominant open (AGENTS:43 + tranche11 + 2026-05-28 evergreen scrub): the 7 items blocking "Set and Forget for Normies" (see docs/MASTER_PLAN.md new Roadmap section for target definition + P0/P1 tickets). See reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY real parseable blocks + fresh 6-agent evergreen scrub cites + explicit Path-to-Normie tickets H-EMIT-UNIVERSAL-01 etc + hardening requirements; the canonical machine-usable single-source). (MASTER_PLAN living resolved tranche8; root master_plan dupe clarified 2026-05-28.)
+- Still dominant open (AGENTS:43 + 2026-05-28 4-person evergreen sweep): the 7 items blocking "Set and Forget for Normies" (see docs/MASTER_PLAN.md Roadmap + Living Interface Manifest for target + P0/P1). See reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY + new Consumption Guide; the canonical machine-usable single-source for generator/closer/loadBacklogState/scanForGaps/performPost). (MASTER_PLAN living resolved tranche8; root master_plan deprecated stub; dupe/sludge purged 2026-05-28 this run + prior tranche11.)
 
 Wubba lubba dub dub.
