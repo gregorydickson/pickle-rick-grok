@@ -45,7 +45,7 @@
   "openCount": 7,
   "target": "Set and Forget for Normies (docs/MASTER_PLAN.md:42-50 definition + success metrics)",
   "acSmells": ["AC-FIDELITY-01", "AC-EMIT-02", "AC-CITADEL-03", "AC-RITUAL-04", "AC-INSTALL-05", "AC-SIMPL-01/02", "AC-ARCH-TEST-01", "AC-GEN-VESTIGE-02"],
-  "lastUpdated": "2026-05-28 (EG-2026-05-28-02 fresh 4-persona + lead claude-first evergreen: codebase-analyst 019e6fb7-35f0..., risk-analyst 019e6fb8-e12e... + lead discovery + prior maps; all embedded personas + ac_shape gate + full claude-first: list_dir + verbatim read_file LINE# on 4 living docs + arch-deepener:36-48 + test:124-133 + generator:136/335/707 + greps). Actions this run: stale Evidence in reliability:39 for OPEN#7 fixed (now truthful 10-entry state citing current test:124-133 + arch:36-48; removed 'length===6' / 'drift' lies); remaining ~19 trailing blanks after Wubba:70 trimmed (file now ends cleanly, ~71 lines, zero sludge per Guide:63); MACHINE_SUMMARY + crossConfirmed updated; AGENTS Trap Doors wall + stale historical refs flagged for compression in next run (high duplication vs reliability:5-70). Fresh ac smells (stale_evidence_in_machine_record [CLOSED this fix], trailing_whitespace_bloat_final [CLOSED], trap_doors_wall_duplication, shallow_ingest_still_live). 7 OPEN + H-FIDELITY-03 (next concrete, deferred per risk screams) unchanged in structure. Zero src (FORBIDDEN + Prime Dir respected). Install + citadel followed. 'Docs win.' Even higher signal for next self-PRD/evergreen/closer.",
+  "lastUpdated": "2026-05-29 (EG-2026-05-29-01 fresh claude-first + 2-persona team: codebase-analyst 019e6fc1-b2b7..., risk-analyst 019e6fc3-bca4... + lead; all embedded immutable rules + ac_shape gate + full protocol: list_dir + verbatim read_file LINE# + grep on 4 living docs + arch-deepener:36-48 + test:124-133 + generator fidelity paths). Actions: final trailing blanks after Wubba:70 trimmed (reliability now ends cleanly ~71 lines, zero sludge per own Consumption Guide:63); MACHINE_SUMMARY:48/50 accuracy fixed (lastUpdated, crossConfirmed 'test:124' → 'test:124-133', line count claims, removed outdated 'flagged' language); targeted stale 'test:124 drift' / 'length===6' / 'arch-deepener.test guard drift' phrases cleaned in AGENTS historical tranche bullets only (77/79/95 etc. per fresh grep; no wall rewrite, no decision records touched). Fresh ac smells from this round (trailing_whitespace_bloat_final [CLOSED], machine_summary_inaccuracy [CLOSED], stale_evidence_in_machine_record [CLOSED], trap_doors_wall_duplication + fidelity_surface_self_mod_adjacency [flagged with hardening required]). 7 OPEN + H-FIDELITY-03 (next concrete, correctly deferred) structure unchanged. Zero src (FORBIDDEN arch-deepener:36-48 + risk screams + Prime Directive respected). Install + citadel followed. 'Docs win.' Clearly higher signal for next self-PRD/evergreen/closer.",
   "machineAnchorNote": "Key on these ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY headers for stable consumption by generator/closer/loadBacklogState/scanForGaps. See H-SELF-PRD-FIDELITY-02. Prior historical tranche logs in git only (git log -S tranche -- reliability-backlog.md). Consumption Guide immediately below documents the contract.",
   "crossConfirmed": "AGENTS:15/23/43/52 (post-scrub), docs/MASTER_PLAN.md (Roadmap + new manifest), handoff:49, TESTABILITY:40-41, ac-shape.ts:9-13, ritual.ts:4-6, citadel.ts:1-30/792, generator:335/707, arch-deepener.ts:36-48 + test:124, install.sh:33-37/40-53"
 }
@@ -68,10 +68,6 @@
 - `grep -A5 "MACHINE_DOMINANT_OPEN_ITEMS" reliability-backlog.md`
 
 Wubba lubba dub dub.
-
-
-
-
 
 
 
