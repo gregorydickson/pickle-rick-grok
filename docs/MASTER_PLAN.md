@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-28 (4-persona + lead claude-first evergreen: codebase 019e6f9b..., risk 019e6f9d..., simplifier 019e6f9f..., architect 019e6fa3... + lead; full protocol + personas + ac_shape gate). Actions this run: reliability-backlog trailing blanks + narrative residue trimmed (now clean ~89 lines, obeys own Guide:60-65); AGENTS:25 synth wall crisped; arch-deepener.test guard drift fixed (TDD, now truthful 10-item, specific test green); 4 living docs synced + credits. Fresh smells (test_guard_drift FIXED, trailing_bloat CLOSED, synth_wall CLOSED, shallow_module, etc.). Zero src on generator/ritual/citadel. H-FIDELITY-03 still deferred (risk/architect screams). Install + citadel followed. "Docs win."
+**Last Updated**: 2026-05-29 (post 6-person EG Round 1: AGENTS Trap Doors wall compressed + spam trimmed across 4 living docs per simplifier/architect/codebase + risk; MACHINE_SUMMARY + smells refreshed; H-FIDELITY-03 deferred per screams; 7 OPEN confirmed live. Zero src. Install + citadel followed. "Docs win." See reliability-backlog.md:5-70 for machine record.)
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 
