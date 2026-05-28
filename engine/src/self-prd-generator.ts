@@ -805,14 +805,13 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
           if (acCount > 0 || malformedCount > 0) {
             closed++;
             lines.push(`  - Richer emissionQuality from citadel_report.json: ac_shape_smells=${acCount}, annotation_format_malformed=${malformedCount} (unified richer citadel report signal alongside direct file BC path)`);
-            lines.push('  - Note: richer emission debt detected — consider R-META for self-loop-ingestion gap if not closed');
           }
         }
     const directJson = safeRead(path.join(campaignSessionDir, 'emission_quality.json'));
     const direct = directJson ? (() => { try { return JSON.parse(directJson); } catch { return null; } })() : null;
     const rptJson = safeRead(path.join(campaignSessionDir, 'citadel_report.json'));
-    const r = rptJson ? (() => { try { return JSON.parse(rptJson); } catch { return null; } })() : null;
-    const reportEq = r?.emissionQuality;
+    const r2 = rptJson ? (() => { try { return JSON.parse(rptJson); } catch { return null; } })() : null;
+    const reportEq = r2?.emissionQuality;
     const acD = Array.isArray(direct?.ac_shape_smells) ? direct.ac_shape_smells : [];
     const acR = Array.isArray(reportEq?.ac_shape_smells) ? reportEq.ac_shape_smells : [];
     collectedAc = [...acD, ...acR];
