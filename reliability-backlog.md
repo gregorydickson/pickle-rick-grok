@@ -45,7 +45,7 @@
   "openCount": 7,
   "target": "Set and Forget for Normies (docs/MASTER_PLAN.md:42-50 definition + success metrics)",
   "acSmells": ["AC-FIDELITY-01", "AC-EMIT-02", "AC-CITADEL-03", "AC-RITUAL-04", "AC-INSTALL-05", "AC-SIMPL-01/02", "AC-ARCH-TEST-01", "AC-GEN-VESTIGE-02"],
-  "lastUpdated": "2026-05-28 (this update: final real post-Guide historical sludge purge + Bootstrapping Phase Note with three horizons + Prime Directive operationalization + H-FIDELITY-03 as Current focus injected directly into the primary ingested record. Per claude-first tail verification: now  ~74 lines, grep -c '## Campaign ' returns 1 (the Guide's own example sentence only); file ends cleanly after Consumption Guide + strategy note. Prepares pristine input for clean-context agent team run. 'Docs win.'",
+  "lastUpdated": "2026-05-28 (6-agent claude-first evergreen team: 2 codebase-analyst [fidelity-sources 019e6f77..., living-docs 019e6f7b...], 2 risk-analyst [self-mut 019e6f7d..., emission/citadel 019e6f80...], 1 code-simplifier 019e6f83..., 1 engineering-architect 019e6f88...; all embedded personas + gate ac_shape_smells + full list_dir/read_file/grep protocol on 4 living docs + sources + reports. Pure-docs trim: removed ~28 trailing blanks + residual post-Guide narrative in reliability-backlog.md:73+ (now ends cleanly at Wubba:72 after Consumption Guide per its own contract:60-65). Higher signal/lower noise for loadBacklogState:136/scan:150/performPost:707/closer:40 + next clean-context evergreen/self-PRD. New ac smells surfaced + recorded (repeated_predicate, trailing_whitespace_bloat [CLOSED this trim], historical_narrative_duplication, shallow_module, test_guard_drift, leaky_cross_ref, AC-CITADEL-03 etc.). Zero src. No FORBIDDEN/self-mut. H-FIDELITY-03 remains next concrete (high risk per risk agents). 'Docs win.'",
   "machineAnchorNote": "Key on these ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY headers for stable consumption by generator/closer/loadBacklogState/scanForGaps. See H-SELF-PRD-FIDELITY-02. Prior historical tranche logs in git only (git log -S tranche -- reliability-backlog.md). Consumption Guide immediately below documents the contract.",
   "crossConfirmed": "AGENTS:15/23/43/52 (post-scrub), docs/MASTER_PLAN.md (Roadmap + new manifest), handoff:49, TESTABILITY:40-41, ac-shape.ts:9-13, ritual.ts:4-6, citadel.ts:1-30/792, generator:335/707, arch-deepener.ts:36-48 + test:124, install.sh:33-37/40-53"
 }
@@ -69,13 +69,9 @@
 
 Historical tranche execution logs (prior "Fix shipped (per map... 9-step TDD... agent IDs 019e6a... modeled 1:1" narratives) live **only** in git. "Docs win." The self-prd-generator/closer now see higher-signal input with real anchors first.
 
+**Evergreen 2026-05-28 (this run)**: 6-agent team (claude-first + personas + ac_shape gate) confirmed 7 OPEN items live (cites: ac-shape:9-13, ritual:4-6, generator:136-148/335/707/774-842, arch-deepener:36-48 vs test:124, install:33-53, citadel:1-30/792+ 1.1 skew in root report, preflight:395+). Trimmed trailing blanks + post-Guide residual (reliability now ~72 lines, ends at Wubba:72 per Consumption Guide:60-65 contract). ac smells from team: repeated_predicate (tranche/"Docs win" spam), trailing_whitespace_bloat (CLOSED), historical_narrative_duplication, shallow_module (loadBacklogState), test_guard_drift, leaky_cross_ref, AC-CITADEL-03/AC-EMIT-02/AC-RITUAL-04 etc. (full in SUMMARY acSmells + agent outputs). H-FIDELITY-03 (loadBacklogState upgrade to MACHINE_* anchors) highest-leverage safe next (requires H-* waiver + Anatomy fidelity flows + Szechuan + TDD per risk/architect). All 4 living docs synced for truth. Future runs see cleaner fuel. Citadel will catch drift.
+
 Wubba lubba dub dub.
-
-"Docs win." The machine (loadBacklogState:136 / scanForGaps:150 / performPost:707 / closer:40) now sees pristine ## MACHINE_DOMINANT_OPEN_ITEMS + Consumption Guide contract with zero post-Guide sludge or historical noise. History lives only in git (`git log -S tranche -- reliability-backlog.md`). Every future evergreen / self-PRD run starts from higher-signal fuel. Citadel will catch drift.
-
-
-
-
 
 
 

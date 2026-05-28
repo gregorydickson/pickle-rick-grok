@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-28 (this run: user "update our plans with this information" + final real post-Guide sludge purge in reliability-backlog.md (now ends cleanly after Consumption Guide + Bootstrapping Phase Note); H-FIDELITY-03 + three-horizon bootstrapping strategy (Current self-loop fidelity engine → Early External Dogfood → Normie Threshold) injected into the primary ingested record per Prime Directive (AGENTS:9). Machine-usable plans for clean-context agent team run. "Docs win.")
+**Last Updated**: 2026-05-28 (6-agent claude-first evergreen: 2 codebase-analyst, 2 risk-analyst, 1 code-simplifier, 1 engineering-architect — all with embedded personas + ac_shape gate + full protocol on 4 living docs + sources. Pure-docs trim of ~28 trailing blanks + residual in reliability-backlog.md:73+ (now ~72 lines, clean per its Consumption Guide:60-65). Higher signal for loadBacklogState:136 etc. ac smells surfaced (repeated_predicate, trailing_whitespace_bloat [CLOSED], historical_narrative_duplication, shallow_module, test_guard_drift, leaky_cross_ref, AC-CITADEL-03 etc.). H-FIDELITY-03 confirmed next (risk screams on generator:136 self-mut; needs waiver + Anatomy/Szechuan + TDD). 4 docs synced. "Docs win.")
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 
