@@ -46,6 +46,6 @@ Per AGENTS.md:25-32 (Contributor Rules): Self-changes **must** pass Citadel. Upd
 
 - Debt closed for this item: real living doc now at docs/closer-ticket-manager-handoff.md.
 - Tranche8: living MASTER_PLAN depth (AGENTS:43) closed via ingestion (generator candidates + fidelity + "Ingested master_plan" + gen gap suppression).
-- Still dominant open (AGENTS:43): full ac_shape_smells JSON plumbing + richer annotation_format in manifest, thin citadel depth. (MASTER_PLAN living updates now resolved per tranche8.)
+- Still dominant open (AGENTS:43): full ac_shape_smells JSON plumbing + richer annotation_format in manifest, thin citadel depth, ritual god residual, self-prd depth, install hygiene (no MD5). See reliability-backlog.md (top living record) for exact current list + cites. (MASTER_PLAN living updates resolved per tranche8.)
 
 Wubba lubba dub dub.
