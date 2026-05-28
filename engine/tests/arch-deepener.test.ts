@@ -121,9 +121,14 @@ describe('ArchitectureDeepener (deepening opportunities)', () => {
     assert.strictEqual(filtered.length, 0);
   });
 
-  it('FORBIDDEN_SELF_MUT contains exactly the 6 core drivers', () => {
-    assert.strictEqual(FORBIDDEN_SELF_MUT.length, 6);
+  it('FORBIDDEN_SELF_MUT is the single source of truth (10 entries: 6 core + 4 post-incident safeguards)', () => {
+    // Single source: import from arch-deepener.ts:36-48. Update this test when FORBIDDEN grows.
+    assert.strictEqual(FORBIDDEN_SELF_MUT.length, 10);
     assert.ok(FORBIDDEN_SELF_MUT.includes('engine/src/workers.ts'));
     assert.ok(FORBIDDEN_SELF_MUT.includes('engine/src/session.ts'));
+    assert.ok(FORBIDDEN_SELF_MUT.includes('engine/src/bin/run-pipeline.ts'));
+    assert.ok(FORBIDDEN_SELF_MUT.includes('engine/src/lib/pipeline-preflight.ts'));
+    assert.ok(FORBIDDEN_SELF_MUT.includes('engine/src/lib/ticket-emitter.ts'));
+    assert.ok(FORBIDDEN_SELF_MUT.includes('engine/src/lib/phase-utils.ts'));
   });
 });

@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-28 (6-agent claude-first evergreen: 2 codebase-analyst, 2 risk-analyst, 1 code-simplifier, 1 engineering-architect — all with embedded personas + ac_shape gate + full protocol on 4 living docs + sources. Pure-docs trim of ~28 trailing blanks + residual in reliability-backlog.md:73+ (now ~72 lines, clean per its Consumption Guide:60-65). Higher signal for loadBacklogState:136 etc. ac smells surfaced (repeated_predicate, trailing_whitespace_bloat [CLOSED], historical_narrative_duplication, shallow_module, test_guard_drift, leaky_cross_ref, AC-CITADEL-03 etc.). H-FIDELITY-03 confirmed next (risk screams on generator:136 self-mut; needs waiver + Anatomy/Szechuan + TDD). 4 docs synced. "Docs win.")
+**Last Updated**: 2026-05-28 (4-persona + lead claude-first evergreen: codebase 019e6f9b..., risk 019e6f9d..., simplifier 019e6f9f..., architect 019e6fa3... + lead; full protocol + personas + ac_shape gate). Actions this run: reliability-backlog trailing blanks + narrative residue trimmed (now clean ~89 lines, obeys own Guide:60-65); AGENTS:25 synth wall crisped; arch-deepener.test guard drift fixed (TDD, now truthful 10-item, specific test green); 4 living docs synced + credits. Fresh smells (test_guard_drift FIXED, trailing_bloat CLOSED, synth_wall CLOSED, shallow_module, etc.). Zero src on generator/ritual/citadel. H-FIDELITY-03 still deferred (risk/architect screams). Install + citadel followed. "Docs win."
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 

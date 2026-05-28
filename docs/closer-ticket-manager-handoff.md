@@ -2,7 +2,7 @@
 
 **Status**: Created to close dominant fidelity debt (AGENTS.md:38/40, reliability-backlog.md:53/56). Replaces test-stub-only pattern.
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-28 (6-agent claude-first evergreen team + pure-docs trim of trailing blanks/residual in reliability-backlog.md per its Guide contract:60-65; now ~72 clean lines, higher signal for generator:136/707 + closer:40. ac smells + credits in reliability SUMMARY. 4 docs synced. H-FIDELITY-03 deferred (risk screams). "Docs win.")
+**Last Updated**: 2026-05-28 (4-persona evergreen + lead: codebase/risk/simplifier/architect subagents 019e6f9b...-019e6fa3... + claude-first protocol; reliability trimmed to clean end per Guide, AGENTS:25 crisped, arch test guard fixed TDD/green, 4 docs synced with fresh smells (test_guard_drift FIXED etc.). H-FIDELITY-03 deferred. Install followed. "Docs win.")
 
 ## The --closer-context / --no-confirm Bypass Contract
 
