@@ -37,7 +37,7 @@ Per AGENTS.md:25-32 (Contributor Rules): Self-changes **must** pass Citadel. Upd
 
 - Single source of truth for the bypass + closer expectations.
 - Updated whenever install.sh bypass, generator candidates/regex, closer flow, or AGENTS Contributor Rules change.
-- All cross-refs use exact line# (AGENTS:23/52 (post-scrub), reliability-backlog:5-21 (post-scrub 7-item), install.sh:26/63, generator:725, PRD:69, test:178).
+- All cross-refs use exact line# (AGENTS:23/52 (post-scrub), reliability-backlog:5-21 (post-scrub 7-item), install.sh:26/63, generator candidates/keywords + performPost, PRD:69, test:178).
 - Once real (not stub), scanForGaps + performPostCampaignIngest see honest docs/ content on every self-run.
 - Part of "Docs win" (AGENTS:23) + Trap Door hygiene ("Docs/AGENTS must reflect exact current parity (no overclaim)", AGENTS:40).
 - Closer tickets must keep it in sync as part of handoff.
@@ -46,6 +46,6 @@ Per AGENTS.md:25-32 (Contributor Rules): Self-changes **must** pass Citadel. Upd
 
 - Debt closed for this item: real living doc now at docs/closer-ticket-manager-handoff.md.
 - Tranche8: living MASTER_PLAN depth (AGENTS:43) closed via ingestion (generator candidates + fidelity + "Ingested master_plan" + gen gap suppression).
-- Still dominant open (AGENTS:43 + tranche11 + Risk scrub 2026-05-28): full ac_shape_smells + richer annotation, thin citadel, ritual god, self-prd depth + vestigials (generator:784/805 confirmed), install hygiene (redundant + no MD5), + new arch-deepener.test drift (length assert vs FORBIDDEN:36-48). See reliability-backlog.md:5-21 (now 7-item crisp post-scrub, machine-usable, stale cites purged; the canonical the generator/closer load). (MASTER_PLAN living resolved tranche8; root master_plan dupe clarified 2026-05-28.)
+- Still dominant open (AGENTS:43 + tranche11 + Risk scrub 2026-05-28): full ac_shape_smells + richer annotation, thin citadel, ritual god, self-prd depth + vestigials, install hygiene (redundant + no MD5), + arch-deepener.test drift. See reliability-backlog.md:5-21 (now 7-item crisp post-scrub, machine-usable, stale cites purged; the canonical the generator/closer load). (MASTER_PLAN living resolved tranche8; root master_plan dupe clarified 2026-05-28.)
 
 Wubba lubba dub dub.

@@ -4,7 +4,7 @@
 
 Do **not** duplicate these blocks in the persona files. Reference this document once from each persona's Immutable Rules (or immediately before the final `<promise>`).
 
-See the driving synthesis PRD: `prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md` and the implementation in `engine/src/lib/pipeline-preflight.ts` (`scanAnalystOutputsForUnverifiedPaths`, `checkVerifyMachinability`, `detectVerifyTheater`, the forward-ref regex with exact one-ASCII-space rule + git enforcement) + `ticket-emitter.ts` (hard emission gate + auto H-VERIFY-EMISSION-HONESTY healer siblings + amber waivers). `evaluateAcShapeEnforcement` is the remaining AC-shape enforcement fn (reliability-backlog; current defense is the injected section + manual + auto healer). Cross-checked against Claude sibling (spawn-refinement-team.ts:1410/1925, check-readiness.ts, forward-ref-annotation.js). R10 fidelity audit (019e5a71-5ad9-7763-804b-061082b708cc).
+See the driving synthesis PRD: `prds/claude-to-grok-ports-emission-quality-and-autonomous-reliability-2026-05-24.md` and the implementation in `engine/src/lib/pipeline-preflight.ts` (`scanAnalystOutputsForUnverifiedPaths`, `checkVerifyMachinability`, `detectVerifyTheater`, the forward-ref regex with exact one-ASCII-space rule + git enforcement) + `ticket-emitter.ts` (hard emission gate + auto H-VERIFY-EMISSION-HONESTY healer siblings + amber waivers). `evaluateAcShapeEnforcement` is the remaining AC-shape enforcement fn (reliability-backlog; current defense is the injected section + manual + auto healer). Cross-checked against Claude sibling ports. R10 fidelity audit (019e5a71-5ad9-7763-804b-061082b708cc).
 
 ---
 

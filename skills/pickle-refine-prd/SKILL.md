@@ -129,8 +129,6 @@ import { emitRefineCouncilTickets, type TicketSpec } from './engine/src/lib/tick
 
 const specs: TicketSpec[] = [ /* collected from analyst council outputs */ ];
 
-// tranche4: pass the parsed real analyst ac_shape_smells (from Step 3 collection of ## ac_shape_smells JSON blocks) 
-// so the emitter's hard gate (acManifest) receives them on the council path (EmitOptions.acShapeSmells)
 const smells = [ /* the combined parsed ac_shape_smells arrays from the three analysts' final outputs, per Step 3 */ ];
 
 const result = await emitRefineCouncilTickets(sessionDir, specs, {
