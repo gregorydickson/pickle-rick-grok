@@ -108,6 +108,12 @@ This section records the output of the user prompt "use appropriately sized agen
 
 **Backend Reviewer-Fixer subagent (019e7403-dd55-7932-9bc6-e8fa5c1d1d5f, 88 tool calls, full claude-first)**: Confirmed identical safe scope (install.sh + test-only guard extensions on allowed surfaces; zero generator/forbidden/4-docs mutation). Proposed exact minimal diffs for the 3 items we shipped + a machine-parseable 7-item table (for loadBacklogState:136 + future parsers) + "Backend Review Sweep Findings" subsection. Table idea folded below for higher signal (post any future H-* waiver the contract requires).
 
+**Engineering Architect subagent (019e7403-be2b-76e0-935f-428a2f87c90c, 93 tool calls, 323s, full claude-first + LANGUAGE.md lens)**: Deep seam/leverage/depth analysis of the fidelity surface. loadBacklogState (generator:136-148) diagnosed as shallow Module (tiny Interface, leaky tail+legacy impl, low Locality). performPost:707+ fat with dupe:810-817. Strong verdict: H-FIDELITY-03 is "pure consumer upgrade with low blast radius" (anchor parser behind stable Interface, shape preserved, callers untouched, enables higher-signal R-META). Proposed three high-leverage missing Seams/Adapters for future (post-waiver):
+- FidelityAnchorParser (tiny dedicated lib; pure fn exporting parseMachineBacklogAnchors; hides doc format, makes evolution cheap).
+- GuardTruthRegistry (standardize per-module `export const FOO_GUARD` + assert helper; extend to citadel auditors + ritual rescue).
+- InstallVerificationAdapter (extract emitDeployManifest + node helper + `--verify` mode for closer handoff).
+Trap doors explicitly called out (Fidelity Contract, FORBIDDEN adjacency, ritual god, thin citadel, emission plumbing). Confirmed the 3 shipped items as the smallest surface delivering real capability. (Cites throughout: reliability:5-72, generator:136/335/707/810, arch-deepener:36-48 + test:124, etc.)
+
 **Compact MACHINE_7ITEM_TABLE (for loadBacklogState + scanners; proposed by backend-fixer + integrated here)**:
 | # | H-* | Status | Key Evidence (file:line#) | Safe This Run? |
 |---|-----|--------|---------------------------|----------------|
