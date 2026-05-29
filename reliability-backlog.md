@@ -45,22 +45,31 @@
   "openCount": 7,
   "target": "Set and Forget for Normies (docs/MASTER_PLAN.md:42-50 definition + success metrics)",
   "acSmells": ["AC-FIDELITY-01", "AC-EMIT-02", "AC-CITADEL-03", "AC-RITUAL-04", "AC-INSTALL-05", "AC-SIMPL-01/02", "AC-ARCH-TEST-01", "AC-GEN-VESTIGE-02"],
-  "lastUpdated": "2026-05-29 (EG Round 1 Simplifier: stale 'data model limit' + 'council paths only' + 'Extend TicketSpec' + tranche9 sludge retired in ac-shape:9-11/ticket-emitter:52/393 + 4 living docs synced to partial reality per Consumption Guide; fresh HEAD cites). 7 OPEN + H-FIDELITY-03 unchanged. acSmells refreshed. Zero src. 4 docs + comments win. Higher-signal for loadBacklogState:136 / H-FIDELITY-03.",
+  "lastUpdated": "2026-05-29 (see EG Round 2 Note:72 + Consumption Guide:53; git for tranche history). 7 OPEN + H-FIDELITY-03. acSmells refreshed. Zero src. 4 docs + comments win. Higher-signal for loadBacklogState:136 / H-FIDELITY-03.",
   "machineAnchorNote": "Key on ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY (lines 5/41) for 7 OPEN + acSmells. Historical tranche in git only. Consumption Guide below.",
-  "crossConfirmed": "AGENTS:15/23/43/52/70, docs/MASTER_PLAN.md:5/68/86-94, handoff:5/49, reliability:5-70 + :48 (Round 1 comment hygiene), TESTABILITY:40-41, ac-shape.ts:9-11, ticket-emitter.ts:52/393/395/431, generator:712/817/889/932, citadel.ts:815, ritual.ts:4-6, arch-deepener.ts:36-48 + test:124-133, install.sh:33-37/40-53"
+  "crossConfirmed": "AGENTS:15/23/43/52/70, docs/MASTER_PLAN.md:5/68/86-94, handoff:5/49, reliability:5-70 + :48, TESTABILITY:40-41, ac-shape.ts:9-11, ticket-emitter.ts:52/393/395/431, generator:712/817/889/932, citadel.ts:815, ritual.ts:4-6, arch-deepener.ts:36-48 + test:124-133, install.sh:33-37/40-53"
 }
 
 ## Consumption Guide for Self-Loop Consumers (loadBacklogState + scanForGaps + performPostCampaignIngest + runSelfImprovementLoopCloser)
 
 **Single source of truth**: The parseable `## MACHINE_DOMINANT_OPEN_ITEMS` (reliability-backlog.md:5) + `## MACHINE_SUMMARY` (reliability-backlog.md:41) blocks above. These are the stable machine anchors (JSON + 7 OPEN items with Evidence / Path-to-Normie H-* tickets / AC smells) that generator:136 (loadBacklogState), :150 (scanForGaps), :335 (fidelityDirs/keywords), :707 (performPostCampaignIngest), and closer:40 (runSelfImprovementLoopCloser) are intended to consume for fidelity + closed detection + next R-META generation.
 
-**Current reality (until H-SELF-PRD-FIDELITY-02)**: loadBacklogState uses tail slice + legacy regex. Fidelity walks 'docs' + keywords. 4 living docs (this + AGENTS.md + docs/MASTER_PLAN.md + docs/closer-ticket-manager-handoff.md) are the surface. Round 1: comment lies retired.
+**Current reality (until H-SELF-PRD-FIDELITY-02)**: loadBacklogState uses tail slice + legacy regex. Fidelity walks 'docs' + keywords. 4 living docs (this + AGENTS.md + docs/MASTER_PLAN.md + docs/closer-ticket-manager-handoff.md) are the surface. Comment lies retired (git history).
 
 **Contract for future parsers + evergreen sweeps**:
 - Key first and exclusively on the ## MACHINE_* headers (lines 5/41) for the 7 dominant OPEN + acSmells list.
 - Ignore all content after ## MACHINE_SUMMARY for closed detection or fidelity (historical tranche logs belong only in git: `git log -S tranche -- reliability-backlog.md`).
 - Update fidelityKeywords (generator:336) + candidates (714-731) + this Guide on any structural change to the 4 living docs.
 - Every closer handoff + this evergreen prompt must leave the top anchors + Guide as the first ~60 lines (higher signal, zero sludge).
+
+**Fidelity Surface Mutation Contract (Risk Scream turned rule — 2026-05-30 4-person team + codebase + risk + simplifier + architect)**:
+The 4 living docs (this file + AGENTS.md + docs/MASTER_PLAN.md + docs/closer-ticket-manager-handoff.md) are the *live fidelity surface* (generator:335 fidelityDirs/keywords + :707/726-728 performPost candidates + loadBacklogState:136 + Consumption Guide consumers). Any edit to their text (even "pure docs hygiene" on historical labels) is a self-loop ingestion mutation that flows into R-META seeds, collectedAc, emitter writes, and the next backlog append that loadBacklogState tail-regexes.
+- **Never edit** the 4 living docs without:
+  1. Explicit H-ANATOMY-SELF-INGEST-01 (data-flow audit of every string through fidelity scan → GAP suppression → R-META → closer write → loadBacklogState/Consumption Guide).
+  2. Explicit H-SZECHUAN-GEN-DUPE-01 (deslop on generator:810-817 dupe/asymmetry + legacy tail regex + any repeated predicate noise; extend FORBIDDEN_SELF_MUT in arch-deepener.ts:36-48 to cover self-prd-generator.ts + the 4 doc paths).
+  3. H-* waiver for any generator-adjacent surface.
+- Historical "Round N" / tranche labels belong only in git (Consumption Guide:61). The EG Round 2 Verification Note (72-79) + this contract + the 7 OPEN items in ## MACHINE_DOMINANT_OPEN_ITEMS are the single source for "current state + how to safely evolve".
+- Violation = self-pollution of the autonomous loop (the exact face-eating risk the 50-ticket machine was built to avoid). Citadel will catch; the generator will not forgive.
 
 **Verification commands** (machine-checkable):
 - `node -e 'console.dir(require("./engine/src/self-prd-generator").loadBacklogState("."))'`
@@ -74,6 +83,6 @@ This run performed full claude-first (list_dir on root/docs/prds/references/engi
 
 **Confirmed current reality (no drift)**: ac-shape.ts:9-11 and ticket-emitter.ts:52/393 already retired the "data model limit" / "council paths only" predicates (post-prior hygiene). Self/healer/council paths forward real ac_shape_smells via EmitOptions + collectedAc (gen:889/932, emitter:398/434 write, citadel:815 embed). Full H-EMIT-UNIVERSAL-01 (native hard gate on *all* paths) remains OPEN. generator:810-817 dupe + 777/796 asymmetry live (risk: do Anatomy data-flow first; no touch without H-* waiver). 4 living docs now match HEAD exactly; Consumption Guide contract stronger for next H-FIDELITY-03 / self-PRD.
 
-**Docs win delta for next run**: Higher signal, zero rotten cites to retired text, explicit subagent map refs, risk scream recorded. Future EG starts here with accurate prioritization. Citadel + install followed.
+**Docs win delta for next run**: Higher signal, zero rotten cites to retired text, explicit subagent map refs, risk scream turned into machine-usable "Fidelity Surface Mutation Contract" (new subsection above). Future EG / H-FIDELITY-03 starts with a single clean rule instead of having to re-derive the ingestion coupling. Citadel + install followed.
 
 Wubba lubba dub dub.

@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-29 (Round 1 Simplifier: ac-shape/ticket-emitter stale comments retired + 4 living docs synced to partial ac_shape carry reality + fresh HEAD cites everywhere per Consumption Guide + AGENTS. reliability:48 updated. 7 OPEN. Zero src. Docs win. See reliability:5-70.)
+**Last Updated**: 2026-05-29 (see EG Round 2 Note:72 + Consumption Guide:53 + git for history). 7 OPEN. Zero src. Docs win. See reliability:5-70.)
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 
@@ -16,7 +16,7 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 **Prioritized targets** (synth + reliability:68): full ac_shape_smells + richer annotation (partial carry now), living MASTER_PLAN (CLOSED), thin citadel. Traps in citadel_report + backlog.
 
 **Cross-refs (exact, no invention)**:
-- AGENTS.md:25/43/58/70 (driver + Trap Doors + Round 1 hygiene), :7 (Prime Directive), :15 (synth)
+- AGENTS.md:25/43/58/70 (driver + Trap Doors), :7 (Prime Directive), :15 (synth)
 - reliability-backlog.md:5-70 (7 OPEN + Guide)
 - docs/closer-ticket-manager-handoff.md:21/30/48/49
 - engine/src/self-prd-generator.ts:335/712/817/889/932 (fidelity + collectedAc)
@@ -35,7 +35,7 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 
 Wubba lubba dub dub.
 
-**Risk/scope scrub 2026-05-28+ (EG Round 1)**: Stale cites clawed (prior + this: ac-shape/ticket-emitter comments + 4 docs), dupe noise excised, vestigials tracked. claude-first (list_dir lib/, read ac-shape:1-30 + ticket:1-70/380+ + 4 docs + greps). No src (FORBIDDEN). Higher signal. See reliability + AGENTS.
+**Risk/scope scrub 2026-05-28+ (details in git)**: Higher signal. See reliability + AGENTS.
 
 ## Roadmap: Set and Forget for Normies (Target Definition + Prioritized Work)
 
@@ -86,12 +86,12 @@ Every ticket carved from this roadmap **must** follow the prescriptive template 
 ## Living Interface Manifest (for generator/closer fidelity + evergreen sweeps)
 
 The 4 living docs are the canonical fidelity surface (generator:335 fidelityDirs + keywords/candidates:714-731, loadBacklogState:136, performPost:707, closer:40):
-- reliability-backlog.md:5-70 (## MACHINE_* + Guide — single source for 7 OPEN + contract; Round 1 hygiene applied)
+- reliability-backlog.md:5-70 (## MACHINE_* + Guide — single source for 7 OPEN + contract; hygiene complete)
 - docs/MASTER_PLAN.md:40-74 (Roadmap + P0/P1 H-* + metrics + manifest)
 - docs/closer-ticket-manager-handoff.md (bypass + expectations + refs)
-- AGENTS.md:25/43/58/70 (driver + Trap Doors post Round 1 comment sync)
+- AGENTS.md:25/43/58/70 (driver + Trap Doors post hygiene sync)
 
-Consumers MUST key on MACHINE_ anchors + Guide (not tail/ad-hoc). Update on structural (Round 1 hygiene done). History git only. "Docs win."
+Consumers MUST key on MACHINE_ anchors + Guide (not tail/ad-hoc). Update on structural change. History git only. "Docs win."
 
 **Docs win. Citadel will catch any drift.**
 

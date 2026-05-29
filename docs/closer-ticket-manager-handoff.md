@@ -1,8 +1,8 @@
 # Closer Ticket Manager Handoff (Living Contract)
 
-**Status**: Created to close dominant fidelity debt (AGENTS.md:25/43/45, reliability-backlog.md:5/53). Replaces test-stub-only. Round 1: 4 docs + comment hygiene synced.
+**Status**: Created to close dominant fidelity debt (AGENTS.md:25/43/45, reliability-backlog.md:5/53). Replaces test-stub-only. 4 docs + comment hygiene synced.
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-29 (EG Round 1 Simplifier hygiene: ac-shape/ticket-emitter comments + all 4 living docs synced to current partial ac_shape reality + fresh HEAD cites; reliability:48 recorded. 7 OPEN. Zero src. Docs win. See reliability:5-70.)
+**Last Updated**: 2026-05-29 (see EG Round 2 Note:72 + Consumption Guide:53 + git for history). 7 OPEN. Zero src. Docs win. See reliability:5-70.)
 
 ## The --closer-context / --no-confirm Bypass Contract
 
@@ -37,9 +37,9 @@ Per AGENTS.md:25-32/45 (Contributor Rules): Self-changes **must** pass Citadel. 
 
 - Single source of truth for the bypass + closer expectations.
 - Updated whenever install.sh bypass, generator candidates/regex, closer flow, or AGENTS Contributor Rules change.
-- All cross-refs use exact HEAD line# (AGENTS:25/43/58/70, reliability-backlog:5-70 + :48 (Round 1), install.sh:26/63, generator:335/712/817/889/932 + performPost, PRD:69, test:178).
+- All cross-refs use exact HEAD line# (AGENTS:25/43/58/70, reliability-backlog:5-70 + :48, install.sh:26/63, generator:335/712/817/889/932 + performPost, PRD:69, test:178).
 - Once real (not stub), scanForGaps + performPostCampaignIngest see honest docs/ content on every self-run.
-- Part of "Docs win" (AGENTS:23/34) + Trap Door hygiene (exact parity, no overclaim; AGENTS:40). Round 1 comment/docs sync applied.
+- Part of "Docs win" (AGENTS:23/34) + Trap Door hygiene (exact parity, no overclaim; AGENTS:40). Hygiene sync applied.
 - Closer tickets must keep it in sync as part of handoff.
 
 ## Current Status (Post-Creation + Tranche8)
