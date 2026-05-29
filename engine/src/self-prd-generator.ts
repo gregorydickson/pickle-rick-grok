@@ -811,6 +811,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
         const eq = JSON.parse(emissionQualityJson);
         const acCount = Array.isArray(eq.ac_shape_smells) ? eq.ac_shape_smells.length : 0;
         const malformedCount = Array.isArray(eq.annotation_format_malformed) ? eq.annotation_format_malformed.length : 0;
+        if (Array.isArray(eq.ac_shape_smells)) collectedAc.push(...eq.ac_shape_smells); // minimal wire: richer from direct eq now reaches healer emitRefinedTickets (H-EMIT-UNIVERSAL-01 / canary 321)
         if (acCount > 0 || malformedCount > 0) {
           closed++;
           lines.push(`  - Richer emission signals ingested: ac_shape_smells=${acCount}, annotation_format_malformed=${malformedCount} (from real 50-tix artifacts; per claude spawn:1410/1978 + check:308/325)`);
@@ -830,6 +831,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
         if (eq) {
           const acCount = Array.isArray(eq.ac_shape_smells) ? eq.ac_shape_smells.length : 0;
           const malformedCount = Array.isArray(eq.annotation_format_malformed) ? eq.annotation_format_malformed.length : 0;
+          if (Array.isArray(eq.ac_shape_smells)) collectedAc.push(...eq.ac_shape_smells); // minimal wire: richer from citadel emissionQuality now reaches healer emitRefinedTickets (H-EMIT-UNIVERSAL-01 / AC-EMIT-02 canary)
           if (acCount > 0 || malformedCount > 0) {
             closed++;
             lines.push(`  - Richer emissionQuality from citadel_report.json: ac_shape_smells=${acCount}, annotation_format_malformed=${malformedCount} (unified richer citadel report signal alongside direct file BC path)`);
@@ -996,6 +998,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
 
 /** Idempotency: has a verify_theater_rejected or relevant hardening been logged in the last ~36h activity file? */
 function checkRecentVerifyTheaterReject(root: string): boolean {
+  if (process.env.PICKLE_TEST_FORCE_EMIT_HEALER === '1') return false; // test hermeticity for healer emit path (forces collection->emit->post-eq write; no prod impact, addresses TESTABILITY_AUDIT emission debt skip)
   try {
     const actDir = path.join(process.env.HOME || (os.homedir ? os.homedir() : root), '.local/share/pickle-rick-grok/activity');
     // find latest jsonl

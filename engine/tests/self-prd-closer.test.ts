@@ -84,7 +84,7 @@ test('generateSelfPrd — scans critical engine files, produces PRD + structured
   seedMinimalGrokTree(root);
 
   const { generateSelfPrd } = await loadSelf();
-  const out = generateSelfPrd(root, { full: true, dry: true });
+  const out = await generateSelfPrd(root, { full: true, dry: true });
 
   assert.ok(out.prdMarkdown.length > 200, 'real PRD content');
   assert.ok(out.gapCount >= 1, 'must report at least one gap in ritual/citadel surface');
@@ -104,7 +104,7 @@ test('generateSelfPrd with sessionDirToPopulate — auto-decomposes and writes e
   fs.mkdirSync(path.join(sessionDir, 'tickets'), { recursive: true });
 
   const { generateSelfPrd } = await loadSelf();
-  const out = generateSelfPrd(root, { full: true, sessionDirToPopulate: sessionDir });
+  const out = await generateSelfPrd(root, { full: true, sessionDirToPopulate: sessionDir });
 
   // verify via return value (the decompose logged success) + tree search
   assert.ok((out.ticketsPopulated || 0) >= 1 || out.structuredSeeds.length > 0, 'auto-decompose should report populated tickets or seeds');
@@ -147,7 +147,7 @@ test('self-meta loop — generate + ingest roundtrip shrinks or maintains delta 
 
   const { generateSelfPrd, performPostCampaignIngest } = await loadSelf();
 
-  const gen1 = generateSelfPrd(root, { full: true, dry: true });
+  const gen1 = await generateSelfPrd(root, { full: true, dry: true });
   const initialGaps = gen1.gapCount;
 
   // pretend we "fixed" by appending a closed item via ingest simulation
@@ -207,7 +207,7 @@ test('self-loop ingestion — recent fidelity debt (forward-ref/ac-shape modules
   // Next self-PRD must see the debt as a gap (the core SWARM3 P0)
   // tranche8: write returned md so loadBacklogState in generate sees "ingested" markers (including master_plan) marking self-loop-ingestion closed → GAP suppression
   fs.writeFileSync(path.join(root, 'reliability-backlog.md'), post.backlogMarkdown);
-  const gen = generateSelfPrd(root, { full: true, dry: true });
+  const gen = await generateSelfPrd(root, { full: true, dry: true });
   const hasFidelityGap = (gen.structuredSeeds || []).some((s: any) => /self-loop-ingestion|dedicated-module|forward-ref.*debt/i.test((s.title || '') + (s.category || '') + (s.description || '')));
   const emitsSelfLoopGap = (gen.structuredSeeds || []).some((s: any) => /self-loop-ingestion|GAP-SELF-LOOP-INGESTION/i.test((s.title || '') + (s.category || '') + (s.description || '')));
   assert.ok(!emitsSelfLoopGap, 'gen no longer emits self-loop-ingestion gap (master_plan living doc + closer ingested + closed via updated backlog)');
@@ -296,8 +296,16 @@ test('performPostCampaignIngest — ingests richer ac_shape_smells + annotation_
   }));
   fs.writeFileSync(path.join(sessionDir, 'readiness-gate-report.md'), 'EMISSION_DEBT: annotation_format_malformed + path_not_found + machinability (tranche9 seed to force second healer emit path at 925)');
 
+  // TDD hermetic force for healer emit path (gate debt at 942): ensures emitRefinedTickets reached so post-emit eq proves collected acShapeSmells reached emitter write+gate. Env defeats global recentReject. (Minimal per backend-reviewer-fixer + morty-phase-implementer contracts.)
+  const _prevForce = process.env.PICKLE_TEST_FORCE_EMIT_HEALER;
+  process.env.PICKLE_TEST_FORCE_EMIT_HEALER = '1';
   const { performPostCampaignIngest } = await loadSelf();
-  const res = await performPostCampaignIngest(root, sessionDir);
+  let res: any;
+  try {
+    res = await performPostCampaignIngest(root, sessionDir);
+  } finally {
+    if (_prevForce === undefined) { delete process.env.PICKLE_TEST_FORCE_EMIT_HEALER; } else { process.env.PICKLE_TEST_FORCE_EMIT_HEALER = _prevForce; }
+  }
 
   const ingested = res.backlogMarkdown || '';
   // Must surface the richer emission signals (the long-documented gap)
