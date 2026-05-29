@@ -106,6 +106,19 @@ This section records the output of the user prompt "use appropriately sized agen
 
 **acSmells refreshed (from this sweep)**: ["AC-FIDELITY-01", "AC-EMIT-02", "AC-CITADEL-03", "AC-RITUAL-04", "AC-INSTALL-05", "AC-SIMPL-01/02", "AC-ARCH-TEST-01", "AC-GEN-VESTIGE-02", "AC-OVERREACH-DIAGNOSED-01", "AC-GUARD-LIVE-PULL-01", "AC-INSTALL-HYGIENE-SEAM-01", "AC-DOCS-EVERGREEN-MANDATE-01"].
 
-**Verification commands** (machine-checkable, per Guide:74-77): the 3 above + `git log -S "User-Directed Evergreen Sweep" -- reliability-backlog.md` (this section is the record).
+**Backend Reviewer-Fixer subagent (019e7403-dd55-7932-9bc6-e8fa5c1d1d5f, 88 tool calls, full claude-first)**: Confirmed identical safe scope (install.sh + test-only guard extensions on allowed surfaces; zero generator/forbidden/4-docs mutation). Proposed exact minimal diffs for the 3 items we shipped + a machine-parseable 7-item table (for loadBacklogState:136 + future parsers) + "Backend Review Sweep Findings" subsection. Table idea folded below for higher signal (post any future H-* waiver the contract requires).
 
-Wubba lubba dub dub. The tail stays in the mouth. Next prompt run starts here with higher signal, zero sludge, explicit safe path.
+**Compact MACHINE_7ITEM_TABLE (for loadBacklogState + scanners; proposed by backend-fixer + integrated here)**:
+| # | H-* | Status | Key Evidence (file:line#) | Safe This Run? |
+|---|-----|--------|---------------------------|----------------|
+|1| H-EMIT-UNIVERSAL-01 (ac_shape full) | OPEN partial | ac-shape:9-11, emitter:52/393/395/431, gen:889/932, citadel:815, pre:417 | No (H-* + waiver) |
+|2| (coupled annotation_format) | OPEN | preflight:392-398, gen:810 | No |
+|3| H-CITADEL-DEPTH-01 (thin) | OPEN | citadel:1-30/798/815 | Test extension only |
+|4| H-RITUAL-GOD-01 (god residual) | OPEN doc-only | ritual:4-6 + FORBIDDEN adj | No |
+|5| H-FIDELITY-03 / H-SELF-PRD-FIDELITY-02 (gen vestigials/dupe 810) | OPEN | gen:136-148/707+/810-817 legacy vs anchors | No (Fidelity Contract:65-72) |
+|6| H-INSTALL-ROBUST-01 | OPEN partial | install:22-84/33-37 (arg), 62-65 | **Yes** (case collapse + seam + hash) |
+|7| H-GUARD-TRUTH-01 | OPEN partial | arch:36-48/test:124, others lag | **Yes** (live-pull tests only) |
+
+**Verification commands** (machine-checkable, per Guide:74-77): the 3 above + `git log -S "User-Directed Evergreen Sweep" -- reliability-backlog.md` (this section is the record) + `grep -A20 "MACHINE_7ITEM_TABLE" reliability-backlog.md`.
+
+Wubba lubba dub dub. The tail stays in the mouth. Next prompt run starts here with higher signal, zero sludge, explicit safe path + machine table.
