@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-29 (reliability:48 lastUpdated normalized — narrative excised to git only per Guide:61; H-FIDELITY-03 deferred. 7 OPEN live. Zero src. "Docs win." See reliability:5-70.)
+**Last Updated**: 2026-05-29 (Round 1 Simplifier: ac-shape/ticket-emitter stale comments retired + 4 living docs synced to partial ac_shape carry reality + fresh HEAD cites everywhere per Consumption Guide + AGENTS. reliability:48 updated. 7 OPEN. Zero src. Docs win. See reliability:5-70.)
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 
@@ -13,15 +13,15 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 - Version bump, parity, citadel validation.
 - Commit "Closed: #NN via R-XXX-CLOSER".
 
-**Prioritized targets** (from synth driver + reliability:68): full ac_shape_smells JSON + richer annotation_format, living MASTER_PLAN depth (now CLOSED), thin citadel depth. Trap counts tracked in citadel_report + backlog.
+**Prioritized targets** (synth + reliability:68): full ac_shape_smells + richer annotation (partial carry now), living MASTER_PLAN (CLOSED), thin citadel. Traps in citadel_report + backlog.
 
 **Cross-refs (exact, no invention)**:
-- AGENTS.md:43 (debt list + tranche bullets), :7 (Prime Directive: Bootstrapping Mode vs Production Autonomous Use — this is the fundamental distinction during our current work building pickle-rick-grok itself), :15 (synth driver), :47 (tranche7 model)
-- reliability-backlog.md:68 (still dominant open pre-tranche8)
-- docs/closer-ticket-manager-handoff.md:21/30/48 (Ingest MASTER_PLAN; Still dominant open list)
-- engine/src/self-prd-generator.ts:335 (fidelityDirs/keywords), :725 (candidates)
-- master_plan.md:26/28 (now deprecated stub; "Docs win" + explicit pointer to this living docs/MASTER_PLAN.md as the generator/closer ingested source per tranche8 + risk scrub 2026-05-28)
-- prds/claude-to-grok-ports...2026-05-24.md:66 (MASTER_PLAN curation)
+- AGENTS.md:25/43/58/70 (driver + Trap Doors + Round 1 hygiene), :7 (Prime Directive), :15 (synth)
+- reliability-backlog.md:5-70 (7 OPEN + Guide)
+- docs/closer-ticket-manager-handoff.md:21/30/48/49
+- engine/src/self-prd-generator.ts:335/712/817/889/932 (fidelity + collectedAc)
+- master_plan.md:26/28 (deprecated stub, pointer to living)
+- prds/claude-to-grok-ports...2026-05-24.md:66 (curation)
 
 ## What "Living" Means
 - Single source for prioritized backlog, targets, trap counts.
@@ -31,11 +31,11 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 
 ## Current Status (Post-Tranche8)
 - Debt closed for living MASTER_PLAN updates depth: real doc at docs/MASTER_PLAN.md now ingested (Ingested MASTER_PLAN.md + gap suppression in gen).
-- Still dominant open (AGENTS:43 + 2026-05-28 evergreen sweeps): the 7 items in reliability-backlog.md:5-41 (## MACHINE_DOMINANT_OPEN_ITEMS + Consumption Guide contract; canonical for loadBacklogState:136/scanForGaps:150/performPost:707/closer:40). Full ac_shape_smells plumbing, richer annotation, thin citadel, ritual god (doc-only), self-prd vestigials, install hygiene, test guard drift remain. See reliability:5-70 + this Roadmap. (Living Interface Manifest below; history in git only.) 
+- Still dominant open (AGENTS:43 + 2026-05-28 sweeps): the 7 items in reliability-backlog.md:5-41 (## MACHINE_* + Guide; canonical for loadBacklogState:136/scanForGaps:150/performPost:707/closer:40). Emission plumbing partial (self/healer/council carry), thin citadel, ritual god (doc-only), self-prd vestigials, install, test drift remain. See reliability:5-70 + Roadmap. (Manifest below; git history only.) 
 
 Wubba lubba dub dub.
 
-**Risk/scope scrub 2026-05-28 (this run)**: Clawed stale :N cites across files (AGENTS, reliability, handoff, TESTABILITY), master_plan dupe noise (root deprecated stub pointing here; fidelityKeywords handles both but clarity wins for humans+scans), vestigial smells + arch-deepener.test drift + install redundant parse now tracked. All per claude-first (list+read+grep+git ls/grep on HEAD). No src mut (screamed on generator/ritual/citadel per FORBIDDEN + persona). Higher signal for next self-PRD/closer. See reliability-backlog + AGENTS.
+**Risk/scope scrub 2026-05-28+ (EG Round 1)**: Stale cites clawed (prior + this: ac-shape/ticket-emitter comments + 4 docs), dupe noise excised, vestigials tracked. claude-first (list_dir lib/, read ac-shape:1-30 + ticket:1-70/380+ + 4 docs + greps). No src (FORBIDDEN). Higher signal. See reliability + AGENTS.
 
 ## Roadmap: Set and Forget for Normies (Target Definition + Prioritized Work)
 
@@ -59,13 +59,13 @@ Three horizons:
 H-FIDELITY-03 is the highest-leverage safe next concrete ticket. Hard emission/ritual/citadel items stay on the full H-* + 4-hardening + waiver path.
 
 **P0 — Non-negotiable for the target (must be closed before claiming normie readiness)**
-- **H-EMIT-UNIVERSAL-01**: Full analyst ac_shape_smells + richer annotation_format hard gate on *all* emission paths (self-PRD, healers, meta, not just council). Remove the "data model limit" in ac-shape.ts:9-13 and ticket-emitter. Success: every emitted ticket carries real smells when analysts produced them; hard enforcement fires on bad ACs even for generated healers. Hardening: Anatomy (data flow of smells from SKILL → emitter → generator → verifier) + Szechuan on any remaining "council only" branches.
+- **H-EMIT-UNIVERSAL-01**: Full analyst ac_shape_smells + richer annotation hard gate on *all* emission paths (self-PRD, healers, meta, not just council). Partial: self/healer/council paths now forward collectedAc via EmitOptions (generator:712/817/889/932, emitter:395/431 writes, citadel:815 embed); full universal hard gate on native smells still OPEN. Success: hard enforcement on bad ACs for generated too. Hardening: Anatomy (smell flow SKILL→emitter→gen) + Szechuan.
 - **H-CITADEL-DEPTH-01**: Grow Citadel from v1.2 thin 6-auditor (+CrossPhase) toward Claude parity (more auditors for emission honesty, ritual god detection, self-meta traps, install hygiene). Produce richer findings that the closer actually consumes. Success: citadel_report.json + CrossPhaseFindingsReport contain high-signal, deduped items that drive real next tickets with low noise. Hardening: full Anatomy on auditor data flows + Szechuan on auditor bloat.
 - **H-RITUAL-GOD-01** (careful): Address the ritual god residual (ritual.ts:4-6) safely. Either (a) explicit H-* waiver + heavy hardening or (b) better isolation + observability so the "research rescue logic" surface stops being a silent risk. Success: no more "doc-only per safety" asterisk on the single biggest runtime coordinator. (Risk scream required.)
 
 **P1 — High leverage for normie experience**
-- **H-SELF-PRD-FIDELITY-02**: Eliminate remaining vestigials and shallow ingest in self-prd-generator (scanForGaps/performPost 335/707+, loadBacklogState tail regex). Use the new stable ## MACHINE_* anchors in reliability-backlog.md. Add typed parser (see engineering-architect recommendation). Success: generator produces measurably higher-quality R-META tickets; fewer "docs lie to the machine" cases. Hardening: Anatomy on ingest paths + Szechuan on vestigial debt notes.
-- **H-FIDELITY-03 (next concrete ticket)**: Make `loadBacklogState` (self-prd-generator.ts:136-148) + dependent fidelity consumers (`scanForGaps`, `performPostCampaignIngest` callsites) actually prefer the structured `## MACHINE_DOMINANT_OPEN_ITEMS` + `## MACHINE_SUMMARY` + Consumption Guide contract in `reliability-backlog.md:5-70` instead of legacy `slice(-4000)` + hardcoded `known[]` + `/## Campaign /g` logic. Add machine-checkable verification that `loadBacklogState` returns clean results based on the new anchors with 0 reliance on historical tail content. This is the highest-leverage safe next step toward the self-loop seeing the improved living record. Hardening: Anatomy on the exact fidelity data-flow paths + Szechuan on any new complexity introduced in the parser. (See AGENTS.md for decision record.)
+- **H-SELF-PRD-FIDELITY-02**: Eliminate vestigials/shallow ingest in self-prd-generator (scanForGaps/performPost 335/707+, loadBacklogState). Use ## MACHINE_* + Guide in reliability-backlog.md. Success: higher-quality R-META; fewer lies. Hardening: Anatomy + Szechuan.
+- **H-FIDELITY-03 (next concrete ticket)**: Make `loadBacklogState` (self-prd-generator.ts:136-148) + consumers (`scanForGaps`, `performPost`) prefer `## MACHINE_DOMINANT_OPEN_ITEMS` + `## MACHINE_SUMMARY` + Consumption Guide in reliability-backlog.md:5-70 (vs legacy slice/regex). Machine-checkable verification. Highest-leverage safe step to improved living record. Hardening: Anatomy + Szechuan. (AGENTS decision record.)
 - **H-INSTALL-ROBUST-01**: Finish install hygiene (MD5 or equivalent verification, remove last redundant arg parsing at install.sh:36, better non-tty + stale session messaging). Make `--closer-context --no-confirm` the boring default path for the machine. Success: closer handoff "just works" even after long campaigns or SIGKILLs.
 - **H-GUARD-TRUTH-01**: Fix stale test drift (arch-deepener.test.ts:124 vs arch-deepener.ts:36-48 FORBIDDEN list, plus any similar green-on-lie in ac-shape-gate, preflight, citadel tests). Add living assertions that pull the real lists from source. Success: tests fail when guards drift.
 
@@ -85,13 +85,13 @@ Every ticket carved from this roadmap **must** follow the prescriptive template 
 
 ## Living Interface Manifest (for generator/closer fidelity + evergreen sweeps)
 
-The 4 living docs are the canonical fidelity surface (generator:335 fidelityDirs=['docs'], fidelityKeywords + candidates:714-731, loadBacklogState:136, performPost:707, closer:40):
-- reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY + Consumption Guide — the single source for the 7 OPEN + parser contract)
-- docs/MASTER_PLAN.md:40-74 (Roadmap: Set and Forget for Normies + P0/P1 H-* + success metrics + this manifest)
-- docs/closer-ticket-manager-handoff.md (bypass contract + closer expectations + ingestion cross-refs)
-- AGENTS.md:15/23/43 (synthesis driver + Trap Doors + Contributor Rules + claude-first mandate)
+The 4 living docs are the canonical fidelity surface (generator:335 fidelityDirs + keywords/candidates:714-731, loadBacklogState:136, performPost:707, closer:40):
+- reliability-backlog.md:5-70 (## MACHINE_* + Guide — single source for 7 OPEN + contract; Round 1 hygiene applied)
+- docs/MASTER_PLAN.md:40-74 (Roadmap + P0/P1 H-* + metrics + manifest)
+- docs/closer-ticket-manager-handoff.md (bypass + expectations + refs)
+- AGENTS.md:25/43/58/70 (driver + Trap Doors post Round 1 comment sync)
 
-Consumers MUST key on the MACHINE_ anchors + Guide (not tail regex or ad-hoc lists). Update keywords/candidates + this manifest on structural changes. History in git only. "Docs win."
+Consumers MUST key on MACHINE_ anchors + Guide (not tail/ad-hoc). Update on structural (Round 1 hygiene done). History git only. "Docs win."
 
 **Docs win. Citadel will catch any drift.**
 

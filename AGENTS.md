@@ -22,7 +22,7 @@ The system should be capable of:
 - Driving sustained improvement via Anatomy Park (deep review), Szechuan Sauce (deslopping), and Citadel (conformance + traps).
 - Dogfooding aggressively while enforcing strict source vs deployed separation.
 
-**Current synthesis driver (emission quality & autonomous reliability)**: Full machine-usable 7-item record + history in git: see reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY + Consumption Guide contract for loadBacklogState:136/scanForGaps:150/performPost:707/closer:40). Core ports (ac-shape.ts:9-13 + forward-ref-annotation.ts:1-28 + preflight emission gates + 4-hardening + runner resilience) tracked there with exact cites (AGENTS:43 Trap Doors). Tranche execution detail lives in git only (git log -S tranche -- reliability-backlog.md). No wall-of-text. Evergreen runs (this one + prior) enforce "Docs win" by keeping the living record (reliability primary) high-signal for the self-loop.
+**Current synthesis driver (emission quality & autonomous reliability)**: Full machine-usable 7-item record + history in git: see reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY + Consumption Guide). Core ports (ac-shape.ts:9-11 + forward-ref-annotation.ts:1-28 + preflight + 4-hardening) tracked with exact cites (AGENTS:43). Tranche detail in git only. No wall-of-text. Evergreen (this Round 1) enforces "Docs win" + comment hygiene (stale predicates retired). High-signal for self-loop.
 
 ## Core Rules (non-negotiable)
 
@@ -47,7 +47,7 @@ The system should be capable of:
 
 ## Trap Doors
 
-**Single source of truth**: reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY + Consumption Guide contract). The 7 dominant open fidelity items (with exact Evidence cites + H-* paths) + ac smells list are the canonical machine-usable record for loadBacklogState:136 / scanForGaps:150 / performPostCampaignIngest:707 / closer:40. All per claude-first + personas + gate injections.
+**Single source of truth**: reliability-backlog.md:5-70 (## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY + Consumption Guide). 7 OPEN + ac smells = canonical for loadBacklogState:136 / scanForGaps:150 / performPost:707 / closer:40. Per claude-first + gate injections.
 
 - Source/Deployed separation (highest P0).
 - Root discovery must always resolve to this tree (fixed).
@@ -55,8 +55,8 @@ The system should be capable of:
 - Specific known issues (see reliability-backlog.md:5-41 for current state + cites):
   - Ritual god residual (ritual.ts:4-6 exact quote; doc-only per safety + FORBIDDEN adjacency; H-RITUAL-GOD-01 requires explicit waiver + heavy hardening).
   - Thin citadel (citadel.ts:1-30 v1.2 6-auditor + CrossPhase; artifacts often schema 1.1; H-CITADEL-DEPTH-01).
-  - Emission plumbing debt: full ac_shape_smells JSON + richer annotation_format on *all* paths (ac-shape.ts:9-13 "data model limit — real analyst smells not yet plumbed"; ticket-emitter.ts:52 "council paths only"; preflight:417 warning-only; H-EMIT-UNIVERSAL-01).
-  - Self-prd-generator fidelity consumers depth + vestigials (generator:136-148 legacy tail + 335/707 + 774-842 richer blocks with 810-817 dupe parse live; H-SELF-PRD-FIDELITY-02 + H-FIDELITY-03).
+  - Emission plumbing debt: full ac_shape_smells + richer annotation on *all* paths (ac-shape.ts:9-11 post-retire; ticket-emitter.ts:52/393 updated; preflight:417 warning; H-EMIT-UNIVERSAL-01 partial carry on self/healer/council).
+  - Self-prd-generator fidelity consumers depth + vestigials (generator:136-148 + 335/707/889/932; H-SELF-PRD-FIDELITY-02 + H-FIDELITY-03).
   - Install hygiene (redundant arg parse + no MD5; ACTIVE guard at install.sh:40-53; H-INSTALL-ROBUST-01).
   - Stale test drift on guards (H-GUARD-TRUTH-01 partial; FORBIDDEN truthful but ac-shape/preflight/citadel analogs lag).
 - "Set and Forget for Normies" usability target (docs/MASTER_PLAN.md:42-50): low-friction 20-100 ticket autonomous campaigns. The 7 items above are the official blockers. Historical tranche execution lives only in git (`git log -S tranche -- reliability-backlog.md`). No wall-of-text in the files the machine loads.
@@ -65,6 +65,6 @@ The system should be capable of:
 
 **Prime Directive (AGENTS:9-18)**: Bootstrapping this tree = rich chat teams / evergreen sweeps / spawn_subagent = allowed primary leverage. Finished system purpose = opposite (headless grok -p + ritual + convergence on arbitrary external repos, minimal ongoing human/chat intervention). All rules protect the transition.
 
-**Self-changes + "Docs win"**: Must pass Citadel. Update AGENTS + reports + 4 living docs. Install after. History in git only. Evergreen runs (this one + prior) enforce higher signal / lower noise for the self-loop (see reliability:53-70 Consumption Guide contract: key exclusively on ## MACHINE_* headers; 0 ## Campaign in file; update fidelityKeywords/candidates on structural change).
+**Self-changes + "Docs win"**: Must pass Citadel. Update AGENTS + reports + 4 living docs. Install after. History git only. Evergreen (Round 1) enforces higher signal (reliability:53-70 Guide: key on ## MACHINE_*; 0 sludge; 4 docs synced).
 
-**Evergreen 2026-05-28+ (this 6-person EG Round 1)**: See reliability-backlog.md:48 (MACHINE_SUMMARY lastUpdated + acSmells list + crossConfirmed) for full credit, actions, fresh smells (historical_narrative_duplication, dupe_parse_block at generator:810-817 etc.), H-FIDELITY-03 deferral rationale, and 7 OPEN status with cites. Pure-docs compression of prior narrative + boilerplate (per codebase + risk maps). Docs win + install. Wubba lubba dub dub.
+**Evergreen 2026-05-28+ (EG Round 1 + Round 2 6-person verification 2026-05-30)**: See reliability-backlog.md:48 + :70 (MACHINE_SUMMARY + EG Round 2 Verification Note with 4 subagent maps + risk scream on gen:810-817 asymmetry). Round 2: confirmed predicates retired (ac-shape:9-11, emitter:52/393), plumbing partial (collectedAc gen:889/932), 4 docs synced zero drift. H-FIDELITY-03 next. Docs win. Wubba lubba dub dub.

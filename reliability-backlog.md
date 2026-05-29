@@ -1,15 +1,15 @@
-# Reliability Backlog — Living Record of Current Trap Doors & Dominant Fidelity Debt (post-tranche10 + tranche11 4-person agent team audit 2026-05-28)
+# Reliability Backlog — Living Record of Current Trap Doors & Dominant Fidelity Debt (post-tranche10 + tranche11 4-person + EG Round 2 6-person agent team verification 2026-05-30)
 
 **Status**: This is the canonical, living single-source record of remaining open items (AGENTS.md:43 Trap Doors + synthesis driver at 15). The self-prd-generator (scanForGaps + performPostCampaignIngest + loadBacklogState) and closer (self-improvement-loop-closer.ts:40-43) ingest here on every campaign. 50-Ticket report and pre-tranche10 logs are historical/stale. The top (## MACHINE_* blocks below + 7-item list) is the machine-usable signal for fidelity.
 
 ## MACHINE_DOMINANT_OPEN_ITEMS
-1. **full analyst ac_shape_smells JSON plumbing into emitter manifest (for true hard gate on *all* paths)**: OPEN (data model limit blocks universal). 
-   - Evidence (fresh claude-first this sweep + prior): ac-shape.ts:9-13 ("Emitter currently passes empty ac_shape_smells (data model limit — real analyst smells not yet plumbed into TicketSpec[])"), ticket-emitter.ts:52/398 (EmitOptions + acManifest council-only), SKILL.md:104/140 (council parse only), pipeline-preflight.ts:417 (only warning). generator:774-820 + 784/805/815-828 (vestigial blocks + ifs live per grep/read despite tranche9/10 claims).
-   - **Path to Normie ticket**: H-EMIT-UNIVERSAL-01 (P0). Extend TicketSpec + EmitOptions to carry real ac_shape_smells from all paths (self-PRD, healers, meta). Wire through emitter on every emit. Hard gate must fire on bad ACs even for generated tickets. Hardening required: Anatomy (full smell data flow) + Szechuan.
+1. **full analyst ac_shape_smells JSON plumbing into emitter manifest (for true hard gate on *all* paths)**: partial (self/healer/council paths carry via collectedAc/EmitOptions; full universal hard gate on native smells still OPEN per H-EMIT-UNIVERSAL-01).
+   - Evidence (claude-first + HEAD): ac-shape.ts:9-11 (post-retire: minimal shape, EmitOptions forward), ticket-emitter.ts:52/393 (updated notes), 395/431 (acManifest + eq writes), generator:712/817/889/932 (collectedAc + acShapeSmells:), citadel:815 (emissionQuality embed). SKILL.md:104/140 (council), preflight:417 (warning-only). generator:774-820 vestigials remain (H-FIDELITY-02).
+   - **Path to Normie ticket**: H-EMIT-UNIVERSAL-01 (P0). Wire hard gate on every emit path (self-PRD/healers/meta too). Hardening: Anatomy (smell data flow) + Szechuan.
    - AC-SIMPL-01.
 
 2. **richer annotation_format in manifest / check-readiness parity**: OPEN (partial). 
-   - Evidence: preflight:360/395-398/422 (malformed collection + richer return optional), citadel:793/815, generator:774-820 (still vestigial blocks), vs claude check-readiness:308/325.
+   - Evidence: preflight:360/395-398/422 (malformed + optional), citadel:815 (emissionQuality), generator vestigials remain (774+ range), vs claude:308/325.
    - **Path to Normie ticket**: H-EMIT-UNIVERSAL-01 (same P0 ticket as #1 — they are coupled). Full one-space forward-ref + annotation_format_malformed detection + hard enforcement on all emission paths.
    - AC-EMIT-02.
 
@@ -24,8 +24,8 @@
    - AC-RITUAL-04. No implementation touch without waiver.
 
 5. **self-prd-generator scanForGaps/performPostCampaignIngest depth + internal vestigials**: OPEN (living docs help but residual + code smells). 
-   - Evidence (this sweep + prior): generator:335 (fidelityDirs/keywords), 707/714/725/739 (performPost + richer blocks with vestigials at 784/805/815-828/890/933 per greps confirmed live), 136-153 (loadBacklogState shallow tail-regex). Dupe Machine summaries + historical sludge still present pre-this-fix.
-   - **Path to Normie ticket**: H-SELF-PRD-FIDELITY-02 (P1). Use the new stable ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY anchors (now real parseable blocks). Add small typed parser adapter (lib/backlog-ingest.ts pattern). Eliminate remaining duplicate ifs / ||[] / debt-note noise. Success: measurably higher-quality R-META output with less self-pollution.
+   - Evidence (HEAD): generator:335 (fidelityDirs/keywords), 707+ (performPost + vestigials), 136-153 (loadBacklogState tail-regex). Historical sludge excised per Consumption Guide.
+   - **Path to Normie ticket**: H-SELF-PRD-FIDELITY-02 (P1). Prefer ## MACHINE_* anchors + Consumption Guide. Eliminate vestigial noise. Success: higher-quality R-META.
    - AC-FIDELITY-01 + GEN-VESTIGE-02.
 
 **Next concrete ticket (H-FIDELITY-03)**: Make `loadBacklogState` + fidelity consumers prefer the new anchors + Consumption Guide contract (see docs/MASTER_PLAN.md:58 for full definition + hardening requirements). This is the immediate follow-on to the recent living-docs hygiene work.
@@ -45,16 +45,16 @@
   "openCount": 7,
   "target": "Set and Forget for Normies (docs/MASTER_PLAN.md:42-50 definition + success metrics)",
   "acSmells": ["AC-FIDELITY-01", "AC-EMIT-02", "AC-CITADEL-03", "AC-RITUAL-04", "AC-INSTALL-05", "AC-SIMPL-01/02", "AC-ARCH-TEST-01", "AC-GEN-VESTIGE-02"],
-  "lastUpdated": "2026-05-29 (EG Round 1 complete; full historical narrative excised to git only per Consumption Guide:61 + AGENTS:25 'no wall-of-text'). Actions: prior Trap Doors + lastUpdated boilerplate cleaned (this run + previous). 7 OPEN + H-FIDELITY-03 (next concrete) unchanged. acSmells refreshed in this value + crossConfirmed:50. Zero src (FORBIDDEN respected + risk screams). 4 living docs synced. Install + citadel followed. 'Docs win.' Higher-signal machine record for loadBacklogState:136 / H-FIDELITY-03 parser. See machineAnchorNote:49 + Guide:60-65.",
-  "machineAnchorNote": "Key on these ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY headers for stable consumption by generator/closer/loadBacklogState/scanForGaps. See H-SELF-PRD-FIDELITY-02. Prior historical tranche logs in git only (git log -S tranche -- reliability-backlog.md). Consumption Guide immediately below documents the contract.",
-  "crossConfirmed": "AGENTS:15/23/43/52/70 (post-EG Round 1 + this run), docs/MASTER_PLAN.md:5/68/86-94, handoff:5/49, reliability:5-70 + :48 (MACHINE_SUMMARY lastUpdated normalized this run — narrative excised), TESTABILITY:40-41, ac-shape.ts:9-13, ritual.ts:4-6, citadel.ts:1-30, generator:136/335/707/810-817, arch-deepener.ts:36-48 + test:124-133, install.sh:33-37/40-53"
+  "lastUpdated": "2026-05-29 (EG Round 1 Simplifier: stale 'data model limit' + 'council paths only' + 'Extend TicketSpec' + tranche9 sludge retired in ac-shape:9-11/ticket-emitter:52/393 + 4 living docs synced to partial reality per Consumption Guide; fresh HEAD cites). 7 OPEN + H-FIDELITY-03 unchanged. acSmells refreshed. Zero src. 4 docs + comments win. Higher-signal for loadBacklogState:136 / H-FIDELITY-03.",
+  "machineAnchorNote": "Key on ## MACHINE_DOMINANT_OPEN_ITEMS + ## MACHINE_SUMMARY (lines 5/41) for 7 OPEN + acSmells. Historical tranche in git only. Consumption Guide below.",
+  "crossConfirmed": "AGENTS:15/23/43/52/70, docs/MASTER_PLAN.md:5/68/86-94, handoff:5/49, reliability:5-70 + :48 (Round 1 comment hygiene), TESTABILITY:40-41, ac-shape.ts:9-11, ticket-emitter.ts:52/393/395/431, generator:712/817/889/932, citadel.ts:815, ritual.ts:4-6, arch-deepener.ts:36-48 + test:124-133, install.sh:33-37/40-53"
 }
 
 ## Consumption Guide for Self-Loop Consumers (loadBacklogState + scanForGaps + performPostCampaignIngest + runSelfImprovementLoopCloser)
 
 **Single source of truth**: The parseable `## MACHINE_DOMINANT_OPEN_ITEMS` (reliability-backlog.md:5) + `## MACHINE_SUMMARY` (reliability-backlog.md:41) blocks above. These are the stable machine anchors (JSON + 7 OPEN items with Evidence / Path-to-Normie H-* tickets / AC smells) that generator:136 (loadBacklogState), :150 (scanForGaps), :335 (fidelityDirs/keywords), :707 (performPostCampaignIngest), and closer:40 (runSelfImprovementLoopCloser) are intended to consume for fidelity + closed detection + next R-META generation.
 
-**Current reality (until H-SELF-PRD-FIDELITY-02)**: loadBacklogState:136-148 uses `txt.slice(-4000)` + hardcoded `known[]` array + `/## Campaign /g` count for legacy closedCategories. Fidelity scan (generator:335) walks 'docs' + keywords ("MASTER_PLAN|living.?backlog|closer-ticket-manager-handoff"). performPost:723-736 + 952 appends "Ingested ..." for candidates. All 4 living docs (this file + AGENTS.md + docs/MASTER_PLAN.md + docs/closer-ticket-manager-handoff.md) are the fidelity surface.
+**Current reality (until H-SELF-PRD-FIDELITY-02)**: loadBacklogState uses tail slice + legacy regex. Fidelity walks 'docs' + keywords. 4 living docs (this + AGENTS.md + docs/MASTER_PLAN.md + docs/closer-ticket-manager-handoff.md) are the surface. Round 1: comment lies retired.
 
 **Contract for future parsers + evergreen sweeps**:
 - Key first and exclusively on the ## MACHINE_* headers (lines 5/41) for the 7 dominant OPEN + acSmells list.
@@ -69,5 +69,11 @@
 
 Wubba lubba dub dub.
 
+## EG Round 2 Verification Note (2026-05-30 6-person team)
+This run performed full claude-first (list_dir on root/docs/prds/references/engine/src+lib; verbatim read_file with line# on AGENTS, reliability, MASTER_PLAN, closer-handoff, ac-shape.ts, ticket-emitter.ts, generator (load/scan/performPost), ritual, citadel, arch-deepener + test, install.sh, analyst-gate-injections, 4+ personas) + 4 parallel subagents (codebase-analyst map, risk-analyst scream on generator asymmetry 777 vs 810-817, code-simplifier exact diff proposals on allowed surfaces, engineering-architect seam/leverage review via LANGUAGE.md vocab) + synthesis.
 
+**Confirmed current reality (no drift)**: ac-shape.ts:9-11 and ticket-emitter.ts:52/393 already retired the "data model limit" / "council paths only" predicates (post-prior hygiene). Self/healer/council paths forward real ac_shape_smells via EmitOptions + collectedAc (gen:889/932, emitter:398/434 write, citadel:815 embed). Full H-EMIT-UNIVERSAL-01 (native hard gate on *all* paths) remains OPEN. generator:810-817 dupe + 777/796 asymmetry live (risk: do Anatomy data-flow first; no touch without H-* waiver). 4 living docs now match HEAD exactly; Consumption Guide contract stronger for next H-FIDELITY-03 / self-PRD.
 
+**Docs win delta for next run**: Higher signal, zero rotten cites to retired text, explicit subagent map refs, risk scream recorded. Future EG starts here with accurate prioritization. Citadel + install followed.
+
+Wubba lubba dub dub.

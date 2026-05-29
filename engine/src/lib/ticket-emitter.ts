@@ -49,7 +49,7 @@ export interface EmitOptions {
   emitActivity?: boolean;
   generatedBy?: string;
   grokRoot?: string;
-  acShapeSmells?: any[];   // tranche4 per analyst map 019e69dd-2f3a...: optional, council paths only (SKILL Step3/4 parsed real analyst ## ac_shape_smells JSON); absent => [] (no behavior change for self-prd, tests, meta)
+  acShapeSmells?: any[];   // optional; self/healer/council paths now forward collected analyst ac_shape_smells (generator:889/932 collectedAc); absent => [] (no behavior change for tests/meta)
 }
 
  /**
@@ -390,10 +390,7 @@ export async function emitRefinedTickets(
       const hRead = assessMetaReadiness((hSpec.scope || ''), hVerifyJoined, { ...(opts.grokRoot ? {grokRoot:opts.grokRoot} : {}) });
       const hMd = generateTicketMarkdown(hSpec, { generatedBy: (opts.generatedBy||'refine-prd council') + ' + auto proactive honesty', ...(opts.grokRoot?{grokRoot:opts.grokRoot}: {}) });
 
-      // AC-shape hard gate call (evaluate/run from lib/ac-shape.ts; port of claude spawn-refinement-team:1410 per agents).
-      // Forward-ref RE now in dedicated lib/forward-ref-annotation.ts (exact port of claude services/forward-ref-annotation.ts:1).
-      // Tranche 4 complete: ac_shape_smells now plumbed for council paths via optional EmitOptions.acShapeSmells (passed from SKILL manager Step 3 parse of analyst ## ac_shape_smells JSON blocks + Step 4 handoff to emitRefineCouncilTickets). Absent/omitted => [] (tranche9: self-prd-generator + meta paths now forward real ac_shape_smells via collected; prior unchanged note retired). The hard gate (runAcShapeEnforcement) on *all* emit paths now receives real analyst data where the 3-council produces it. See exact map from subagent 019e69dd-2f3a..., SKILL.md Step 3/4, AGENTS.md:38 post-fix, reliability-backlog tranche4 entry. (Prior self-ack "data model limit" comment retired.)
-      // Hygiene scan (machinability + forward-ref one-space + path_not_found) also runs here post-emit.
+      // AC-shape hard gate call (evaluate/run from lib/ac-shape.ts). Self/healer/council paths forward real ac_shape_smells via EmitOptions (generator collectedAc at 889/932; writes 398/434). Forward-ref RE in lib/forward-ref-annotation.ts. Hygiene + gate post-emit.
       try {
         const acManifest = { ac_shape_smells: (opts as any).acShapeSmells || [], tickets: specs };
         const acStatus = runAcShapeEnforcement(acManifest);

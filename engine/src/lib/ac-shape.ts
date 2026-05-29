@@ -6,11 +6,9 @@
  *
  * Extracted from pipeline-preflight.ts to stop bloat (simplifier + overcomplexity agents).
  *
- * Honest note: evaluate/run take a minimal {ac_shape_smells?, tickets?} shape. Emitter currently passes
- * empty ac_shape_smells (data model limit — real analyst smells not yet plumbed into TicketSpec[]).
- * Full hard exit(2) enforcement + rich manifest lives in SKILL manager (pickle-refine-prd Step 3/4, post-synthesis
- * before emitRefineCouncilTickets; no amber on council/meta). This module provides the reusable logic.
- * See pipeline-preflight re-exports, ticket-emitter.ts:392, AGENTS.md Trap Doors, and ac-shape-gate.test.ts.
+ * evaluate/run take minimal {ac_shape_smells?, tickets?} shape. Full enforcement lives in SKILL manager
+ * (pickle-refine-prd Step 3/4; no amber on council/meta). Self/healer/council paths now forward real data
+ * via EmitOptions. See ticket-emitter:398/434, pipeline-preflight re-exports, ac-shape-gate.test.ts.
  */
 
 export interface AcShapeViolation {
