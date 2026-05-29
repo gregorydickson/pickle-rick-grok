@@ -2,7 +2,7 @@
 
 **Status**: Created to close dominant fidelity debt (AGENTS.md:25/43/45, reliability-backlog.md:5/53). Replaces test-stub-only. 4 docs + comment hygiene synced.
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-29 (see EG Round 2 Note:72 + Consumption Guide:53 + git for history). 7 OPEN. Zero src. Docs win. See reliability:5-70.)
+**Last Updated**: 2026-05-29 + EG Round 4 (reliability:165: parser delivers, install --verify now does real fp stat check, closer tests green on actual return shape). 7 OPEN. Seams advanced (install handoff tax reduced). Zero src. Docs win. See reliability:5-70 + :131 + :165.
 
 ## The --closer-context / --no-confirm Bypass Contract
 

@@ -11,6 +11,10 @@ import assert from 'node:assert/strict';
 import {
   evaluateAcShapeEnforcement,
   runAcShapeEnforcement,
+  AC_SHAPE_SECTION_RE,
+  UNIVERSAL_QUANTIFIER_RE,
+  JUSTIFICATION_RE,
+  DESCRIBE_EACH_RE,
   type AcShapeViolation,
 } from '../src/lib/ac-shape.js';
 

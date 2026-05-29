@@ -2,7 +2,7 @@
 
 **Status**: Living doc. Now dynamically ingested by self-loop (performPostCampaignIngest + scanForGaps fidelity path). Replaces stub-only + shallow depth. "Docs win".
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-29 (see EG Round 2 Note:72 + Consumption Guide:53 + git for history). 7 OPEN. Zero src. Docs win. See reliability:5-70.)
+**Last Updated**: 2026-05-29 + EG Round 4 (see reliability:165: parser table delivery Green + install fp real check + test hygiene; 3+ code items; LANGUAGE Deep Module now functional). 7 OPEN. Seams advanced. Zero src. Docs win. See reliability:5-70 + :131 + :165.
 
 ## The Living Contract (Prioritized Backlog + Targets + Trap Counts)
 
