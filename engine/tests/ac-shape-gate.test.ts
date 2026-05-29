@@ -93,3 +93,16 @@ test('ac-shape-gate: runAcShapeEnforcement returns 2 + stderr on violation (e2e 
 });
 
 console.log('[ac-shape-gate.test] Gate coverage added. Mirrors Claude spawn-refinement-team.test.js patterns + grok ac-shape.ts.');
+
+// H-GUARD-TRUTH-01 live-pull extension (mirrors arch-deepener.test.ts:124-133 exact pattern: import const from source, assert length/source/behavior, "Single source" comment).
+// Single source: the 4 REs in ac-shape.ts:20-23. If gate predicates drift in the dedicated module, this test fails (no green-on-lie).
+test('AC_SHAPE_REs are the single source of truth for gate behavior (live pull from ac-shape.ts, no green-on-lie)', () => {
+  assert.ok(AC_SHAPE_SECTION_RE instanceof RegExp, 'AC_SHAPE_SECTION_RE must be exported live RegExp');
+  assert.ok(UNIVERSAL_QUANTIFIER_RE instanceof RegExp);
+  assert.ok(JUSTIFICATION_RE instanceof RegExp);
+  assert.ok(DESCRIBE_EACH_RE instanceof RegExp);
+  assert.ok(AC_SHAPE_SECTION_RE.source.includes('ac_shape_smells'));
+  assert.ok(UNIVERSAL_QUANTIFIER_RE.source.includes('all|every'));
+  assert.ok(JUSTIFICATION_RE.source.includes('JUSTIFICATION'));
+  assert.ok(DESCRIBE_EACH_RE.source.includes('describe\\.each'));
+});

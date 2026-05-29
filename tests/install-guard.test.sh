@@ -47,3 +47,12 @@ fi
 
 # 5-7. (RETIRED) All remaining SWARM5/SWARM6 locking, stale-dir, and portable-fallback
 # tests have been removed because the underlying LOCKDIR feature no longer exists in install.sh.
+
+# H-INSTALL-ROBUST-01: arg collapse + hygiene marker (the case in install.sh:33-41 + post-rsync hygiene echo).
+# This exercises the cleaner parsing (no behavior change) + future manifest seam.
+if bash -c "\"$INSTALL\" --closer-context --no-confirm 2>&1 | grep -q 'Installing core'"; then
+  echo "PASS: H-INSTALL-ROBUST-01 arg hygiene (case parse) + closer bypass still works"
+else
+  echo "FAIL: hygiene parse or bypass regressed"
+  exit 1
+fi

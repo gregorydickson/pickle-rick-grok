@@ -17,10 +17,10 @@ export interface AcShapeViolation {
   ticket_ids: string[];
 }
 
-const AC_SHAPE_SECTION_RE = /^##+\s+ac_shape_smells\s*$/im;
-const UNIVERSAL_QUANTIFIER_RE = /\b(?:all|every|for any|each)\b/i;
-const JUSTIFICATION_RE = /\/\/\s*JUSTIFICATION:/i;
-const DESCRIBE_EACH_RE = /describe\.each\s*\(\s*\[/s;
+export const AC_SHAPE_SECTION_RE = /^##+\s+ac_shape_smells\s*$/im;
+export const UNIVERSAL_QUANTIFIER_RE = /\b(?:all|every|for any|each)\b/i;
+export const JUSTIFICATION_RE = /\/\/\s*JUSTIFICATION:/i;
+export const DESCRIBE_EACH_RE = /describe\.each\s*\(\s*\[/s;
 
 function hasJustificationBlock(ticket: any): boolean {
   return ticket.justification !== undefined && JUSTIFICATION_RE.test(ticket.justification);

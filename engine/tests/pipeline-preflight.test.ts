@@ -198,3 +198,15 @@ test('TDD tranche4: emitRefineCouncilTickets forwards real acShapeSmells to ac-s
     cleanup(tmp);
   }
 });
+
+// H-GUARD-TRUTH-01 behavior-only live exercise (no src mut on preflight.ts which is in FORBIDDEN_SELF_MUT:45).
+// Exercises the exact warning at pipeline-preflight.ts:417 + machinability REs at 349/360. If the guard text or logic drifts, this screams (green-on-lie prevented).
+test('preflight guard behaviors exercised live (H-GUARD-TRUTH-01; ac_shape warning + pure-prose rejection without touching forbidden source)', () => {
+  const mach = checkVerifyMachinability('must feel robust and fast');
+  assert.equal(mach.isMachineCheckable, false);
+  assert.ok(mach.reasons.some((r: string) => /pure prose/i.test(r)));
+
+  const acWarn = scanAnalystOutputsForUnverifiedPaths('## ac_shape_smells\n{ "foo": 1 }', '', process.cwd());
+  assert.ok(acWarn.warnings.some((w: string) => /ac_shape_smells section present but missing expected machine-readable JSON/i.test(w)));
+  // The warning text (preflight:417) and RE behavior now asserted live from the module under test.
+});

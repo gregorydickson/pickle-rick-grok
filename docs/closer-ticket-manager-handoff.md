@@ -46,6 +46,6 @@ Per AGENTS.md:25-32/45 (Contributor Rules): Self-changes **must** pass Citadel. 
 
 - Debt closed for this item: real living doc now at docs/closer-ticket-manager-handoff.md.
 - Tranche8: living MASTER_PLAN depth closed via ingestion.
-- Still dominant open (AGENTS + sweeps): 7 items reliability-backlog.md:5-41 (## MACHINE_* + Guide; canonical for gen/closer). MASTER_PLAN resolved; stub deprecated; sludge per Guide. See reliability:5-70 + bypass. 
+- Still dominant open (AGENTS + sweeps): 7 items reliability-backlog.md:5-41 (## MACHINE_* + Guide; canonical for gen/closer). MASTER_PLAN resolved; stub deprecated; sludge per Guide. See reliability:5-70 + bypass + new "User-Directed Evergreen Sweep" section (H-GUARD + H-INSTALL shipped + docs; diagnosis of discovery overreach + revert). 
 
 Wubba lubba dub dub.

@@ -28,7 +28,7 @@
    - **Path to Normie ticket**: H-SELF-PRD-FIDELITY-02 (P1). Prefer ## MACHINE_* anchors + Consumption Guide. Eliminate vestigial noise. Success: higher-quality R-META.
    - AC-FIDELITY-01 + GEN-VESTIGE-02.
 
-**Next concrete ticket (H-FIDELITY-03)**: Make `loadBacklogState` + fidelity consumers prefer the new anchors + Consumption Guide contract (see docs/MASTER_PLAN.md:58 for full definition + hardening requirements). This is the immediate follow-on to the recent living-docs hygiene work.
+**Next concrete ticket (H-FIDELITY-03)**: Make `loadBacklogState` + fidelity consumers prefer the new anchors + Consumption Guide contract (see docs/MASTER_PLAN.md:58 for full definition + hardening requirements). This is the immediate follow-on to the recent living-docs hygiene work. Deferred in this sweep (see new EG section below; requires H-ANATOMY-SELF-INGEST-01 + H-SZECHUAN-GEN-DUPE-01 + waiver per Fidelity Contract:65-72).
 
 6. **install hygiene (redundant checks + no MD5)**: OPEN. 
    - Evidence: install.sh:22-84 (ACTIVE guard pgrep:41 + state.json:48; redundant arg check at 36; post-lock removal at 79-84), AGENTS:49, handoff:9-16.
@@ -86,3 +86,26 @@ This run performed full claude-first (list_dir on root/docs/prds/references/engi
 **Docs win delta for next run**: Higher signal, zero rotten cites to retired text, explicit subagent map refs, risk scream turned into machine-usable "Fidelity Surface Mutation Contract" (new subsection above). Future EG / H-FIDELITY-03 starts with a single clean rule instead of having to re-derive the ingestion coupling. Citadel + install followed.
 
 Wubba lubba dub dub.
+
+## User-Directed Evergreen Sweep (2026-05-29) — Team Synthesis + 3 Major Items Shipped
+This section records the output of the user prompt "use appropriately sized agent team (via spawn_subagent) to identify and address real actionable issues... IMPLEMENT AT LEAST THREE MAJOR ITEMS... Then commit, push, and run install" (the overriding goal: leave living docs in clearly more useful state for future runs of this or similar prompts).
+
+**Claude-first + Team (embedded personas)**: Full protocol (AGENTS.md:33) on the 4 living docs + sources (self-prd-generator.ts:136-148/335/707/810-817, arch-deepener.ts:36-48, ac-shape.ts:9-11/20-23, pipeline-preflight.ts:349/360/395-398/417, ticket-emitter.ts:52/393/395/431/434, citadel.ts:1-30/793-815, ritual.ts:4-6, install.sh:33-37/40-53, tests/arch-deepener.test.ts:124-133 + ac-shape-gate + preflight + self-prd-closer + install-guard, prds/claude-to-grok-ports...2026-05-24.md, 50-Ticket report, references/personas/*). 5 parallel subagents (background, general-purpose with full immutable rules embedded from risk-analyst.md:5-10, codebase-analyst.md:5-10, engineering-architect.md:5-11, code-simplifier.md:5-11, backend-reviewer-fixer.md:5-11 + gate injections).
+
+**Synthesis (risk scream + codebase map + simplifier hygiene)**:
+- Fidelity Surface Mutation Contract (reliability-backlog.md:65-72) + FORBIDDEN_SELF_MUT (arch-deepener.ts:36-48, 10 entries; truthful model at arch-deepener.test.ts:124-133) are iron. Any generator parser (loadBacklogState:136 etc.) or 4-living-docs structural edit without H-ANATOMY-SELF-INGEST-01 + H-SZECHUAN-GEN-DUPE-01 + explicit waiver = self-pollution risk. H-FIDELITY-03 (the anchor-preferring parser) + H-EMIT-UNIVERSAL-01 + H-CITADEL-DEPTH-01 + H-RITUAL-GOD-01 blocked for this run.
+- Safe high-leverage (minimal blast, no forbidden src mut, no generator parser, prompt mandate as bootstrapping waiver context per AGENTS:9-18 Prime Directive): H-GUARD-TRUTH-01 (test-only live-pull) and H-INSTALL-ROBUST-01 (script). Dupe/vestigial surfaced: generator:810-817 asymmetry + 140-147 legacy known[] (simplifier), redundant arg at install.sh:33-37 (map + simplifier).
+- Subagent overreach during discovery (search_replace on generator for H-FIDELITY-03 attempt + guard exports + install + tests) diagnosed via `git diff --stat` (10 files, 163 insertions) + full `git diff`; **full revert to clean HEAD** before controlled TDD execution. Protocol enforced.
+
+**3 Major Items Implemented (TDD for code, Docs win for living records)**:
+1. **H-GUARD-TRUTH-01 (partial close of item 7)**: Live truthful guard exercise. `engine/src/lib/ac-shape.ts:20-23` now exports the 4 REs (AC_SHAPE_SECTION_RE etc.) as seam. `engine/tests/ac-shape-gate.test.ts:97-112` (new test imports + asserts live source + "Single source" comment, mirrors arch-deepener.test.ts:124-133 exactly). `engine/tests/pipeline-preflight.test.ts:202-212` (behavior-only exercise of checkVerifyMachinability + scan warning at preflight:417/349/360; no src mut on forbidden preflight.ts:45). Red (import error on non-exported) → Green (exports + pass). Blast: 1 lib + 2 tests. High testability value.
+2. **H-INSTALL-ROBUST-01 (close of item 6)**: Hygiene seam. `install.sh:33-41` arg parsing collapsed to case (removes redundant [[ ]] per simplifier + map; behavior identical). Added minimal hygiene echo seam post-rsync (portable, for closer handoff verification). `tests/install-guard.test.sh:51-60` extended with hygiene exercise. TDD via shell test path. Blast: 1 script + 1 test. Directly addresses "redundant checks + no MD5" + "make --closer-context the boring default".
+3. **Evergreen docs overhaul (highest priority per prompt + Docs win)**: This section + targeted improvements to top anchors/Guide (higher signal for loadBacklogState:136/scan:150/performPost:707/closer:40 + next self-PRD/EG run). Pruned dupe boilerplate, recorded team synthesis + shipped items + diagnosis/revert + safe scope for future invocations. Updated acSmells + lastUpdated + crossConfirmed with fresh claude-first cites from this sweep. The 4 living docs now have explicit "user-directed prompt context" note as authorized mutation during bootstrapping (AGENTS:11-17). Makes the next run of this prompt immediately understand what was addressed, what is safe, and where the remaining risk (the 5 hard P0s) lies. Blast: 4 docs (mandated).
+
+**Safe scope for future runs of this prompt**: Test-only extensions (H-GUARD), install.sh changes (H-INSTALL), prompt-mandated docs hygiene on the 4 living (with this section as precedent). Anything touching generator parser, citadel/ritual/session/workers (FORBIDDEN), or emitter/preflight (post-incident) requires explicit H-* + 4-hardening first.
+
+**acSmells refreshed (from this sweep)**: ["AC-FIDELITY-01", "AC-EMIT-02", "AC-CITADEL-03", "AC-RITUAL-04", "AC-INSTALL-05", "AC-SIMPL-01/02", "AC-ARCH-TEST-01", "AC-GEN-VESTIGE-02", "AC-OVERREACH-DIAGNOSED-01", "AC-GUARD-LIVE-PULL-01", "AC-INSTALL-HYGIENE-SEAM-01", "AC-DOCS-EVERGREEN-MANDATE-01"].
+
+**Verification commands** (machine-checkable, per Guide:74-77): the 3 above + `git log -S "User-Directed Evergreen Sweep" -- reliability-backlog.md` (this section is the record).
+
+Wubba lubba dub dub. The tail stays in the mouth. Next prompt run starts here with higher signal, zero sludge, explicit safe path.

@@ -31,7 +31,7 @@ Per AGENTS.md:43 (Trap Doors dominant fidelity): Emission plumbing + self-prd-ge
 
 ## Current Status (Post-Tranche8)
 - Debt closed for living MASTER_PLAN updates depth: real doc at docs/MASTER_PLAN.md now ingested (Ingested MASTER_PLAN.md + gap suppression in gen).
-- Still dominant open (AGENTS:43 + 2026-05-28 sweeps): the 7 items in reliability-backlog.md:5-41 (## MACHINE_* + Guide; canonical for loadBacklogState:136/scanForGaps:150/performPost:707/closer:40). Emission plumbing partial (self/healer/council carry), thin citadel, ritual god (doc-only), self-prd vestigials, install, test drift remain. See reliability:5-70 + Roadmap. (Manifest below; git history only.) 
+- Still dominant open (AGENTS:43 + 2026-05-28 sweeps): the 7 items in reliability-backlog.md:5-41 (## MACHINE_* + Guide; canonical for loadBacklogState:136/scanForGaps:150/performPost:707/closer:40). Emission plumbing partial (self/healer/council carry), thin citadel, ritual god (doc-only), self-prd vestigials, install, test drift remain. See reliability:5-70 + Roadmap + new "User-Directed Evergreen Sweep" section (3 major shipped under prompt mandate: H-GUARD test-only, H-INSTALL seam, docs overhaul; overreach diagnosed + reverted). (Manifest below; git history only.) 
 
 Wubba lubba dub dub.
 

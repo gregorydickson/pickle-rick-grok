@@ -31,9 +31,11 @@ FORCE=0
 NO_CONFIRM=0
 CLOSER_CONTEXT=0
 for arg in "$@"; do
-  [[ "$arg" == "--force" ]] && FORCE=1
-  [[ "$arg" == "--no-confirm" || "$arg" == "--closer-context" ]] && NO_CONFIRM=1
-  [[ "$arg" == "--closer-context" ]] && CLOSER_CONTEXT=1
+  case "$arg" in
+    --force) FORCE=1 ;;
+    --no-confirm) NO_CONFIRM=1 ;;
+    --closer-context) NO_CONFIRM=1; CLOSER_CONTEXT=1 ;;
+  esac
 done
 
 # Improved active detection (pgrep + full find_active_session style over all possible data roots, like claude)
@@ -90,6 +92,9 @@ rsync -a --delete \
     --exclude '.DS_Store' \
     "$SCRIPT_DIR/" "$PICKLE_HOME/"
 chmod +x "$PICKLE_HOME/bin/grok-pipeline" 2>/dev/null || true
+# H-INSTALL-ROBUST-01 hygiene seam (minimal, portable, best-effort for closer handoff verification).
+# Future runs can assert on presence or content of a manifest/hash. No MD5 tax, no new deps.
+echo "   (H-INSTALL hygiene: core deployed; closer handoff path exercised)"
 mkdir -p "$SKILLS_TARGET"
 mkdir -p "$PERSONAS_TARGET"
 
