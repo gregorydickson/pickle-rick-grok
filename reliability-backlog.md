@@ -108,6 +108,8 @@ This section records the output of the user prompt "use appropriately sized agen
 
 **This Cycle (Round 2) GuardTruthRegistry Consolidation + Simplifier hygiene (major simplification win)**: The Architect-proposed GuardTruthRegistry seam was partially prototyped with duplication. This cycle consolidated it to single source (dedicated guard-truth-registry.ts now canonical; resource-guard delegates). ac-shape + forward-ref register via it. Code Simplifier (019e7430-b6f2..., 29 tool calls) then ruthlessly flagged the EG section itself as new sludge (YAGNI markdown table + subagent UUID blow-by-blow + verification grep). Deleted the heavy paras + table + dead grep (net -28 LOC in the fidelity surface the generator actually consumes). Higher signal for loadBacklogState:136 / future H-FIDELITY-03. Recorded here. TDD + claude-first on the surfaces. Safe only.
 
+**Codebase Analyst living map (019e7430-ac6c..., 42 tool calls, fresh claude-first)**: Produced the highest-signal reuse map yet (exact file:line# for 70%+ solved patterns: live-pull guard at arch-deepener.test:124, dedicated tiny libs like ac-shape/forward-ref, recoverable readers in citadel:72/130, MACHINE anchors + table + Contract). Scoped the next minimal-blast H-GUARD wins: add live-pull assert for TICKET_PHASES (phase-utils.ts:29) in ritual.test.ts (1 file edit, test-only, reuses pattern 100%). Flagged all new contract risks correctly. This map is now the canonical "how to extend safely" reference for future runs.
+
 Wubba lubba dub dub. The tail stays in the mouth. Next prompt run starts here with higher signal (top anchors + Guide + crisp one-paragraph sweep record only).
 
 ## User-Directed EG Round 3 — Engineering Architect Cycle (2026-05-29)
