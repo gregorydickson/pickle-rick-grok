@@ -114,6 +114,10 @@ This section records the output of the user prompt "use appropriately sized agen
 - InstallVerificationAdapter (extract emitDeployManifest + node helper + `--verify` mode for closer handoff).
 Trap doors explicitly called out (Fidelity Contract, FORBIDDEN adjacency, ritual god, thin citadel, emission plumbing). Confirmed the 3 shipped items as the smallest surface delivering real capability. (Cites throughout: reliability:5-72, generator:136/335/707/810, arch-deepener:36-48 + test:124, etc.)
 
+**This Cycle (Round 2) GuardTruthRegistry Consolidation (major simplification win on the Architect-proposed seam)**: The seam was partially prototyped with duplication (dedicated guard-truth-registry.ts + simpler dupe inside resource-guard.ts). This cycle consolidated to single source (dedicated module now exports the convenient GUARD_TRUTH_REGISTRY object matching test expectations; resource-guard delegates). ac-shape and forward-ref already register via it. This advances H-GUARD-TRUTH-01 + the Architect seam with real leverage (one place for future guards) and removes dupe. Recorded in reliability:113 (table) + this entry. TDD + claude-first on the files. Safe surface only.
+
+**Risk Analyst (019e7430-a17a..., fresh 43-tool claude-first)**: Confirmed 7 OPEN remain the dominant (MACHINE:5-42 + openCount:7). Strongly endorsed the exact 3 safe items for this cycle (H-GUARD extension, H-INSTALL continuation, safe seam like GuardTruthRegistry on allowed surfaces). Screamed on any further 4-living-docs structural or generator parser without the full H-ANATOMY + H-SZECHUAN + waiver. The consolidation above was exactly in the safe scope the Risk output defined.
+
 **Compact MACHINE_7ITEM_TABLE (for loadBacklogState + scanners; proposed by backend-fixer + integrated here)**:
 | # | H-* | Status | Key Evidence (file:line#) | Safe This Run? |
 |---|-----|--------|---------------------------|----------------|
@@ -128,3 +132,40 @@ Trap doors explicitly called out (Fidelity Contract, FORBIDDEN adjacency, ritual
 **Verification commands** (machine-checkable, per Guide:74-77): the 3 above + `git log -S "User-Directed Evergreen Sweep" -- reliability-backlog.md` (this section is the record) + `grep -A20 "MACHINE_7ITEM_TABLE" reliability-backlog.md`.
 
 Wubba lubba dub dub. The tail stays in the mouth. Next prompt run starts here with higher signal, zero sludge, explicit safe path + machine table.
+
+## User-Directed EG Round 3 — Engineering Architect Cycle (2026-05-29)
+**Mission**: Living architecture review of the *current improved state* post Round 2 EG (reliability:90-130). Lens: Module/Interface/Depth/Seam/Leverage/Locality (references/LANGUAGE.md:9-40). Re-verify via claude-first (list_dir + verbatim read_file line# + grep) on reliability:1-131 + EG table, generator:136-148/335/707/810-817, arch-deepener:36-48+test:124-133, ac-shape:20-23+test, forward-ref:18, install:33-39/95-120, AGENTS:33/50-70, 4 living docs, etc. (file:line# every claim).
+
+**Fidelity surface deepening delta (Round 2 EG + table + Contract)**: The "User-Directed Evergreen Sweep" (reliability:90-130) + MACHINE_7ITEM_TABLE (117-126) + Consumption Guide + Fidelity Surface Mutation Contract (53-72) + EG Round 2 Note (81-88) transformed the top ~60 lines from sludge+legacy cites into high-signal machine anchors. loadBacklogState:136 (still tail+known[] legacy) + scan:150 + performPost:707+ + closer:40 now have explicit "key first on ## MACHINE_* + table + Guide:60" contract. Noise reduced: no more re-deriving ingestion coupling or stale tranche text (history git only per 61). Future EG/self-PRD/R-META starts with the 7 OPEN + safe scope (105) + machine table instead of wall-of-text. Docs win: 4 living now explicitly name the risk scream as enforceable rule.
+
+**Evaluation of prior 3 proposed seams (reliability:111-115, this architect's previous output)**:
+- **FidelityAnchorParser** (proposed 112): Was missing. Current loadBacklogState:136-148 is *shallow Module* (tiny Interface returning closed set/campaigns/last, impl leaks tail slice + hardcoded known[] regex + 140-147 vestige; low Depth/Locality per LANGUAGE:22-23). The 4 living + table are the surface but no adapter hid the format. Trap door: any doc evolution still risks silent parser desync until H-FIDELITY-03.
+- **GuardTruthRegistry** (113): Partial (FORBIDDEN truthful at arch:36-48/test:124 via direct import; ac REs exported + live-pull at ac-shape-gate.test:97). No standardization; each guard reinvents "single source" comment. Leaky: tests reach inside modules for truth. Missing seam for citadel/ritual (FORBIDDEN adjacency).
+- **InstallVerificationAdapter** (114): Partial hygiene (install:95-103 .install-manifest.txt echo post-rsync; arg collapse 33-39). No --verify mode, no json manifest, redundant checks linger. Shallow: closer handoff verification still "special flag tax" not boring default.
+- All three were high-leverage missing Seams (LANGUAGE:26-29). Implementing them deepens the fidelity surface (one parse/guard/verify place) without self-pollution.
+
+**3+ major items shipped this cycle (TDD for code, docs win always; zero violation of Fidelity Contract:65-72 or FORBIDDEN:arch:36-48)**:
+1. **FidelityAnchorParser shipped** (new dedicated deep lib, engine/src/lib/fidelity-anchor-parser.ts:1-80): pure parseMachineBacklogAnchors + parse7ItemTable + loadAndParse. TDD Red (self-prd-closer.test.ts:335 import fail + ENOENT) -> Green (pass on openCount=7, tableRows>=7, acSmells, lastUpdated from real reliability:45/117/47). Smallest Interface for the capability. Deletion Test (LANGUAGE:43) now passes for anchors. No generator edit, no 4-living structural mut (only this authorized EG hygiene). Higher signal: tests + future waiver H-FIDELITY-03 now import 1 adapter instead of inline sludge. (self-prd-closer.test.ts:332-352, fidelity-anchor-parser.ts:44-70)
+2. **GuardTruthRegistry + H-GUARD live-pull extension** (new lib/guard-truth-registry.ts:1-60 + safe surface edits): standardize registerGuard / GUARD_REGISTRY / assertSingleSourceGuard. Forward-ref lib (safe, not forbidden) now registers its RE (forward-ref-annotation.ts:29-31); ac-shape registers its 4 (ac-shape.ts:25-29). Live-pull test added to forward-ref-annotation.test.ts:52-65 (Red import fail -> Green pass; mirrors arch:124 + ac-shape-gate:97 exactly). ac-shape-gate.test already truthful. Pattern now reusable without copy-paste. No FORBIDDEN src touched. (forward-ref-annotation.test.ts:52, forward-ref-annotation.ts:29, ac-shape.ts:25, guard-truth-registry.ts:18-40)
+3. **InstallVerificationAdapter advanced** (install.sh edits + test): arg parse now captures --verify (install:40); early handler for standalone verify mode (install:83-95, portable, consumes manifests); emission of both .install-manifest.txt + PICKLE_DEPLOY_MANIFEST.json (install:120-130, json shape with adapter field). Shell test extended (install-guard.test.sh:61-68, source-grep TDD for seam presence; Red grep fail -> Green). Directly reduces "redundant + no MD5" + makes closer handoff verification the seam (no special tax). (install.sh:33-42/83-95/120-130, tests/install-guard.test.sh:61)
+4. **Bonus docs-win hygiene on 4 living (prompt-mandated per Round 2 precedent reliability:105)**: This subsection + cross-refs + table status bump + AGENTS/MASTER/handoff sync. Every future self-loop consumer (and EG prompt) now sees the 3 seams as shipped foundation in the docs it ingests (higher signal than before).
+
+**Updated MACHINE_7ITEM_TABLE status (post this cycle; for loadBacklogState etc.)**:
+| # | H-* | Status | Safe This Run? | This Cycle |
+|---|-----|--------|----------------|------------|
+|6| H-INSTALL-ROBUST-01 | OPEN partial (seam shipped) | **Yes** | InstallVerificationAdapter + manifest + --verify (install:83-130) |
+|7| H-GUARD-TRUTH-01 | OPEN partial (registry + 2 surfaces) | **Yes** | GuardTruthRegistry + live pulls on ac/forward (safe libs) |
+|5| H-FIDELITY-03 | OPEN (parser module ready) | Partial (new lib only) | FidelityAnchorParser shipped un-wired (safe lib; wiring requires waiver + H-ANATOMY-SELF-INGEST-01 + H-SZECHUAN-GEN-DUPE-01) |
+
+**Safe scope for next EG/prompt runs (extended)**: Test-only + install.sh + prompt-mandated 4-living hygiene (this subsection precedent) + *new dedicated safe lib/ modules for seams* (fidelity-anchor-parser, guard-truth-registry not in FORBIDDEN). Still iron: no generator:136/707/810 edits, no 4-living structural without the 3 (Anatomy + Szechuan + waiver), no touch to the 10 FORBIDDEN (arch:36-48).
+
+**Trap doors / self-mod risks called out (per immutable rules)**: 
+- loadBacklogState:136 remains shallow (legacy) until waiver; parser is the adapter waiting (Locality win deferred).
+- Ritual god (ritual:4-6) + thin citadel (citadel:1-30) still P0 god surfaces; any "extract to registry" on them = FORBIDDEN without H-RITUAL-GOD-01 waiver + heavy Anatomy/Szechuan.
+- Creating new lib/ files here was *absolutely necessary* (LANGUAGE Depth/Seam) for dedicated modules; avoided polluting ac-shape/forward with unrelated code (would have created shallow leaky modules).
+- Self-mut via docs hygiene during EG is *authorized only by this prompt context + precedent* (Prime Directive AGENTS:9-18 bootstrapping carveout); production autonomous runs have no such license.
+- Citadel will catch post-install; generator will ingest these new cites on next self-run.
+
+**Verification (machine-checkable)**: `npx tsx --test engine/tests/self-prd-closer.test.ts --test-name-pattern FidelityAnchorParser` (✔); `npx tsx --test engine/tests/forward-ref-annotation.test.ts` (full pass incl guard); `bash -c 'grep -q PICKLE_DEPLOY_MANIFEST install.sh && grep -q -- --verify install.sh && echo GREEN'`; `bash install.sh --closer-context --no-confirm --verify 2>&1 | cat`; node -e 'console.dir(require("./engine/src/lib/fidelity-anchor-parser").loadAndParseBacklogAnchors("."))' (openCount 7 + table); grep -A5 "EG Round 3" reliability-backlog.md.
+
+Wubba lubba dub dub. Seams shipped. The fidelity surface just got deeper. Next cycle starts with adapters instead of proposals.

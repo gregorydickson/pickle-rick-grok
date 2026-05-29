@@ -58,6 +58,7 @@ export function pruneDirOlderThan(dir: string, maxAgeMs: number): number {
   let pruned = 0;
   try {
     const files = fs.readdirSync(dir);
+    if (files.length > 5000) return 0; // resource safety: cap to prevent IO/CPU exhaustion or accidental monster-dir prune (security boundary + crash-unsafe pattern guard)
     const now = Date.now();
     for (const f of files) {
       const fp = path.join(dir, f);
@@ -89,5 +90,25 @@ export function getDiskFreeApprox(cwd: string): string {
     return out.trim().split(/\s+/).slice(-2).join(' ');
   } catch {
     return 'unknown';
+  }
+}
+
+// GuardTruthRegistry seam — now delegates to the single dedicated source (engine/src/lib/guard-truth-registry.ts).
+// This removes the previous dupe while keeping the convenient API for callers/tests.
+// (Architect-proposed + H-GUARD-TRUTH-01 consolidation.)
+import { GUARD_TRUTH_REGISTRY as CENTRAL_REGISTRY } from './guard-truth-registry.js';
+export const GUARD_TRUTH_REGISTRY = CENTRAL_REGISTRY;
+
+// InstallVerificationAdapter seam (Architect proposal, pairs with install.sh .install-manifest.txt).
+// Pure helper for closer/self-loop or tests to assert deployed bits without new deps.
+export function verifyInstallManifest(manifestPath: string): { ok: boolean; reason?: string; details?: any } {
+  try {
+    if (!fs.existsSync(manifestPath)) return { ok: false, reason: 'no manifest (pre H-INSTALL-ROBUST-01 or wiped)' };
+    const raw = fs.readFileSync(manifestPath, 'utf8');
+    const hasTs = /ts=/.test(raw);
+    const hasCount = /dist_count=/.test(raw) || /count=/.test(raw);
+    return { ok: hasTs && hasCount, details: { size: raw.length, lines: raw.split('\n').length } };
+  } catch (e: any) {
+    return { ok: false, reason: e?.message || 'read failed' };
   }
 }
