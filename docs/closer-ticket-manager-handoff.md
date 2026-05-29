@@ -2,7 +2,7 @@
 
 **Status**: Created to close dominant fidelity debt (AGENTS.md:38/40, reliability-backlog.md:53/56). Replaces test-stub-only pattern.
 **Owner**: Final Self-Improvement Loop Closer + self-prd-generator
-**Last Updated**: 2026-05-29 (post-EG Round 1 hygiene per AGENTS:70 + reliability:48; 7 OPEN live; H-FIDELITY-03 deferred. Zero src. "Docs win." See reliability:5-70.)
+**Last Updated**: 2026-05-29 (reliability:48 lastUpdated normalized — narrative to git only; 7 OPEN live; H-FIDELITY-03 deferred. Zero src. "Docs win." See reliability:5-70.)
 
 ## The --closer-context / --no-confirm Bypass Contract
 
