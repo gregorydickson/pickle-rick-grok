@@ -117,6 +117,13 @@ This section records the output of the user prompt "use appropriately sized agen
 - Extended its own test (resource-guard.test.ts) to exercise the new seams live.
 All outside FORBIDDEN and Fidelity Contract. High signal on concurrency, resource, error handling, and verification boundaries. Perfect complement to the Codebase Analyst map.
 
+**Engineering Architect Round 3 (019e7430-95a1..., 82 tool calls, 295s, LANGUAGE.md lens)**: Full architectural review of the post-Round-2 state. Confirmed the EG section + table delivered massive Leverage/Depth on the *docs side* of the self-loop. Diagnosed loadBacklogState as textbook shallow Module (leaky tail + known[] regex). Validated the three proposed seams as exactly the right missing External Seams. Shipped in this cycle (via this subagent + cumulative team):
+1. FidelityAnchorParser (new tiny dedicated lib `engine/src/lib/fidelity-anchor-parser.ts` — parseMachineBacklogAnchors + parse7ItemTable + loadAndParseBacklogAnchors; TDD in self-prd-closer.test).
+2. GuardTruthRegistry standardization + live-pull adoption on safe surfaces (forward-ref + ac-shape).
+3. InstallVerificationAdapter seam advanced (manifests + early --verify handler).
+4. EG Round 3 docs hygiene subsection recording the full evaluation + trap doors + updated safe scope.
+Deletion Test passed for the new parser. Highest signal verdict: the foundation for attacking the remaining 7 OPEN items just got significantly thicker. (reliability:131+ new subsection)
+
 Wubba lubba dub dub. The tail stays in the mouth. Next prompt run starts here with higher signal (top anchors + Guide + crisp one-paragraph sweep record only).
 
 ## User-Directed EG Round 3 — Engineering Architect Cycle (2026-05-29)
