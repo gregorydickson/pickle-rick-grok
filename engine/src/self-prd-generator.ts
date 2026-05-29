@@ -771,9 +771,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
       }
     }
 
-    // SWARM8 emission plumbing richer ingest (directly driven by backlog agent 019e6945-b4c5-7222-a284-4f1bd9fb5f29 citing claude spawn:1219/1410/1978 + check-readiness:308/325):
-    // Parse real emission_quality.json (now emitted by 50-tix harness on inject) for populated ac_shape_smells + richer annotation_format malformed.
-    // This lets the autonomous closer/self-prd path see non-[] data (the long-documented gap vs SKILL Step 3).
+    // Richer emission signals ingest (ac_shape_smells + annotation_format_malformed from real artifacts).
     const emissionQualityPath = path.join(campaignSessionDir, 'emission_quality.json');
     const emissionQualityJson = safeRead(emissionQualityPath);
     if (emissionQualityJson) {
@@ -790,9 +788,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
       } catch {}
     }
 
-    // tranche7 Green: minimal additive (after 789 direct emission_quality block, symmetric to 773-788 sibling)
-    // Uses safeRead + JSON.parse + r?.emissionQuality (readRecoverable style per citadel.ts:72) on campaign citadel_report.json
-    // Surfaces acCount/malformedCount + closed++ + lines.push exactly parallel; unified richer citadel report signal for closer (alongside direct BC path)
+    // Unified richer citadel report signal (parallel to direct file path).
     const citadelReportPath = path.join(campaignSessionDir, 'citadel_report.json');
     const citadelReportJson = safeRead(citadelReportPath);
     if (citadelReportJson) {
@@ -807,15 +803,7 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
             lines.push(`  - Richer emissionQuality from citadel_report.json: ac_shape_smells=${acCount}, annotation_format_malformed=${malformedCount} (unified richer citadel report signal alongside direct file BC path)`);
           }
         }
-    const directJson = safeRead(path.join(campaignSessionDir, 'emission_quality.json'));
-    const direct = directJson ? (() => { try { return JSON.parse(directJson); } catch { return null; } })() : null;
-    const rptJson = safeRead(path.join(campaignSessionDir, 'citadel_report.json'));
-    const r2 = rptJson ? (() => { try { return JSON.parse(rptJson); } catch { return null; } })() : null;
-    const reportEq = r2?.emissionQuality;
-    const acD = Array.isArray(direct?.ac_shape_smells) ? direct.ac_shape_smells : [];
-    const acR = Array.isArray(reportEq?.ac_shape_smells) ? reportEq.ac_shape_smells : [];
-    collectedAc = [...acD, ...acR];
-      } catch {}
+    } catch {}
     }
 
     // Prefer the authoritative, deduped CrossPhaseFindingsReport from citadel reporter (citadel.ts:789-811 + readCrossPhaseFindings:130 + dedupe:115, withLock write).
