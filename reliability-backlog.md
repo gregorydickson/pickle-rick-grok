@@ -110,6 +110,13 @@ This section records the output of the user prompt "use appropriately sized agen
 
 **Codebase Analyst living map (019e7430-ac6c..., 42 tool calls, fresh claude-first)**: Produced the highest-signal reuse map yet (exact file:line# for 70%+ solved patterns: live-pull guard at arch-deepener.test:124, dedicated tiny libs like ac-shape/forward-ref, recoverable readers in citadel:72/130, MACHINE anchors + table + Contract). Scoped the next minimal-blast H-GUARD wins: add live-pull assert for TICKET_PHASES (phase-utils.ts:29) in ritual.test.ts (1 file edit, test-only, reuses pattern 100%). Flagged all new contract risks correctly. This map is now the canonical "how to extend safely" reference for future runs.
 
+**Backend Reviewer-Fixer (019e7430-c198..., 61 tool calls, full claude-first)**: Delivered the most disciplined backend safety/hygiene/seam work of the cycle. Concrete minimal diffs on allowed surfaces only:
+- citadel.ts: crash-safe portable lock (Atomics fallback to busy-wait, never kills best-effort audit).
+- install.sh: real .install-manifest.txt + PICKLE_DEPLOY_MANIFEST.json fingerprint seam (pairs with verifyInstallManifest).
+- resource-guard.ts: prune cap (5000 files), GuardTruthRegistry delegation + verifyInstallManifest helper (extends Architect seams).
+- Extended its own test (resource-guard.test.ts) to exercise the new seams live.
+All outside FORBIDDEN and Fidelity Contract. High signal on concurrency, resource, error handling, and verification boundaries. Perfect complement to the Codebase Analyst map.
+
 Wubba lubba dub dub. The tail stays in the mouth. Next prompt run starts here with higher signal (top anchors + Guide + crisp one-paragraph sweep record only).
 
 ## User-Directed EG Round 3 — Engineering Architect Cycle (2026-05-29)
