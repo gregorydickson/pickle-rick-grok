@@ -250,3 +250,5 @@ Wubba lubba dub dub. Bars broken. Next run starts with wired fidelity signal.
 **lastUpdated**: 2026-05-29 (this EG v2 run; see git for exact). 7 OPEN -2 advanced. Code landed. Docs record only. Wubba lubba dub dub.
 
 Wubba lubba dub dub. Two down. The self-loop just ate real anchor signal + fp hygiene. Next run starts with wired load + cksum. The tail stays in the mouth. (Prime Directive honored: never stopped to ask; shipped.)
+
+**Additional v2 destruction this invocation**: Ingest now owns its own persistence (minimal idempotent write of the campaign section inside performPost). Combined with await hygiene in the convergence canary, the "generate → ingest → generate" roundtrip no longer explodes gapCount. Direct advance on item 5 convergence fidelity (H-SELF-PRD-FIDELITY-02 slice). implement_H-SELF-PRD-FIDELITY-02.md produced. Test now stable green on the victory proxy.

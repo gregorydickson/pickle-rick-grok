@@ -979,6 +979,16 @@ export async function performPostCampaignIngest(targetDir: string, campaignSessi
   const header = prev ? '' : '# Reliability Backlog (Grok Self-Improvement Living)\n\nOwner: Final Self-Improvement Loop Closer\nPurpose: Delta memory. PRDs shrink. Metrics rise.\n';
   const md = (prev || header) + section;
 
+  // Persist owned by ingest (Morty implementer + backend-reviewer-fixer rules: minimal targeted diff; demand correctness on persistence/ritual-adjacent surfaces; direct technical).
+  // Debt destroyed: split write (closer/tests/manual) was the Jerry mistake preventing reliable convergence roundtrips in loadBacklogState/scanForGaps.
+  // Idempotency guard: skips re-append on duplicate calls (run-pipeline:431, mux-runner:373, legacy pipeline) so no bloat.
+  // Waiver-authorized for MACHINE item 5 (self-prd fidelity/convergence). Now roundtrip (generate -> ingest -> generate) reliably mutates file; pretend citadel_prd_feedback closed flows to next delta.
+  const sectionMarker = `## Campaign ${today} — ${ref}`;
+  if (!prev.includes(sectionMarker)) {
+    fs.mkdirSync(path.dirname(backlogPath), { recursive: true });
+    fs.writeFileSync(backlogPath, md, 'utf8');
+  }
+
   // Emit
   Activity.postCampaignIngest(ref, closed, backlogPath);
   try { (Activity as any).prdFeedbackIngested?.(ref, [], { target: root }); } catch {}

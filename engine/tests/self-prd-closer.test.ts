@@ -157,7 +157,8 @@ test('self-meta loop — generate + ingest roundtrip shrinks or maintains delta 
 
   const post = await performPostCampaignIngest(root, camp);
   // after ingest the next gen should see fewer or same open (in real it shrinks)
-  const gen2 = generateSelfPrd(root, { full: true, dry: true });
+  // Morty+backend: await was the Jerry that made .gapCount undefined (always explode assert). Ingest now owns persist (see generator), so roundtrip state flows to loadBacklogState/scanForGaps:399 filter without manual write in this path.
+  const gen2 = await generateSelfPrd(root, { full: true, dry: true });
 
   assert.ok(gen2.gapCount <= initialGaps + 2, 'delta should not explode; self-improvement converges');
 
